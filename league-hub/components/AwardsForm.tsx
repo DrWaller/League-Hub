@@ -27,6 +27,8 @@ export default function AwardsForm({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
 
   const load = useCallback(async (s: number, w: number) => {
     setLoading(true);
@@ -61,6 +63,36 @@ export default function AwardsForm({
         [field]: field === "teamId" ? (value === "" ? "" : Number(value)) : value,
       },
     }));
+  }
+
+  async function handleSuggest() {
+    setSuggesting(true);
+    setSuggestMsg(null);
+    try {
+      const res = await fetch(`/api/admin/awards/suggest?week=${week}`);
+      const data = await res.json();
+      if (!data.suggestions) {
+        setSuggestMsg(data.message || "No suggestions available.");
+        return;
+      }
+      setEntries((prev) => {
+        const next = { ...prev };
+        for (const cat of AWARD_CATEGORIES) {
+          const s = data.suggestions[cat];
+          if (s) {
+            next[cat] = {
+              playerName: s.playerName,
+              teamId: s.teamId ?? "",
+              note: `${s.points.toFixed(1)} pts`,
+            };
+          }
+        }
+        return next;
+      });
+      setSuggestMsg("Filled in from this week's actual stats — review before saving.");
+    } finally {
+      setSuggesting(false);
+    }
   }
 
   async function handleSave() {
@@ -117,7 +149,15 @@ export default function AwardsForm({
           />
         </label>
         {loading && <span className="text-sm text-muted">Loading…</span>}
+        <button
+          onClick={handleSuggest}
+          disabled={suggesting}
+          className="text-sm border border-ice-line px-3 py-2 hover:border-rink-bright disabled:opacity-50"
+        >
+          {suggesting ? "Checking stats…" : "Suggest from stats"}
+        </button>
       </div>
+      {suggestMsg && <p className="text-sm text-muted mb-6">{suggestMsg}</p>}
 
       <div className="space-y-8">
         {groups.map((group) => (
@@ -125,7 +165,7 @@ export default function AwardsForm({
             <h2 className="font-display text-lg mb-3">{group.title}</h2>
             <div className="space-y-3">
               {group.cats.map((cat) => (
-                <div key={cat} className="grid sm:grid-cols-[10rem,1fr,10rem] gap-2 items-start">
+                <div key={cat} className="grid sm:grid-cols-[10rem,1fr,10rem,6rem] gap-2 items-start">
                   <div className="text-sm text-muted pt-2">{AWARD_LABELS[cat]}</div>
                   <input
                     type="text"
@@ -146,6 +186,13 @@ export default function AwardsForm({
                       </option>
                     ))}
                   </select>
+                  <input
+                    type="text"
+                    placeholder="Note"
+                    value={entries[cat].note}
+                    onChange={(e) => updateEntry(cat, "note", e.target.value)}
+                    className="border border-ice-line px-3 py-2 text-sm"
+                  />
                 </div>
               ))}
             </div>

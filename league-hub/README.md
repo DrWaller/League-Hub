@@ -65,14 +65,49 @@ so you don't have to remember the URL.
 ### Using the admin area day to day
 
 - **Weekly Awards**: pick a season/week, fill in whichever categories apply
-  (leave the rest blank), hit Save. Nothing shows on the public Awards page
-  for a week until at least one category has been filled in.
+  (leave the rest blank), hit Save. A **"Suggest from stats"** button pulls
+  that week's actual top fantasy scorers (overall for the 3 Stars, by
+  position for Forward/Defense/Goalie) from ESPN and pre-fills the form —
+  review and adjust before saving, it's a starting point, not an autopilot.
+  Nothing shows on the public Awards page for a week until at least one
+  category has been filled in.
 - **Matchup Blurbs**: pick a week, write a short preview before it's played
-  or a summary after — each matchup saves independently.
+  or a summary after — each matchup saves independently. A **"Generate
+  draft"** button under each box asks Claude to write a short draft grounded
+  in real scores/records/top performers (never invented stats) — read it
+  over and edit before saving. Requires `ANTHROPIC_API_KEY` (see below);
+  everything else on the site works fine without it.
 - **Keepers**: add one player at a time per team/season; remove with the
   "Remove" link if you make a mistake.
+- **Managers**: add each owner once, then assign them a row per season —
+  which ESPN team id they controlled, what that team was named that year,
+  and an optional record note. This is what lets the public Managers page
+  and the Keepers page's "By Team" view follow a person across team-name
+  changes. The Keepers admin page still saves by team id + season; the
+  Managers assignment is what maps that back to a person.
+- **Trades**: log a player moving between two managers in a given season —
+  shows up on both the Keepers page (season view) and each manager's
+  profile.
 - **Team Logos**: upload an image per team (square works best). It replaces
   the initials badge everywhere on the site immediately.
+- **ESPN History Explorer**: a diagnostic tool, not a data source of its
+  own. Pick a past season and see exactly what ESPN's API returns for it —
+  team names/ids, and owner names if ESPN happens to retain them that far
+  back. Useful for filling in Managers accurately instead of guessing from
+  old spreadsheets, but not guaranteed to have data for every season.
+
+### Setting up AI-drafted matchup write-ups (optional)
+
+1. Go to console.anthropic.com, create an account if you don't have one,
+   and generate an API key. It's pay-as-you-go — a draft costs a fraction
+   of a cent, there's no subscription.
+2. In Vercel, add an environment variable named `ANTHROPIC_API_KEY` with
+   that key as the value.
+3. Redeploy.
+
+Without this set, every other part of the site (including the stat-based
+"Suggest from stats" button, which needs no AI) works exactly the same —
+only the "Generate draft" button is disabled until this is added.
 
 
 

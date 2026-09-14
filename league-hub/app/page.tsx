@@ -87,6 +87,7 @@ export default async function HomePage() {
           { href: "/power-rankings", label: "Power Rankings", desc: "Beyond the win-loss record." },
           { href: "/awards", label: "Weekly Awards", desc: "3 Stars, and the week's best." },
           { href: "/keepers", label: "Keepers", desc: "Who's protected, season by season." },
+          { href: "/managers", label: "Managers", desc: "The people behind the teams, across every rename." },
           { href: "/history", label: "League History", desc: "Champions, season by season." },
         ].map((card) => (
           <Link

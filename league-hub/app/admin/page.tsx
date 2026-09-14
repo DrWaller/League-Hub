@@ -7,7 +7,10 @@ export default function AdminDashboard() {
     { href: "/admin/awards", label: "Weekly Awards", desc: "3 Stars, Forward/Defense/Goalie of the Week + runners-up." },
     { href: "/admin/matchups", label: "Matchup Blurbs", desc: "Write a preview or recap for any matchup." },
     { href: "/admin/keepers", label: "Keepers", desc: "Log who each team kept, season by season." },
+    { href: "/admin/managers", label: "Managers", desc: "Track each owner across team-name changes over the years." },
+    { href: "/admin/trades", label: "Trades", desc: "Log player movement between managers." },
     { href: "/admin/logos", label: "Team Logos", desc: "Upload a logo image for each team." },
+    { href: "/admin/espn-history", label: "ESPN History Explorer", desc: "Check what ESPN's API returns for a past season." },
   ];
 
   return (

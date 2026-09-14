@@ -85,5 +85,38 @@ export async function ensureSchema() {
     );
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS managers (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT now()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS manager_team_seasons (
+      id SERIAL PRIMARY KEY,
+      manager_id INTEGER NOT NULL REFERENCES managers(id) ON DELETE CASCADE,
+      team_id INTEGER NOT NULL,
+      season INTEGER NOT NULL,
+      team_name TEXT NOT NULL,
+      record_note TEXT,
+      UNIQUE(team_id, season)
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS trades (
+      id SERIAL PRIMARY KEY,
+      season INTEGER NOT NULL,
+      player_name TEXT NOT NULL,
+      from_manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
+      to_manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
+      note TEXT,
+      created_at TIMESTAMP DEFAULT now()
+    );
+  `;
+
   schemaReady = true;
 }

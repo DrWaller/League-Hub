@@ -32,6 +32,14 @@ export interface RosterPlayer {
   points: number;
 }
 
+export interface WeeklyPlayerStat {
+  id: number;
+  name: string;
+  position: string; // C, LW, RW, D, G
+  teamId: number;
+  points: number; // actual fantasy points for that one specific week
+}
+
 export interface Roster {
   teamId: number;
   players: RosterPlayer[];
@@ -114,5 +122,31 @@ export interface KeeperRecord {
   season: number;
   teamId: number;
   playerName: string;
+  note: string | null;
+}
+
+// --- Managers (persistent owner identity across team-name/ID changes) ---
+
+export interface Manager {
+  id: number;
+  name: string;
+  notes: string | null;
+}
+
+export interface ManagerSeason {
+  id: number;
+  managerId: number;
+  teamId: number; // ESPN team id for that season
+  season: number;
+  teamName: string; // team's display name that specific season (historical, hand-entered)
+  recordNote: string | null; // free text, e.g. "24-18-2, lost in semis"
+}
+
+export interface Trade {
+  id: number;
+  season: number;
+  playerName: string;
+  fromManagerId: number | null;
+  toManagerId: number | null;
   note: string | null;
 }

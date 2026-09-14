@@ -9,7 +9,7 @@
 // the admin area should surface an error rather than silently lose an edit.
 
 import { sql, ensureSchema } from "./db";
-import { AwardCategory, WeeklyAward, MatchupContent, KeeperRecord } from "./types";
+import { AwardCategory, WeeklyAward, MatchupContent, KeeperRecord, Manager, ManagerSeason, Trade } from "./types";
 
 export async function getTeamLogos(): Promise<Record<number, string>> {
   try {
@@ -139,4 +139,112 @@ export async function upsertMatchupContent(
     ON CONFLICT (season, week, home_team_id, away_team_id)
     DO UPDATE SET preview = ${preview}, summary = ${summary}, updated_at = now();
   `;
+}
+
+// --- Managers ---
+
+export async function getManagers(): Promise<Manager[]> {
+  try {
+    await ensureSchema();
+    const { rows } = await sql`SELECT id, name, notes FROM managers ORDER BY name;`;
+    return rows.map((r) => ({ id: r.id as number, name: r.name as string, notes: (r.notes as string) ?? null }));
+  } catch (err) {
+    console.error("getManagers failed (is Postgres connected?)", err);
+    return [];
+  }
+}
+
+export async function addManager(name: string, notes: string | null): Promise<number> {
+  await ensureSchema();
+  const { rows } = await sql`
+    INSERT INTO managers (name, notes) VALUES (${name}, ${notes}) RETURNING id;
+  `;
+  return rows[0].id as number;
+}
+
+export async function deleteManager(id: number) {
+  await ensureSchema();
+  await sql`DELETE FROM managers WHERE id = ${id};`;
+}
+
+export async function getManagerSeasons(managerId?: number): Promise<ManagerSeason[]> {
+  try {
+    await ensureSchema();
+    const { rows } = managerId
+      ? await sql`SELECT id, manager_id, team_id, season, team_name, record_note FROM manager_team_seasons WHERE manager_id = ${managerId} ORDER BY season;`
+      : await sql`SELECT id, manager_id, team_id, season, team_name, record_note FROM manager_team_seasons ORDER BY season, team_id;`;
+    return rows.map((r) => ({
+      id: r.id as number,
+      managerId: r.manager_id as number,
+      teamId: r.team_id as number,
+      season: r.season as number,
+      teamName: r.team_name as string,
+      recordNote: (r.record_note as string) ?? null,
+    }));
+  } catch (err) {
+    console.error("getManagerSeasons failed (is Postgres connected?)", err);
+    return [];
+  }
+}
+
+export async function upsertManagerSeason(
+  managerId: number,
+  teamId: number,
+  season: number,
+  teamName: string,
+  recordNote: string | null
+) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO manager_team_seasons (manager_id, team_id, season, team_name, record_note)
+    VALUES (${managerId}, ${teamId}, ${season}, ${teamName}, ${recordNote})
+    ON CONFLICT (team_id, season)
+    DO UPDATE SET manager_id = ${managerId}, team_name = ${teamName}, record_note = ${recordNote};
+  `;
+}
+
+export async function deleteManagerSeason(id: number) {
+  await ensureSchema();
+  await sql`DELETE FROM manager_team_seasons WHERE id = ${id};`;
+}
+
+// --- Trades ---
+
+export async function getTrades(season?: number): Promise<Trade[]> {
+  try {
+    await ensureSchema();
+    const { rows } = season
+      ? await sql`SELECT id, season, player_name, from_manager_id, to_manager_id, note FROM trades WHERE season = ${season} ORDER BY id DESC;`
+      : await sql`SELECT id, season, player_name, from_manager_id, to_manager_id, note FROM trades ORDER BY season DESC, id DESC;`;
+    return rows.map((r) => ({
+      id: r.id as number,
+      season: r.season as number,
+      playerName: r.player_name as string,
+      fromManagerId: (r.from_manager_id as number) ?? null,
+      toManagerId: (r.to_manager_id as number) ?? null,
+      note: (r.note as string) ?? null,
+    }));
+  } catch (err) {
+    console.error("getTrades failed (is Postgres connected?)", err);
+    return [];
+  }
+}
+
+export async function addTrade(
+  season: number,
+  playerName: string,
+  fromManagerId: number | null,
+  toManagerId: number | null,
+  note: string | null
+) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO trades (season, player_name, from_manager_id, to_manager_id, note)
+    VALUES (${season}, ${playerName}, ${fromManagerId}, ${toManagerId}, ${note});
+  `;
+}
+
+export async function deleteTrade(id: number) {
+  await ensureSchema();
+  await sql`DELETE FROM trades WHERE id = ${id};`;
 }

@@ -23,6 +23,8 @@ export default function MatchupBlurbForm({
   const [rows, setRows] = useState<MatchupRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [draftingKey, setDraftingKey] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
 
   const load = useCallback(async (s: number, w: number) => {
     setLoading(true);
@@ -41,6 +43,33 @@ export default function MatchupBlurbForm({
 
   function updateRow(idx: number, field: "preview" | "summary", value: string) {
     setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+  }
+
+  async function handleGenerateDraft(idx: number, mode: "preview" | "summary") {
+    const row = rows[idx];
+    const key = `${row.homeTeamId}-${row.awayTeamId}-${mode}`;
+    setDraftingKey(key);
+    setDraftError(null);
+    try {
+      const res = await fetch("/api/admin/matchups/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          week,
+          homeTeamId: row.homeTeamId,
+          awayTeamId: row.awayTeamId,
+          mode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDraftError(data.error || "Draft generation failed.");
+        return;
+      }
+      updateRow(idx, mode, data.draft);
+    } finally {
+      setDraftingKey(null);
+    }
   }
 
   async function handleSave(idx: number) {
@@ -105,6 +134,14 @@ export default function MatchupBlurbForm({
                   rows={3}
                   className="w-full border border-ice-line px-3 py-2 text-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => handleGenerateDraft(idx, "preview")}
+                  disabled={draftingKey === `${row.homeTeamId}-${row.awayTeamId}-preview`}
+                  className="text-xs text-rink hover:underline mt-1 disabled:opacity-50"
+                >
+                  {draftingKey === `${row.homeTeamId}-${row.awayTeamId}-preview` ? "Drafting…" : "Generate draft"}
+                </button>
               </label>
               <label className="block text-sm mb-3">
                 <div className="text-muted mb-1">Summary (after it's final)</div>
@@ -114,7 +151,16 @@ export default function MatchupBlurbForm({
                   rows={3}
                   className="w-full border border-ice-line px-3 py-2 text-sm"
                 />
+                <button
+                  type="button"
+                  onClick={() => handleGenerateDraft(idx, "summary")}
+                  disabled={draftingKey === `${row.homeTeamId}-${row.awayTeamId}-summary`}
+                  className="text-xs text-rink hover:underline mt-1 disabled:opacity-50"
+                >
+                  {draftingKey === `${row.homeTeamId}-${row.awayTeamId}-summary` ? "Drafting…" : "Generate draft"}
+                </button>
               </label>
+              {draftError && <p className="text-xs text-center-red mb-3">{draftError}</p>}
               <button
                 onClick={() => handleSave(idx)}
                 disabled={savingKey === key}

@@ -6,7 +6,7 @@
 // without notice; if a page suddenly looks wrong after an ESPN update,
 // this is the first file to check.
 
-import { Team, Matchup, Roster, LeagueMeta } from "./types";
+import { Team, Matchup, Roster, LeagueMeta, WeeklyPlayerStat } from "./types";
 import {
   MOCK_TEAMS,
   MOCK_MATCHUPS,
@@ -138,7 +138,91 @@ export async function getRosters(): Promise<{ rosters: Roster[]; live: boolean }
   return { rosters, live: true };
 }
 
-// ESPN encodes positions as numeric ids rather than names.
+// Every rostered player's ACTUAL fantasy points for one specific week --
+// used to compute real "who actually had a big week" award suggestions,
+// as opposed to season-to-date totals. statSourceId 0 = actual (not
+// projected); scoringPeriodId lines up with the "week" numbers used
+// everywhere else in this app.
+export async function getWeeklyPlayerStats(
+  week: number
+): Promise<{ players: WeeklyPlayerStat[]; live: boolean }> {
+  const data = await fetchEspn(["mRoster", "mTeam"]);
+  if (!data?.teams) {
+    return { players: [], live: false };
+  }
+
+  const players: WeeklyPlayerStat[] = [];
+
+  for (const t of data.teams) {
+    for (const e of t.roster?.entries ?? []) {
+      const player = e.playerPoolEntry?.player;
+      if (!player) continue;
+
+      const weekStat = (player.stats ?? []).find(
+        (s: any) => s.scoringPeriodId === week && s.statSourceId === 0
+      );
+      if (!weekStat) continue; // player didn't play / no actual stats posted for this week yet
+
+      players.push({
+        id: player.id,
+        name: player.fullName ?? "Unknown Player",
+        position: positionName(player.defaultPositionId),
+        teamId: t.id,
+        points: weekStat.appliedTotal ?? 0,
+      });
+    }
+  }
+
+  return { players, live: true };
+}
+
+// Diagnostic only -- fetches a PAST season directly from ESPN (bypassing
+// the current-season default) to see what ESPN actually retained: team
+// names/ids for that year, and owner info if present. Whether historical
+// data goes back this far, and whether owner names are included, varies
+// and isn't something that can be verified without a live request -- this
+// is meant to be inspected in the admin UI, not relied on blindly.
+export async function getHistoricalSeasonTeams(season: number): Promise<{
+  ok: boolean;
+  error?: string;
+  teams?: { id: number; abbrev: string; name: string; ownerIds: string[] }[];
+  members?: { id: string; displayName: string }[];
+}> {
+  if (!liveDataConfigured()) {
+    return { ok: false, error: "ESPN isn't connected (missing ESPN_S2 / ESPN_SWID)." };
+  }
+
+  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mTeam&view=mSettings`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return { ok: false, error: `ESPN returned ${res.status}. It may not have data this far back.` };
+    }
+
+    const data = await res.json();
+
+    const teams = (data.teams ?? []).map((t: any) => ({
+      id: t.id,
+      abbrev: t.abbrev,
+      name: t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim(),
+      ownerIds: t.owners ?? [],
+    }));
+
+    const members = (data.members ?? []).map((m: any) => ({
+      id: m.id,
+      displayName: m.displayName || `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim(),
+    }));
+
+    return { ok: true, teams, members };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
 function positionName(id?: number): string {
   const map: Record<number, string> = {
     1: "C",

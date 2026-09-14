@@ -32,7 +32,11 @@ export default async function AwardsPage({
         {team && <TeamLogo url={logos[team.id]} name={team.name} size={24} />}
         <div>
           <div className="font-body font-medium">{award.playerName}</div>
-          {team && <div className="text-xs text-muted">{team.name}</div>}
+          <div className="text-xs text-muted">
+            {team && team.name}
+            {team && award.note && " · "}
+            {award.note}
+          </div>
         </div>
       </div>
     );

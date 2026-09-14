@@ -8,7 +8,10 @@ const LINKS = [
   { href: "/admin/awards", label: "Weekly Awards" },
   { href: "/admin/matchups", label: "Matchup Blurbs" },
   { href: "/admin/keepers", label: "Keepers" },
+  { href: "/admin/managers", label: "Managers" },
+  { href: "/admin/trades", label: "Trades" },
   { href: "/admin/logos", label: "Team Logos" },
+  { href: "/admin/espn-history", label: "ESPN History" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
