@@ -79,8 +79,7 @@ export async function getStandings(): Promise<{ teams: Team[]; live: boolean }> 
 
   const teams: Team[] = data.teams.map((t: any) => ({
     id: t.id,
-    name: `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev,
-    abbrev: t.abbrev,
+    name: t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev,
     logo: t.logo,
     wins: t.record?.overall?.wins ?? 0,
     losses: t.record?.overall?.losses ?? 0,
