@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
+import { getTeamLogos, getMatchupContent } from "@/lib/content";
+import TeamLogo from "@/components/TeamLogo";
+
+export const dynamic = "force-dynamic";
 
 export default async function MatchupsPage({
   searchParams,
@@ -8,8 +12,15 @@ export default async function MatchupsPage({
 }) {
   const meta = await getLeagueMeta();
   const week = Number(searchParams.week) || meta.currentWeek;
-  const [{ matchups, live }, { teams }] = await Promise.all([getMatchups(week), getStandings()]);
+  const [{ matchups, live }, { teams }, logos, content] = await Promise.all([
+    getMatchups(week),
+    getStandings(),
+    getTeamLogos(),
+    getMatchupContent(meta.season, week),
+  ]);
   const teamById = (id: number) => teams.find((t) => t.id === id);
+  const contentFor = (homeId: number, awayId: number) =>
+    content.find((c) => c.homeTeamId === homeId && c.awayTeamId === awayId);
 
   return (
     <div>
@@ -40,22 +51,27 @@ export default async function MatchupsPage({
           const home = teamById(m.homeTeamId);
           const away = teamById(m.awayTeamId);
           const homeWinning = m.homeScore > m.awayScore;
+          const blurb = contentFor(m.homeTeamId, m.awayTeamId);
+          const text = m.isFinal ? blurb?.summary : blurb?.preview;
           return (
             <div key={i} className="border border-ice-line p-5">
               <div className="flex items-center justify-between font-tabular">
-                <span className={`font-body ${homeWinning ? "font-semibold" : "text-muted"}`}>
+                <span className={`font-body flex items-center gap-2 ${homeWinning ? "font-semibold" : "text-muted"}`}>
+                  <TeamLogo url={logos[m.homeTeamId]} name={home?.name ?? String(m.homeTeamId)} size={22} />
                   {home?.name ?? m.homeTeamId}
                 </span>
                 <span className="font-display text-xl">{m.homeScore}</span>
               </div>
               <div className="rule-center my-3 opacity-40" />
               <div className="flex items-center justify-between font-tabular">
-                <span className={`font-body ${!homeWinning ? "font-semibold" : "text-muted"}`}>
+                <span className={`font-body flex items-center gap-2 ${!homeWinning ? "font-semibold" : "text-muted"}`}>
+                  <TeamLogo url={logos[m.awayTeamId]} name={away?.name ?? String(m.awayTeamId)} size={22} />
                   {away?.name ?? m.awayTeamId}
                 </span>
                 <span className="font-display text-xl">{m.awayScore}</span>
               </div>
               <p className="text-xs text-muted mt-3">{m.isFinal ? "Final" : "In progress"}</p>
+              {text && <p className="text-sm mt-3 border-t border-ice-line pt-3">{text}</p>}
             </div>
           );
         })}

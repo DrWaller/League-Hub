@@ -1,8 +1,12 @@
 import { getStandings } from "@/lib/espn";
+import { getTeamLogos } from "@/lib/content";
 import { calculatePowerRankings } from "@/lib/power-rankings";
+import TeamLogo from "@/components/TeamLogo";
+
+export const dynamic = "force-dynamic";
 
 export default async function PowerRankingsPage() {
-  const { teams, live } = await getStandings();
+  const [{ teams, live }, logos] = await Promise.all([getStandings(), getTeamLogos()]);
   const rankings = calculatePowerRankings(teams);
   const teamById = (id: number) => teams.find((t) => t.id === id);
 
@@ -31,6 +35,7 @@ export default async function PowerRankingsPage() {
                 <span className="w-8 h-8 rounded-full bg-rink text-ice flex items-center justify-center font-display">
                   {r.rank}
                 </span>
+                <TeamLogo url={logos[team.id]} name={team.name} size={32} />
                 <div>
                   <div className="font-body font-medium">{team.name}</div>
                   <div className="text-xs text-muted">

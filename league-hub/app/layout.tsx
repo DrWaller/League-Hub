@@ -34,10 +34,15 @@ export default async function RootLayout({
         <Nav leagueName={meta.name} />
         <main className="max-w-content mx-auto px-4 sm:px-6 py-10">{children}</main>
         <footer className="border-t border-ice-line mt-16">
-          <div className="max-w-content mx-auto px-4 sm:px-6 py-6 text-sm text-muted flex justify-between">
+          <div className="max-w-content mx-auto px-4 sm:px-6 py-6 text-sm text-muted flex justify-between items-center flex-wrap gap-2">
             <span>{meta.name}</span>
-            <span>
-              {meta.liveDataConnected ? "Live data from ESPN" : "Preview data — connect ESPN to go live"}
+            <span className="flex items-center gap-4">
+              <span>
+                {meta.liveDataConnected ? "Live data from ESPN" : "Preview data — connect ESPN to go live"}
+              </span>
+              <a href="/admin" className="hover:text-rink">
+                Commissioner
+              </a>
             </span>
           </div>
         </footer>

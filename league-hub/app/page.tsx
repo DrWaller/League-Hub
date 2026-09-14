@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
+import { getTeamLogos } from "@/lib/content";
+import TeamLogo from "@/components/TeamLogo";
+
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [{ teams, live }, meta] = await Promise.all([getStandings(), getLeagueMeta()]);
+  const [{ teams, live }, meta, logos] = await Promise.all([
+    getStandings(),
+    getLeagueMeta(),
+    getTeamLogos(),
+  ]);
   const { matchups } = await getMatchups(meta.currentWeek);
 
   const top3 = teams.slice(0, 3);
@@ -29,12 +37,18 @@ export default async function HomePage() {
             {marquee ? (
               <div className="flex items-center gap-4 font-tabular">
                 <div className="text-right flex-1">
-                  <div className="font-body text-lg">{teamById(marquee.homeTeamId)?.name}</div>
+                  <div className="font-body text-lg flex items-center justify-end gap-2">
+                    {teamById(marquee.homeTeamId)?.name}
+                    <TeamLogo url={logos[marquee.homeTeamId]} name={teamById(marquee.homeTeamId)?.name ?? ""} size={28} />
+                  </div>
                   <div className="font-display text-3xl">{marquee.homeScore}</div>
                 </div>
                 <div className="text-ice/50 font-display text-xl">vs</div>
                 <div className="flex-1">
-                  <div className="font-body text-lg">{teamById(marquee.awayTeamId)?.name}</div>
+                  <div className="font-body text-lg flex items-center gap-2">
+                    <TeamLogo url={logos[marquee.awayTeamId]} name={teamById(marquee.awayTeamId)?.name ?? ""} size={28} />
+                    {teamById(marquee.awayTeamId)?.name}
+                  </div>
                   <div className="font-display text-3xl">{marquee.awayScore}</div>
                 </div>
               </div>
@@ -51,6 +65,7 @@ export default async function HomePage() {
                     <span className="w-6 h-6 rounded-full bg-center-red flex items-center justify-center text-xs font-display">
                       {i + 1}
                     </span>
+                    <TeamLogo url={logos[t.id]} name={t.name} size={24} />
                     <span className="font-body">{t.name}</span>
                   </span>
                   <span className="text-ice/80">
@@ -65,11 +80,13 @@ export default async function HomePage() {
       </section>
 
       {/* Quick links */}
-      <section className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
         {[
           { href: "/standings", label: "Full Standings", desc: "Every team, every stat." },
-          { href: "/matchups", label: "Matchups", desc: "Scores by week." },
+          { href: "/matchups", label: "Matchups", desc: "Scores, previews, and recaps." },
           { href: "/power-rankings", label: "Power Rankings", desc: "Beyond the win-loss record." },
+          { href: "/awards", label: "Weekly Awards", desc: "3 Stars, and the week's best." },
+          { href: "/keepers", label: "Keepers", desc: "Who's protected, season by season." },
           { href: "/history", label: "League History", desc: "Champions, season by season." },
         ].map((card) => (
           <Link

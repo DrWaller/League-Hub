@@ -1,11 +1,19 @@
 import { getRosters, getStandings } from "@/lib/espn";
+import { getTeamLogos } from "@/lib/content";
+import TeamLogo from "@/components/TeamLogo";
+
+export const dynamic = "force-dynamic";
 
 export default async function RostersPage({
   searchParams,
 }: {
   searchParams: { team?: string };
 }) {
-  const [{ rosters, live }, { teams }] = await Promise.all([getRosters(), getStandings()]);
+  const [{ rosters, live }, { teams }, logos] = await Promise.all([
+    getRosters(),
+    getStandings(),
+    getTeamLogos(),
+  ]);
   const selectedId = Number(searchParams.team) || teams[0]?.id;
   const roster = rosters.find((r) => r.teamId === selectedId);
   const team = teams.find((t) => t.id === selectedId);
@@ -22,19 +30,23 @@ export default async function RostersPage({
           <a
             key={t.id}
             href={`/rosters?team=${t.id}`}
-            className={`px-3 py-1.5 text-sm border ${
+            className={`px-3 py-1.5 text-sm border flex items-center gap-2 ${
               t.id === selectedId
                 ? "bg-rink text-ice border-rink"
                 : "border-ice-line hover:border-rink-bright"
             }`}
           >
+            <TeamLogo url={logos[t.id]} name={t.name} size={18} />
             {t.name}
           </a>
         ))}
       </div>
 
       {team && (
-        <h2 className="font-display text-xl mb-4">{team.name}</h2>
+        <h2 className="font-display text-xl mb-4 flex items-center gap-3">
+          <TeamLogo url={logos[team.id]} name={team.name} size={32} />
+          {team.name}
+        </h2>
       )}
 
       <table className="w-full text-sm font-tabular border-collapse">

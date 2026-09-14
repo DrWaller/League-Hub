@@ -62,3 +62,57 @@ export interface LeagueMeta {
   season: number;
   liveDataConnected: boolean;
 }
+
+// --- Editorial content (stored in Postgres, edited via /admin) ---
+
+export const AWARD_CATEGORIES = [
+  "star1",
+  "star2",
+  "star3",
+  "forward",
+  "forward_runner_up",
+  "defense",
+  "defense_runner_up",
+  "goalie",
+  "goalie_runner_up",
+] as const;
+
+export type AwardCategory = (typeof AWARD_CATEGORIES)[number];
+
+export const AWARD_LABELS: Record<AwardCategory, string> = {
+  star1: "1st Star",
+  star2: "2nd Star",
+  star3: "3rd Star",
+  forward: "Forward of the Week",
+  forward_runner_up: "Forward Runner-up",
+  defense: "Defenseman of the Week",
+  defense_runner_up: "Defenseman Runner-up",
+  goalie: "Goalie of the Week",
+  goalie_runner_up: "Goalie Runner-up",
+};
+
+export interface WeeklyAward {
+  season: number;
+  week: number;
+  category: AwardCategory;
+  playerName: string;
+  teamId: number | null;
+  note: string | null;
+}
+
+export interface MatchupContent {
+  season: number;
+  week: number;
+  homeTeamId: number;
+  awayTeamId: number;
+  preview: string | null;
+  summary: string | null;
+}
+
+export interface KeeperRecord {
+  id: number;
+  season: number;
+  teamId: number;
+  playerName: string;
+  note: string | null;
+}

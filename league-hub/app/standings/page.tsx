@@ -1,7 +1,11 @@
 import { getStandings } from "@/lib/espn";
+import { getTeamLogos } from "@/lib/content";
+import TeamLogo from "@/components/TeamLogo";
+
+export const dynamic = "force-dynamic";
 
 export default async function StandingsPage() {
-  const { teams, live } = await getStandings();
+  const [{ teams, live }, logos] = await Promise.all([getStandings(), getTeamLogos()]);
   const playoffLine = 6; // adjust to your league's playoff cutoff
 
   return (
@@ -34,7 +38,12 @@ export default async function StandingsPage() {
                 }`}
               >
                 <td className="py-3 pr-4 text-muted">{i + 1}</td>
-                <td className="py-3 pr-4 font-body">{t.name}</td>
+                <td className="py-3 pr-4 font-body">
+                  <div className="flex items-center gap-2">
+                    <TeamLogo url={logos[t.id]} name={t.name} size={24} />
+                    {t.name}
+                  </div>
+                </td>
                 <td className="py-3 pr-4 text-right">{t.wins}</td>
                 <td className="py-3 pr-4 text-right">{t.losses}</td>
                 <td className="py-3 pr-4 text-right">{t.ties}</td>
