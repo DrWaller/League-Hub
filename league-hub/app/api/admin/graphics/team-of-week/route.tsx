@@ -5,7 +5,7 @@ import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { OG } from "@/lib/og-theme";
 import { WeeklyPlayerStat } from "@/lib/types";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
   try {

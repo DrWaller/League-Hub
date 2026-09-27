@@ -3,6 +3,13 @@
 // actual font bytes, not a stylesheet URL. Google serves TrueType files
 // only to older browsers that predate woff2 support, so the fetch below
 // spoofs an old Chrome user-agent to get a format Satori can parse.
+//
+// Only STATIC (non-variable) font families reliably offer a legacy
+// TrueType build this way -- variable fonts (like "Source Sans 3") often
+// don't, so "Source Sans Pro" (the classic static family) is used instead
+// for body text, even though the site itself uses "Source Sans 3" via a
+// normal browser <link> tag, which has no such limitation.
+//
 // Cached per warm serverless instance so repeated image requests don't
 // re-fetch fonts every time.
 
@@ -29,36 +36,43 @@ async function fetchFont(family: string, weight: number): Promise<ArrayBuffer> {
   return data;
 }
 
-export async function loadGraphicFonts() {
-  try {
-    const [oswald700, sourceSans400, sourceSans600] = await Promise.all([
-      fetchFont("Oswald", 700),
-      fetchFont("Source Sans 3", 400),
-      fetchFont("Source Sans 3", 600),
-    ]);
+type LoadedFont = { name: string; data: ArrayBuffer; weight: 400 | 600 | 700; style: "normal" };
 
-    return [
-      { name: "Oswald", data: oswald700, weight: 700 as const, style: "normal" as const },
-      { name: "Source Sans 3", data: sourceSans400, weight: 400 as const, style: "normal" as const },
-      { name: "Source Sans 3", data: sourceSans600, weight: 600 as const, style: "normal" as const },
-    ];
-  } catch (err) {
-    // Better a plain-font image than a crashed route -- see getFontFamilies
-    // below for why the CALLER also needs to know this happened.
-    console.error("loadGraphicFonts failed, falling back to default font", err);
-    return [];
-  }
+// Loads each font independently -- one failing (Google changes something,
+// a network hiccup) no longer discards the others. Whatever succeeds gets
+// used; getFontFamilies below tells the caller exactly which family names
+// are safe to reference in styles.
+export async function loadGraphicFonts(): Promise<LoadedFont[]> {
+  const specs: { name: string; weight: 400 | 600 | 700 }[] = [
+    { name: "Oswald", weight: 700 },
+    { name: "Source Sans Pro", weight: 400 },
+    { name: "Source Sans Pro", weight: 600 },
+  ];
+
+  const results = await Promise.allSettled(specs.map((s) => fetchFont(s.name, s.weight)));
+
+  const fonts: LoadedFont[] = [];
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") {
+      fonts.push({ name: specs[i].name, data: r.value, weight: specs[i].weight, style: "normal" });
+    } else {
+      console.error(`loadGraphicFonts: failed to load ${specs[i].name} ${specs[i].weight}`, r.reason);
+    }
+  });
+
+  return fonts;
 }
 
 // Satori (the renderer behind next/og) throws HARD if a style references a
 // font-family that isn't in the loaded fonts array -- it does not silently
-// fall back. So when loadGraphicFonts() returns [], the JSX must stop
-// asking for "Oswald" / "Source Sans 3" entirely (return undefined, which
-// omits the CSS property) rather than degrade to Satori's own default.
-export function getFontFamilies(fonts: Awaited<ReturnType<typeof loadGraphicFonts>>) {
-  const have = fonts.length > 0;
+// fall back. So the JSX must only ask for a family that's confirmed loaded
+// (return undefined otherwise, which omits the CSS property and lets
+// Satori's own bundled default take over for that text).
+export function getFontFamilies(fonts: LoadedFont[]) {
+  const hasDisplay = fonts.some((f) => f.name === "Oswald");
+  const hasBody = fonts.some((f) => f.name === "Source Sans Pro");
   return {
-    display: have ? "Oswald" : undefined,
-    body: have ? "Source Sans 3" : undefined,
+    display: hasDisplay ? "Oswald" : undefined,
+    body: hasBody ? "Source Sans Pro" : undefined,
   };
 }

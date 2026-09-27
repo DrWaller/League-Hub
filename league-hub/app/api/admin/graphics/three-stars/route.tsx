@@ -4,7 +4,7 @@ import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { OG } from "@/lib/og-theme";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 export async function GET(req: NextRequest) {
   try {

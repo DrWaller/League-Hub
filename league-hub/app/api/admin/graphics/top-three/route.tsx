@@ -4,7 +4,7 @@ import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { OG } from "@/lib/og-theme";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
 
 const POSITION_GROUPS: Record<string, string[]> = {
   forward: ["C", "LW", "RW"],
