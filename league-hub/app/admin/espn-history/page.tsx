@@ -64,6 +64,7 @@ export default function EspnHistoryPage() {
                     <th className="py-1 pr-4 font-body font-normal">ID</th>
                     <th className="py-1 pr-4 font-body font-normal">Abbrev</th>
                     <th className="py-1 pr-4 font-body font-normal">Name</th>
+                    <th className="py-1 pr-4 font-body font-normal">Record</th>
                     <th className="py-1 pr-4 font-body font-normal">Owner IDs</th>
                   </tr>
                 </thead>
@@ -73,6 +74,10 @@ export default function EspnHistoryPage() {
                       <td className="py-1 pr-4">{t.id}</td>
                       <td className="py-1 pr-4">{t.abbrev}</td>
                       <td className="py-1 pr-4 font-body">{t.name}</td>
+                      <td className="py-1 pr-4 font-tabular">
+                        {t.wins}-{t.losses}
+                        {t.ties ? `-${t.ties}` : ""}
+                      </td>
                       <td className="py-1 pr-4 text-xs text-muted">{(t.ownerIds || []).join(", ") || "—"}</td>
                     </tr>
                   ))}

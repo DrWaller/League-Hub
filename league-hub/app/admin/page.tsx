@@ -5,12 +5,16 @@ export const dynamic = "force-dynamic";
 export default function AdminDashboard() {
   const cards = [
     { href: "/admin/awards", label: "Weekly Awards", desc: "3 Stars, Forward/Defense/Goalie of the Week + runners-up." },
+    { href: "/admin/monthly-periods", label: "Monthly Periods", desc: "Define the week ranges Monthly Awards use." },
+    { href: "/admin/monthly-awards", label: "Monthly Awards", desc: "Player picks + an automatic Manager of the Month." },
+    { href: "/admin/newsletter", label: "Newsletter", desc: "Weekly recap and monthly wrap-up, AI-draftable." },
     { href: "/admin/matchups", label: "Matchup Blurbs", desc: "Write a preview or recap for any matchup." },
     { href: "/admin/keepers", label: "Keepers", desc: "Log who each team kept, season by season." },
     { href: "/admin/managers", label: "Managers", desc: "Track each owner across team-name changes over the years." },
     { href: "/admin/trades", label: "Trades", desc: "Log player movement between managers." },
     { href: "/admin/logos", label: "Team Logos", desc: "Upload a logo image for each team." },
     { href: "/admin/espn-history", label: "ESPN History Explorer", desc: "Check what ESPN's API returns for a past season." },
+    { href: "/admin/import-records", label: "Import Records", desc: "Pull real win-loss records from ESPN for a past season." },
   ];
 
   return (

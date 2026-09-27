@@ -1,5 +1,6 @@
-import { getRosters, getStandings } from "@/lib/espn";
-import { getTeamLogos } from "@/lib/content";
+import Link from "next/link";
+import { getRosters, getStandings, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
+import { getTeamLogos, getManagerSeasons } from "@/lib/content";
 import TeamLogo from "@/components/TeamLogo";
 
 export const dynamic = "force-dynamic";
@@ -7,29 +8,74 @@ export const dynamic = "force-dynamic";
 export default async function RostersPage({
   searchParams,
 }: {
-  searchParams: { team?: string };
+  searchParams: { team?: string; season?: string };
 }) {
-  const [{ rosters, live }, { teams }, logos] = await Promise.all([
-    getRosters(),
-    getStandings(),
-    getTeamLogos(),
-  ]);
+  const meta = await getLeagueMeta();
+  const season = Number(searchParams.season) || meta.season;
+  const isCurrentSeason = season === meta.season;
+
+  const [logos, allManagerSeasons] = await Promise.all([getTeamLogos(), getManagerSeasons()]);
+
+  let rosters, live, teams: { id: number; name: string }[];
+
+  if (isCurrentSeason) {
+    const [rosterResult, standings] = await Promise.all([getRosters(), getStandings()]);
+    rosters = rosterResult.rosters;
+    live = rosterResult.live;
+    teams = standings.teams;
+  } else {
+    const [rosterResult, historical] = await Promise.all([
+      getRosters(season),
+      getHistoricalSeasonTeams(season),
+    ]);
+    rosters = rosterResult.rosters;
+    live = rosterResult.live && historical.ok;
+    teams = historical.teams ?? [];
+  }
+
   const selectedId = Number(searchParams.team) || teams[0]?.id;
   const roster = rosters.find((r) => r.teamId === selectedId);
   const team = teams.find((t) => t.id === selectedId);
 
+  const seasons = Array.from(new Set([meta.season, ...allManagerSeasons.map((s) => s.season)])).sort(
+    (a, b) => b - a
+  );
+
   return (
     <div>
       <h1 className="font-display text-3xl mb-1">Rosters</h1>
+
+      {seasons.length > 1 && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {seasons.map((s) => (
+            <Link
+              key={s}
+              href={`/rosters?season=${s}`}
+              className={`px-3 py-1.5 text-sm border ${
+                s === season ? "bg-rink text-ice border-rink" : "border-ice-line hover:border-rink-bright"
+              }`}
+            >
+              {s}
+            </Link>
+          ))}
+        </div>
+      )}
+
       <p className="text-muted mb-8">
-        {live ? "Live from ESPN." : "Preview data — connect ESPN for live rosters."}
+        {live
+          ? isCurrentSeason
+            ? "Live from ESPN."
+            : `From ESPN's ${season} records.`
+          : isCurrentSeason
+            ? "Preview data — connect ESPN for live rosters."
+            : `Couldn't load ${season} from ESPN.`}
       </p>
 
       <div className="flex flex-wrap gap-2 mb-8">
         {teams.map((t) => (
           <a
             key={t.id}
-            href={`/rosters?team=${t.id}`}
+            href={`/rosters?season=${season}&team=${t.id}`}
             className={`px-3 py-1.5 text-sm border flex items-center gap-2 ${
               t.id === selectedId
                 ? "bg-rink text-ice border-rink"
@@ -67,6 +113,13 @@ export default async function RostersPage({
               <td className="py-3 pr-4 text-right">{p.points}</td>
             </tr>
           ))}
+          {(!roster || roster.players.length === 0) && (
+            <tr>
+              <td colSpan={4} className="py-4 text-muted">
+                No roster data for this team/season.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

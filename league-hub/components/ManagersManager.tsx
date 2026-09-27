@@ -19,6 +19,8 @@ export default function ManagersManager({ teams }: { teams: TeamOption[] }) {
   const [teamName, setTeamName] = useState("");
   const [recordNote, setRecordNote] = useState("");
   const [addingSeason, setAddingSeason] = useState(false);
+  const [assigningId, setAssigningId] = useState<number | null>(null);
+  const [assignPick, setAssignPick] = useState<Record<number, number | "">>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +81,28 @@ export default function ManagersManager({ teams }: { teams: TeamOption[] }) {
       await load();
     } finally {
       setAddingSeason(false);
+    }
+  }
+
+  async function handleQuickAssign(s: ManagerSeason) {
+    const managerId = assignPick[s.id];
+    if (!managerId) return;
+    setAssigningId(s.id);
+    try {
+      await fetch("/api/admin/manager-seasons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          managerId,
+          teamId: s.teamId,
+          season: s.season,
+          teamName: s.teamName,
+          recordNote: s.recordNote,
+        }),
+      });
+      await load();
+    } finally {
+      setAssigningId(null);
     }
   }
 
@@ -174,7 +198,70 @@ export default function ManagersManager({ teams }: { teams: TeamOption[] }) {
       {loading ? (
         <p className="text-sm text-muted">Loading…</p>
       ) : (
-        <div className="space-y-6">
+        <>
+          {seasons.some((s) => !s.managerId) && (
+            <div className="border border-center-red/40 bg-ice-panel p-5 mb-8">
+              <h2 className="font-display text-lg mb-1">Unassigned Team-Seasons</h2>
+              <p className="text-xs text-muted mb-3">
+                These have a record (usually from an import) but no manager attached yet. Pick who
+                it was and save.
+              </p>
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="text-left text-muted border-b border-ice-line">
+                    <th className="py-1 pr-4 font-body font-normal">Season</th>
+                    <th className="py-1 pr-4 font-body font-normal">Team Name</th>
+                    <th className="py-1 pr-4 font-body font-normal">W-L-T</th>
+                    <th className="py-1 pr-4 font-body font-normal">Manager</th>
+                    <th className="py-1 pr-4"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {seasons
+                    .filter((s) => !s.managerId)
+                    .map((s) => (
+                      <tr key={s.id} className="border-b border-ice-line/60">
+                        <td className="py-1 pr-4">{s.season}</td>
+                        <td className="py-1 pr-4 font-body">{s.teamName}</td>
+                        <td className="py-1 pr-4 font-tabular">
+                          {s.wins !== null ? `${s.wins}-${s.losses}${s.ties ? `-${s.ties}` : ""}` : "—"}
+                        </td>
+                        <td className="py-1 pr-4">
+                          <select
+                            value={assignPick[s.id] ?? ""}
+                            onChange={(e) =>
+                              setAssignPick((prev) => ({
+                                ...prev,
+                                [s.id]: e.target.value === "" ? "" : Number(e.target.value),
+                              }))
+                            }
+                            className="border border-ice-line px-2 py-1 text-sm"
+                          >
+                            <option value="">Pick manager…</option>
+                            {managers.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="py-1 pr-4">
+                          <button
+                            onClick={() => handleQuickAssign(s)}
+                            disabled={assigningId === s.id || !assignPick[s.id]}
+                            className="bg-rink text-ice px-3 py-1 text-xs hover:bg-rink-deep transition-colors disabled:opacity-50"
+                          >
+                            {assigningId === s.id ? "Saving…" : "Assign"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="space-y-6">
           {managers.map((m) => {
             const managerSeasons = seasons
               .filter((s) => s.managerId === m.id)
@@ -195,7 +282,8 @@ export default function ManagersManager({ teams }: { teams: TeamOption[] }) {
                       <tr className="text-left text-muted border-b border-ice-line">
                         <th className="py-1 pr-4 font-body font-normal">Season</th>
                         <th className="py-1 pr-4 font-body font-normal">Team Name</th>
-                        <th className="py-1 pr-4 font-body font-normal">Record</th>
+                        <th className="py-1 pr-4 font-body font-normal">W-L-T</th>
+                        <th className="py-1 pr-4 font-body font-normal">Note</th>
                         <th className="py-1 pr-4"></th>
                       </tr>
                     </thead>
@@ -204,6 +292,9 @@ export default function ManagersManager({ teams }: { teams: TeamOption[] }) {
                         <tr key={s.id} className="border-b border-ice-line/60">
                           <td className="py-1 pr-4">{s.season}</td>
                           <td className="py-1 pr-4 font-body">{s.teamName}</td>
+                          <td className="py-1 pr-4 font-tabular">
+                            {s.wins !== null ? `${s.wins}-${s.losses}${s.ties ? `-${s.ties}` : ""}` : "—"}
+                          </td>
                           <td className="py-1 pr-4 text-muted">{s.recordNote ?? "—"}</td>
                           <td className="py-1 pr-4">
                             <button onClick={() => handleDeleteSeason(s.id)} className="text-center-red hover:underline text-xs">
@@ -219,7 +310,8 @@ export default function ManagersManager({ teams }: { teams: TeamOption[] }) {
             );
           })}
           {managers.length === 0 && <p className="text-sm text-muted">No managers added yet.</p>}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

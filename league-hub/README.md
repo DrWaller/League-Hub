@@ -90,11 +90,40 @@ so you don't have to remember the URL.
   profile.
 - **Team Logos**: upload an image per team (square works best). It replaces
   the initials badge everywhere on the site immediately.
+- **Monthly Periods**: define a "month" as a range of weeks with a label
+  you pick (e.g. "October", weeks 1–4) — it doesn't need to match calendar
+  months. This is what Monthly Awards and the monthly newsletter run on.
+- **Monthly Awards**: same player categories as Weekly Awards (3 Stars,
+  Forward/Defense/Goalie + runners-up), with its own "Suggest from stats"
+  button aggregating real points across the period's weeks. **Manager of
+  the Month** is shown alongside it but isn't something you fill in — it's
+  computed automatically from real win-loss results for that week range,
+  since a record is a fact, not an editorial pick.
+- **Trades** now has an optional **week** field, so a trade can be tied to
+  a specific week (used by the newsletter to know what happened when) —
+  leave it blank for older trades where you don't know the exact week.
+- **Newsletter**: a compiled recap page (weekly and monthly), not an email
+  — no email service to configure. Most of the page (scores, awards,
+  trades, standings) is assembled automatically from data you've already
+  entered elsewhere; the admin page is just for the intro paragraph, which
+  you can write yourself or generate with **Generate Draft** (uses the same
+  `ANTHROPIC_API_KEY` as matchup drafts, grounded in the real compiled
+  facts for that period).
 - **ESPN History Explorer**: a diagnostic tool, not a data source of its
   own. Pick a past season and see exactly what ESPN's API returns for it —
   team names/ids, and owner names if ESPN happens to retain them that far
   back. Useful for filling in Managers accurately instead of guessing from
   old spreadsheets, but not guaranteed to have data for every season.
+- **Import Records**: pulls the real win-loss-tie record and points
+  for/against for every team in a chosen season, straight from ESPN.
+  Preview first, then import. This only writes record data — it never
+  creates or changes a manager assignment, so it's safe to run before
+  Managers is filled in for that season. Run it once per season you want
+  (there's no bulk/range import — each season is a deliberate action, so
+  skipping one you don't trust yet, like an incomplete season, is just a
+  matter of not clicking Import for it). Afterward, any team-season row
+  that came in without a manager shows up in an "Unassigned Team-Seasons"
+  list on the Managers page for quick assignment.
 
 ### Setting up AI-drafted matchup write-ups (optional)
 
@@ -120,6 +149,16 @@ Both get a `tags` array (`"Played on Fantrax"` / `"COVID-shortened"`) that
 renders as a small badge on the History page, plus an optional `note` string
 for more context. Add a new season by copying an existing entry and editing
 the fields — nothing else in the app needs to change.
+
+## Browsing historical matchups and rosters
+
+The Matchups and Rosters pages both have a season selector once at least
+one past season has a manager record on file (via Import Records or added
+by hand). Picking an older season pulls that season's actual schedule,
+scores, and rosters straight from ESPN — the same live-fetch approach as
+the current season, just pointed at a different year. Nothing is copied
+into the database for this; it's fetched fresh each time (and cached for a
+day, since past seasons don't change).
 
 ## Known gaps / good next steps
 

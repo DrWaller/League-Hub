@@ -9,6 +9,7 @@ export default function TradesManager() {
   const [loading, setLoading] = useState(false);
 
   const [season, setSeason] = useState<number>(new Date().getFullYear());
+  const [week, setWeek] = useState<string>("");
   const [playerName, setPlayerName] = useState("");
   const [fromId, setFromId] = useState<number | "">("");
   const [toId, setToId] = useState<number | "">("");
@@ -39,6 +40,7 @@ export default function TradesManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           season,
+          week: week ? Number(week) : null,
           playerName: playerName.trim(),
           fromManagerId: fromId || null,
           toManagerId: toId || null,
@@ -46,6 +48,7 @@ export default function TradesManager() {
         }),
       });
       setPlayerName("");
+      setWeek("");
       setNote("");
       await load();
     } finally {
@@ -70,6 +73,13 @@ export default function TradesManager() {
             placeholder="Season"
             value={season}
             onChange={(e) => setSeason(Number(e.target.value))}
+            className="border border-ice-line px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            placeholder="Week (optional)"
+            value={week}
+            onChange={(e) => setWeek(e.target.value)}
             className="border border-ice-line px-3 py-2 text-sm"
           />
           <input
@@ -127,6 +137,7 @@ export default function TradesManager() {
           <thead>
             <tr className="text-left text-muted border-b border-ice-line">
               <th className="py-2 pr-4 font-body font-normal">Season</th>
+              <th className="py-2 pr-4 font-body font-normal">Wk</th>
               <th className="py-2 pr-4 font-body font-normal">Player</th>
               <th className="py-2 pr-4 font-body font-normal">From</th>
               <th className="py-2 pr-4 font-body font-normal">To</th>
@@ -138,6 +149,7 @@ export default function TradesManager() {
             {trades.map((t) => (
               <tr key={t.id} className="border-b border-ice-line/60">
                 <td className="py-2 pr-4">{t.season}</td>
+                <td className="py-2 pr-4">{t.week ?? "—"}</td>
                 <td className="py-2 pr-4 font-body">{t.playerName}</td>
                 <td className="py-2 pr-4">{managerName(t.fromManagerId)}</td>
                 <td className="py-2 pr-4">{managerName(t.toManagerId)}</td>
@@ -151,7 +163,7 @@ export default function TradesManager() {
             ))}
             {trades.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-4 text-muted">
+                <td colSpan={7} className="py-4 text-muted">
                   No trades logged yet.
                 </td>
               </tr>

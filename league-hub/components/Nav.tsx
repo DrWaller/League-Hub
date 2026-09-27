@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/rosters", label: "Rosters" },
   { href: "/power-rankings", label: "Power Rankings" },
   { href: "/awards", label: "Awards" },
+  { href: "/newsletter", label: "Newsletter" },
   { href: "/keepers", label: "Keepers" },
   { href: "/managers", label: "Managers" },
   { href: "/history", label: "History" },

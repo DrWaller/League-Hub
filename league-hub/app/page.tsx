@@ -86,6 +86,7 @@ export default async function HomePage() {
           { href: "/matchups", label: "Matchups", desc: "Scores, previews, and recaps." },
           { href: "/power-rankings", label: "Power Rankings", desc: "Beyond the win-loss record." },
           { href: "/awards", label: "Weekly Awards", desc: "3 Stars, and the week's best." },
+          { href: "/newsletter", label: "Newsletter", desc: "Weekly recaps and monthly wrap-ups." },
           { href: "/keepers", label: "Keepers", desc: "Who's protected, season by season." },
           { href: "/managers", label: "Managers", desc: "The people behind the teams, across every rename." },
           { href: "/history", label: "League History", desc: "Champions, season by season." },

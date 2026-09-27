@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
-import { getTeamLogos, getMatchupContent } from "@/lib/content";
+import { getMatchups, getStandings, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
+import { getTeamLogos, getMatchupContent, getManagerSeasons } from "@/lib/content";
 import TeamLogo from "@/components/TeamLogo";
 
 export const dynamic = "force-dynamic";
@@ -8,42 +8,90 @@ export const dynamic = "force-dynamic";
 export default async function MatchupsPage({
   searchParams,
 }: {
-  searchParams: { week?: string };
+  searchParams: { week?: string; season?: string };
 }) {
   const meta = await getLeagueMeta();
-  const week = Number(searchParams.week) || meta.currentWeek;
-  const [{ matchups, live }, { teams }, logos, content] = await Promise.all([
-    getMatchups(week),
-    getStandings(),
+  const season = Number(searchParams.season) || meta.season;
+  const isCurrentSeason = season === meta.season;
+  const week = Number(searchParams.week) || (isCurrentSeason ? meta.currentWeek : 1);
+
+  const [logos, content, allManagerSeasons] = await Promise.all([
     getTeamLogos(),
-    getMatchupContent(meta.season, week),
+    getMatchupContent(season, week),
+    getManagerSeasons(),
   ]);
-  const teamById = (id: number) => teams.find((t) => t.id === id);
+
+  let matchups, live, teamById: (id: number) => { name: string } | undefined;
+
+  if (isCurrentSeason) {
+    const [matchupResult, standings] = await Promise.all([getMatchups(week), getStandings()]);
+    matchups = matchupResult.matchups;
+    live = matchupResult.live;
+    teamById = (id) => standings.teams.find((t) => t.id === id);
+  } else {
+    const [matchupResult, historical] = await Promise.all([
+      getMatchups(week, season),
+      getHistoricalSeasonTeams(season),
+    ]);
+    matchups = matchupResult.matchups;
+    live = matchupResult.live && historical.ok;
+    teamById = (id) => historical.teams?.find((t) => t.id === id);
+  }
+
   const contentFor = (homeId: number, awayId: number) =>
     content.find((c) => c.homeTeamId === homeId && c.awayTeamId === awayId);
 
+  // Known seasons for the selector: every season with a manager record on
+  // file, plus the current live one.
+  const seasons = Array.from(new Set([meta.season, ...allManagerSeasons.map((s) => s.season)])).sort(
+    (a, b) => b - a
+  );
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-3">
         <h1 className="font-display text-3xl">Matchups</h1>
         <div className="flex items-center gap-3 font-tabular text-sm">
           <Link
-            href={`/matchups?week=${Math.max(1, week - 1)}`}
+            href={`/matchups?season=${season}&week=${Math.max(1, week - 1)}`}
             className="px-2 py-1 border border-ice-line hover:border-rink-bright"
           >
             ←
           </Link>
           <span>Week {week}</span>
           <Link
-            href={`/matchups?week=${week + 1}`}
+            href={`/matchups?season=${season}&week=${week + 1}`}
             className="px-2 py-1 border border-ice-line hover:border-rink-bright"
           >
             →
           </Link>
         </div>
       </div>
+
+      {seasons.length > 1 && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {seasons.map((s) => (
+            <Link
+              key={s}
+              href={`/matchups?season=${s}`}
+              className={`px-3 py-1.5 text-sm border ${
+                s === season ? "bg-rink text-ice border-rink" : "border-ice-line hover:border-rink-bright"
+              }`}
+            >
+              {s}
+            </Link>
+          ))}
+        </div>
+      )}
+
       <p className="text-muted mb-8">
-        {live ? "Live from ESPN." : "Preview data — connect ESPN for live scores."}
+        {live
+          ? isCurrentSeason
+            ? "Live from ESPN."
+            : `From ESPN's ${season} records.`
+          : isCurrentSeason
+            ? "Preview data — connect ESPN for live scores."
+            : `Couldn't load ${season} from ESPN.`}
       </p>
 
       <div className="grid sm:grid-cols-2 gap-4">

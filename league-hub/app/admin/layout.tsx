@@ -6,12 +6,16 @@ import { usePathname, useRouter } from "next/navigation";
 const LINKS = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/awards", label: "Weekly Awards" },
+  { href: "/admin/monthly-periods", label: "Monthly Periods" },
+  { href: "/admin/monthly-awards", label: "Monthly Awards" },
+  { href: "/admin/newsletter", label: "Newsletter" },
   { href: "/admin/matchups", label: "Matchup Blurbs" },
   { href: "/admin/keepers", label: "Keepers" },
   { href: "/admin/managers", label: "Managers" },
   { href: "/admin/trades", label: "Trades" },
   { href: "/admin/logos", label: "Team Logos" },
   { href: "/admin/espn-history", label: "ESPN History" },
+  { href: "/admin/import-records", label: "Import Records" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

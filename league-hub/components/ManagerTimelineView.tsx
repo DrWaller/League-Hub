@@ -26,6 +26,12 @@ export default function ManagerTimelineView({
             <div className="flex items-center gap-3 flex-wrap mb-1">
               <h2 className="font-display text-xl">{s.season}</h2>
               <span className="text-sm text-muted">{s.teamName}</span>
+              {s.wins !== null && (
+                <span className="text-sm font-tabular text-muted">
+                  {s.wins}-{s.losses}
+                  {s.ties ? `-${s.ties}` : ""}
+                </span>
+              )}
             </div>
             {s.recordNote && <p className="text-sm text-muted mb-2">{s.recordNote}</p>}
 

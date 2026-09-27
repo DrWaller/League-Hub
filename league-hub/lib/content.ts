@@ -9,7 +9,19 @@
 // the admin area should surface an error rather than silently lose an edit.
 
 import { sql, ensureSchema } from "./db";
-import { AwardCategory, WeeklyAward, MatchupContent, KeeperRecord, Manager, ManagerSeason, Trade } from "./types";
+import {
+  AwardCategory,
+  WeeklyAward,
+  MatchupContent,
+  KeeperRecord,
+  Manager,
+  ManagerSeason,
+  Trade,
+  MonthlyPeriod,
+  MonthlyAward,
+  NewsletterIntro,
+  NewsletterPeriodType,
+} from "./types";
 
 export async function getTeamLogos(): Promise<Record<number, string>> {
   try {
@@ -171,15 +183,20 @@ export async function getManagerSeasons(managerId?: number): Promise<ManagerSeas
   try {
     await ensureSchema();
     const { rows } = managerId
-      ? await sql`SELECT id, manager_id, team_id, season, team_name, record_note FROM manager_team_seasons WHERE manager_id = ${managerId} ORDER BY season;`
-      : await sql`SELECT id, manager_id, team_id, season, team_name, record_note FROM manager_team_seasons ORDER BY season, team_id;`;
+      ? await sql`SELECT id, manager_id, team_id, season, team_name, record_note, wins, losses, ties, points_for, points_against FROM manager_team_seasons WHERE manager_id = ${managerId} ORDER BY season;`
+      : await sql`SELECT id, manager_id, team_id, season, team_name, record_note, wins, losses, ties, points_for, points_against FROM manager_team_seasons ORDER BY season, team_id;`;
     return rows.map((r) => ({
       id: r.id as number,
-      managerId: r.manager_id as number,
+      managerId: (r.manager_id as number) ?? null,
       teamId: r.team_id as number,
       season: r.season as number,
       teamName: r.team_name as string,
       recordNote: (r.record_note as string) ?? null,
+      wins: (r.wins as number) ?? null,
+      losses: (r.losses as number) ?? null,
+      ties: (r.ties as number) ?? null,
+      pointsFor: (r.points_for as number) ?? null,
+      pointsAgainst: (r.points_against as number) ?? null,
     }));
   } catch (err) {
     console.error("getManagerSeasons failed (is Postgres connected?)", err);
@@ -187,7 +204,11 @@ export async function getManagerSeasons(managerId?: number): Promise<ManagerSeas
   }
 }
 
-export async function upsertManagerSeason(
+// Assigns/reassigns which manager owned a team-season, and lets the admin
+// set the display name / a free-text note. Deliberately does NOT touch the
+// win/loss/points columns, so it's safe to run before or after a records
+// import without clobbering either side's data.
+export async function upsertManagerAssignment(
   managerId: number,
   teamId: number,
   season: number,
@@ -203,6 +224,31 @@ export async function upsertManagerSeason(
   `;
 }
 
+// Imports a real W-L record pulled from ESPN for one team-season. Creates
+// the row if it doesn't exist yet (with no manager assigned -- that's a
+// separate step via upsertManagerAssignment), or updates just the record
+// fields (and the ESPN-sourced team name) if it does, leaving any existing
+// manager assignment and record_note untouched.
+export async function upsertHistoricalRecord(
+  teamId: number,
+  season: number,
+  teamName: string,
+  wins: number,
+  losses: number,
+  ties: number,
+  pointsFor: number,
+  pointsAgainst: number
+) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO manager_team_seasons (team_id, season, team_name, wins, losses, ties, points_for, points_against)
+    VALUES (${teamId}, ${season}, ${teamName}, ${wins}, ${losses}, ${ties}, ${pointsFor}, ${pointsAgainst})
+    ON CONFLICT (team_id, season)
+    DO UPDATE SET team_name = ${teamName}, wins = ${wins}, losses = ${losses}, ties = ${ties},
+      points_for = ${pointsFor}, points_against = ${pointsAgainst};
+  `;
+}
+
 export async function deleteManagerSeason(id: number) {
   await ensureSchema();
   await sql`DELETE FROM manager_team_seasons WHERE id = ${id};`;
@@ -214,11 +260,12 @@ export async function getTrades(season?: number): Promise<Trade[]> {
   try {
     await ensureSchema();
     const { rows } = season
-      ? await sql`SELECT id, season, player_name, from_manager_id, to_manager_id, note FROM trades WHERE season = ${season} ORDER BY id DESC;`
-      : await sql`SELECT id, season, player_name, from_manager_id, to_manager_id, note FROM trades ORDER BY season DESC, id DESC;`;
+      ? await sql`SELECT id, season, week, player_name, from_manager_id, to_manager_id, note FROM trades WHERE season = ${season} ORDER BY id DESC;`
+      : await sql`SELECT id, season, week, player_name, from_manager_id, to_manager_id, note FROM trades ORDER BY season DESC, id DESC;`;
     return rows.map((r) => ({
       id: r.id as number,
       season: r.season as number,
+      week: (r.week as number) ?? null,
       playerName: r.player_name as string,
       fromManagerId: (r.from_manager_id as number) ?? null,
       toManagerId: (r.to_manager_id as number) ?? null,
@@ -235,16 +282,134 @@ export async function addTrade(
   playerName: string,
   fromManagerId: number | null,
   toManagerId: number | null,
-  note: string | null
+  note: string | null,
+  week: number | null = null
 ) {
   await ensureSchema();
   await sql`
-    INSERT INTO trades (season, player_name, from_manager_id, to_manager_id, note)
-    VALUES (${season}, ${playerName}, ${fromManagerId}, ${toManagerId}, ${note});
+    INSERT INTO trades (season, week, player_name, from_manager_id, to_manager_id, note)
+    VALUES (${season}, ${week}, ${playerName}, ${fromManagerId}, ${toManagerId}, ${note});
   `;
 }
 
 export async function deleteTrade(id: number) {
   await ensureSchema();
   await sql`DELETE FROM trades WHERE id = ${id};`;
+}
+
+// --- Monthly periods ---
+
+export async function getMonthlyPeriods(season?: number): Promise<MonthlyPeriod[]> {
+  try {
+    await ensureSchema();
+    const { rows } = season
+      ? await sql`SELECT id, season, label, start_week, end_week FROM monthly_periods WHERE season = ${season} ORDER BY start_week;`
+      : await sql`SELECT id, season, label, start_week, end_week FROM monthly_periods ORDER BY season DESC, start_week;`;
+    return rows.map((r) => ({
+      id: r.id as number,
+      season: r.season as number,
+      label: r.label as string,
+      startWeek: r.start_week as number,
+      endWeek: r.end_week as number,
+    }));
+  } catch (err) {
+    console.error("getMonthlyPeriods failed (is Postgres connected?)", err);
+    return [];
+  }
+}
+
+export async function addMonthlyPeriod(season: number, label: string, startWeek: number, endWeek: number) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO monthly_periods (season, label, start_week, end_week)
+    VALUES (${season}, ${label}, ${startWeek}, ${endWeek})
+    ON CONFLICT (season, label) DO UPDATE SET start_week = ${startWeek}, end_week = ${endWeek};
+  `;
+}
+
+export async function deleteMonthlyPeriod(id: number) {
+  await ensureSchema();
+  await sql`DELETE FROM monthly_periods WHERE id = ${id};`;
+}
+
+// --- Monthly awards (player-level, mirrors weekly_awards) ---
+
+export async function getMonthlyAwards(season: number, periodLabel: string): Promise<MonthlyAward[]> {
+  try {
+    await ensureSchema();
+    const { rows } = await sql`
+      SELECT season, period_label, category, player_name, team_id, note
+      FROM monthly_awards WHERE season = ${season} AND period_label = ${periodLabel};
+    `;
+    return rows.map((r) => ({
+      season: r.season as number,
+      periodLabel: r.period_label as string,
+      category: r.category as AwardCategory,
+      playerName: r.player_name as string,
+      teamId: (r.team_id as number) ?? null,
+      note: (r.note as string) ?? null,
+    }));
+  } catch (err) {
+    console.error("getMonthlyAwards failed (is Postgres connected?)", err);
+    return [];
+  }
+}
+
+export async function upsertMonthlyAward(
+  season: number,
+  periodLabel: string,
+  category: AwardCategory,
+  playerName: string,
+  teamId: number | null,
+  note: string | null
+) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO monthly_awards (season, period_label, category, player_name, team_id, note, updated_at)
+    VALUES (${season}, ${periodLabel}, ${category}, ${playerName}, ${teamId}, ${note}, now())
+    ON CONFLICT (season, period_label, category)
+    DO UPDATE SET player_name = ${playerName}, team_id = ${teamId}, note = ${note}, updated_at = now();
+  `;
+}
+
+// --- Newsletter intros ---
+
+export async function getNewsletterIntro(
+  season: number,
+  periodType: NewsletterPeriodType,
+  periodKey: string
+): Promise<NewsletterIntro | null> {
+  try {
+    await ensureSchema();
+    const { rows } = await sql`
+      SELECT season, period_type, period_key, intro_text FROM newsletter_intros
+      WHERE season = ${season} AND period_type = ${periodType} AND period_key = ${periodKey};
+    `;
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      season: r.season as number,
+      periodType: r.period_type as NewsletterPeriodType,
+      periodKey: r.period_key as string,
+      introText: r.intro_text as string,
+    };
+  } catch (err) {
+    console.error("getNewsletterIntro failed (is Postgres connected?)", err);
+    return null;
+  }
+}
+
+export async function upsertNewsletterIntro(
+  season: number,
+  periodType: NewsletterPeriodType,
+  periodKey: string,
+  introText: string
+) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO newsletter_intros (season, period_type, period_key, intro_text, updated_at)
+    VALUES (${season}, ${periodType}, ${periodKey}, ${introText}, now())
+    ON CONFLICT (season, period_type, period_key)
+    DO UPDATE SET intro_text = ${introText}, updated_at = now();
+  `;
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getManagerSeasons, upsertManagerSeason, deleteManagerSeason } from "@/lib/content";
+import { getManagerSeasons, upsertManagerAssignment, deleteManagerSeason } from "@/lib/content";
 
 export async function GET(req: NextRequest) {
   const managerIdParam = req.nextUrl.searchParams.get("managerId");
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!managerId || !teamId || !season || !teamName?.trim()) {
     return NextResponse.json({ error: "managerId, teamId, season, and teamName are required" }, { status: 400 });
   }
-  await upsertManagerSeason(managerId, teamId, season, teamName.trim(), recordNote || null);
+  await upsertManagerAssignment(managerId, teamId, season, teamName.trim(), recordNote || null);
   return NextResponse.json({ ok: true });
 }
 

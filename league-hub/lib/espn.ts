@@ -22,23 +22,26 @@ const SEASON = process.env.ESPN_SEASON_YEAR || String(MOCK_SEASON);
 const ESPN_S2 = process.env.ESPN_S2;
 const ESPN_SWID = process.env.ESPN_SWID;
 
-const BASE = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${SEASON}/segments/0/leagues/${LEAGUE_ID}`;
+function buildBase(season?: number | string) {
+  return `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season ?? SEASON}/segments/0/leagues/${LEAGUE_ID}`;
+}
 
 export function liveDataConfigured(): boolean {
   return Boolean(ESPN_S2 && ESPN_SWID);
 }
 
-async function fetchEspn(views: string[]) {
+async function fetchEspn(views: string[], season?: number) {
   if (!liveDataConfigured()) return null;
 
   const qs = views.map((v) => `view=${v}`).join("&");
   try {
-    const res = await fetch(`${BASE}?${qs}`, {
+    const res = await fetch(`${buildBase(season)}?${qs}`, {
       headers: {
         Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}`,
       },
       // Standings/rosters change during the day; don't cache too long.
-      next: { revalidate: 300 },
+      // Past seasons are frozen, so cache those far longer.
+      next: { revalidate: season ? 86400 : 300 },
     });
     if (!res.ok) {
       console.error("ESPN fetch failed", res.status, await res.text());
@@ -98,9 +101,15 @@ export async function getStandings(): Promise<{ teams: Team[]; live: boolean }> 
   return { teams, live: true };
 }
 
-export async function getMatchups(week?: number): Promise<{ matchups: Matchup[]; live: boolean }> {
-  const data = await fetchEspn(["mMatchup", "mMatchupScore"]);
+export async function getMatchups(
+  week?: number,
+  season?: number
+): Promise<{ matchups: Matchup[]; live: boolean }> {
+  const data = await fetchEspn(["mMatchup", "mMatchupScore"], season);
   if (!data?.schedule) {
+    // A specific historical season was requested and failed -- don't
+    // substitute the current season's mock data, that would be misleading.
+    if (season) return { matchups: [], live: false };
     return { matchups: MOCK_MATCHUPS.filter((m) => !week || m.week === week), live: false };
   }
 
@@ -118,9 +127,10 @@ export async function getMatchups(week?: number): Promise<{ matchups: Matchup[];
   return { matchups, live: true };
 }
 
-export async function getRosters(): Promise<{ rosters: Roster[]; live: boolean }> {
-  const data = await fetchEspn(["mRoster", "mTeam"]);
+export async function getRosters(season?: number): Promise<{ rosters: Roster[]; live: boolean }> {
+  const data = await fetchEspn(["mRoster", "mTeam"], season);
   if (!data?.teams) {
+    if (season) return { rosters: [], live: false };
     return { rosters: MOCK_ROSTERS, live: false };
   }
 
@@ -144,9 +154,10 @@ export async function getRosters(): Promise<{ rosters: Roster[]; live: boolean }
 // projected); scoringPeriodId lines up with the "week" numbers used
 // everywhere else in this app.
 export async function getWeeklyPlayerStats(
-  week: number
+  week: number,
+  season?: number
 ): Promise<{ players: WeeklyPlayerStat[]; live: boolean }> {
-  const data = await fetchEspn(["mRoster", "mTeam"]);
+  const data = await fetchEspn(["mRoster", "mTeam"], season);
   if (!data?.teams) {
     return { players: [], live: false };
   }
@@ -185,14 +196,24 @@ export async function getWeeklyPlayerStats(
 export async function getHistoricalSeasonTeams(season: number): Promise<{
   ok: boolean;
   error?: string;
-  teams?: { id: number; abbrev: string; name: string; ownerIds: string[] }[];
+  teams?: {
+    id: number;
+    abbrev: string;
+    name: string;
+    ownerIds: string[];
+    wins: number;
+    losses: number;
+    ties: number;
+    pointsFor: number;
+    pointsAgainst: number;
+  }[];
   members?: { id: string; displayName: string }[];
 }> {
   if (!liveDataConfigured()) {
     return { ok: false, error: "ESPN isn't connected (missing ESPN_S2 / ESPN_SWID)." };
   }
 
-  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mTeam&view=mSettings`;
+  const url = `${buildBase(season)}?view=mTeam&view=mSettings`;
 
   try {
     const res = await fetch(url, {
@@ -211,6 +232,11 @@ export async function getHistoricalSeasonTeams(season: number): Promise<{
       abbrev: t.abbrev,
       name: t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim(),
       ownerIds: t.owners ?? [],
+      wins: t.record?.overall?.wins ?? 0,
+      losses: t.record?.overall?.losses ?? 0,
+      ties: t.record?.overall?.ties ?? 0,
+      pointsFor: t.record?.overall?.pointsFor ?? 0,
+      pointsAgainst: t.record?.overall?.pointsAgainst ?? 0,
     }));
 
     const members = (data.members ?? []).map((m: any) => ({
@@ -223,6 +249,88 @@ export async function getHistoricalSeasonTeams(season: number): Promise<{
     return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
 }
+
+// Sums real fantasy points per player across a range of weeks (inclusive)
+// -- used for Monthly Awards' "Suggest from stats" button. Straightforward
+// aggregation over the same weekly function already used for Weekly Awards.
+export async function getMonthlyPlayerStats(
+  startWeek: number,
+  endWeek: number,
+  season?: number
+): Promise<{ players: WeeklyPlayerStat[]; live: boolean }> {
+  const totals = new Map<number, WeeklyPlayerStat>();
+  let anyLive = false;
+
+  for (let week = startWeek; week <= endWeek; week++) {
+    const { players, live } = await getWeeklyPlayerStats(week, season);
+    if (live) anyLive = true;
+    for (const p of players) {
+      const existing = totals.get(p.id);
+      if (existing) {
+        existing.points += p.points;
+      } else {
+        totals.set(p.id, { ...p });
+      }
+    }
+  }
+
+  return { players: Array.from(totals.values()), live: anyLive };
+}
+
+export interface ManagerMonthSummary {
+  teamId: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+}
+
+// Tallies each team's actual matchup results across a range of weeks --
+// this is what makes "Manager of the Month" an objective, auto-computed
+// fact rather than an editorial pick, unlike the player awards above.
+export async function getManagerMonthSummary(
+  startWeek: number,
+  endWeek: number,
+  season?: number
+): Promise<{ teams: ManagerMonthSummary[]; live: boolean }> {
+  const totals = new Map<number, ManagerMonthSummary>();
+  let anyLive = false;
+
+  const ensure = (teamId: number) => {
+    if (!totals.has(teamId)) {
+      totals.set(teamId, { teamId, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 });
+    }
+    return totals.get(teamId)!;
+  };
+
+  for (let week = startWeek; week <= endWeek; week++) {
+    const { matchups, live } = await getMatchups(week, season);
+    if (live) anyLive = true;
+    for (const m of matchups) {
+      if (!m.isFinal) continue;
+      const home = ensure(m.homeTeamId);
+      const away = ensure(m.awayTeamId);
+      home.pointsFor += m.homeScore;
+      home.pointsAgainst += m.awayScore;
+      away.pointsFor += m.awayScore;
+      away.pointsAgainst += m.homeScore;
+      if (m.homeScore > m.awayScore) {
+        home.wins++;
+        away.losses++;
+      } else if (m.awayScore > m.homeScore) {
+        away.wins++;
+        home.losses++;
+      } else {
+        home.ties++;
+        away.ties++;
+      }
+    }
+  }
+
+  return { teams: Array.from(totals.values()), live: anyLive };
+}
+
 function positionName(id?: number): string {
   const map: Record<number, string> = {
     1: "C",

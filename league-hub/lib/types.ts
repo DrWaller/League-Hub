@@ -135,18 +135,54 @@ export interface Manager {
 
 export interface ManagerSeason {
   id: number;
-  managerId: number;
+  managerId: number | null; // null until someone assigns a manager to this row
   teamId: number; // ESPN team id for that season
   season: number;
-  teamName: string; // team's display name that specific season (historical, hand-entered)
-  recordNote: string | null; // free text, e.g. "24-18-2, lost in semis"
+  teamName: string; // team's display name that specific season
+  recordNote: string | null; // free text, e.g. "lost in semis" -- separate from the real record below
+  wins: number | null;
+  losses: number | null;
+  ties: number | null;
+  pointsFor: number | null;
+  pointsAgainst: number | null;
 }
 
 export interface Trade {
   id: number;
   season: number;
+  week: number | null;
   playerName: string;
   fromManagerId: number | null;
   toManagerId: number | null;
   note: string | null;
+}
+
+// --- Monthly awards ---
+
+export interface MonthlyPeriod {
+  id: number;
+  season: number;
+  label: string; // e.g. "October 2026" -- admin's own wording
+  startWeek: number;
+  endWeek: number;
+}
+
+export interface MonthlyAward {
+  season: number;
+  periodLabel: string;
+  category: AwardCategory;
+  playerName: string;
+  teamId: number | null;
+  note: string | null;
+}
+
+// --- Newsletter ---
+
+export type NewsletterPeriodType = "week" | "month";
+
+export interface NewsletterIntro {
+  season: number;
+  periodType: NewsletterPeriodType;
+  periodKey: string; // a week number as a string, or a monthly period's label
+  introText: string;
 }

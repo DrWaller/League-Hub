@@ -97,14 +97,28 @@ export async function ensureSchema() {
   await sql`
     CREATE TABLE IF NOT EXISTS manager_team_seasons (
       id SERIAL PRIMARY KEY,
-      manager_id INTEGER NOT NULL REFERENCES managers(id) ON DELETE CASCADE,
+      manager_id INTEGER REFERENCES managers(id) ON DELETE CASCADE,
       team_id INTEGER NOT NULL,
       season INTEGER NOT NULL,
       team_name TEXT NOT NULL,
       record_note TEXT,
+      wins INTEGER,
+      losses INTEGER,
+      ties INTEGER,
+      points_for INTEGER,
+      points_against INTEGER,
       UNIQUE(team_id, season)
     );
   `;
+  // Safe to re-run: no-ops once already applied. Lets existing deployments
+  // (created before records-import existed) pick up the new nullable
+  // manager_id and record columns without losing any data.
+  await sql`ALTER TABLE manager_team_seasons ALTER COLUMN manager_id DROP NOT NULL;`;
+  await sql`ALTER TABLE manager_team_seasons ADD COLUMN IF NOT EXISTS wins INTEGER;`;
+  await sql`ALTER TABLE manager_team_seasons ADD COLUMN IF NOT EXISTS losses INTEGER;`;
+  await sql`ALTER TABLE manager_team_seasons ADD COLUMN IF NOT EXISTS ties INTEGER;`;
+  await sql`ALTER TABLE manager_team_seasons ADD COLUMN IF NOT EXISTS points_for INTEGER;`;
+  await sql`ALTER TABLE manager_team_seasons ADD COLUMN IF NOT EXISTS points_against INTEGER;`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS trades (
@@ -115,6 +129,44 @@ export async function ensureSchema() {
       to_manager_id INTEGER REFERENCES managers(id) ON DELETE SET NULL,
       note TEXT,
       created_at TIMESTAMP DEFAULT now()
+    );
+  `;
+  await sql`ALTER TABLE trades ADD COLUMN IF NOT EXISTS week INTEGER;`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS monthly_periods (
+      id SERIAL PRIMARY KEY,
+      season INTEGER NOT NULL,
+      label TEXT NOT NULL,
+      start_week INTEGER NOT NULL,
+      end_week INTEGER NOT NULL,
+      UNIQUE(season, label)
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS monthly_awards (
+      id SERIAL PRIMARY KEY,
+      season INTEGER NOT NULL,
+      period_label TEXT NOT NULL,
+      category TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      team_id INTEGER,
+      note TEXT,
+      updated_at TIMESTAMP DEFAULT now(),
+      UNIQUE(season, period_label, category)
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS newsletter_intros (
+      id SERIAL PRIMARY KEY,
+      season INTEGER NOT NULL,
+      period_type TEXT NOT NULL,
+      period_key TEXT NOT NULL,
+      intro_text TEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT now(),
+      UNIQUE(season, period_type, period_key)
     );
   `;
 
