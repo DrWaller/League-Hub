@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/admin/monthly-awards", label: "Monthly Awards" },
   { href: "/admin/newsletter", label: "Newsletter" },
   { href: "/admin/matchups", label: "Matchup Blurbs" },
+  { href: "/admin/graphics", label: "Graphics" },
   { href: "/admin/keepers", label: "Keepers" },
   { href: "/admin/managers", label: "Managers" },
   { href: "/admin/trades", label: "Trades" },

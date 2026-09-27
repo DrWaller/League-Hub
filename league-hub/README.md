@@ -160,6 +160,21 @@ the current season, just pointed at a different year. Nothing is copied
 into the database for this; it's fetched fresh each time (and cached for a
 day, since past seasons don't change).
 
+## Auto-generated graphics
+
+**Graphics** (in the admin area) generates shareable images — 3 Stars,
+Top 3 by Position, Team of the Week — from the same real weekly stats as
+the Awards "Suggest" button, no admin curation needed, just pick a week.
+Matches the visual style approved on the design canvas. Right-click or
+press-and-hold an image to save it; there's also a Download link. Uses
+`next/og` (built into Next.js — no extra service or API key).
+
+**Not yet built**: Player Spotlight cards (need goal/assist/shot or
+win/save breakdowns — separate ESPN stat categories not mapped yet) and
+the Luck Chart (needs an all-play record computed across every team,
+every week — bigger than what's built so far). Natural next additions
+once the simpler graphics are confirmed working against a real week.
+
 ## Known gaps / good next steps
 
 - **Power rankings movement (↑/↓ vs. last week)**: needs last week's ranking
