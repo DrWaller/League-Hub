@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
 import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
-import { loadGraphicFonts } from "@/lib/og-fonts";
+import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { OG } from "@/lib/og-theme";
 import { WeeklyPlayerStat } from "@/lib/types";
 
@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
       getStandings(),
       loadGraphicFonts(),
     ]);
+
+    const { display, body } = getFontFamilies(fonts);
 
     if (!live) {
       return new Response("ESPN isn't connected, or no stats posted for this week yet.", { status: 400 });
@@ -36,9 +38,9 @@ export async function GET(req: NextRequest) {
 
     return new ImageResponse(
       (
-        <div style={{ width: 1200, height: 820, display: "flex", flexDirection: "column", background: OG.ice, fontFamily: "Source Sans 3" }}>
+        <div style={{ width: 1200, height: 820, display: "flex", flexDirection: "column", background: OG.ice, fontFamily: body }}>
           <div style={{ display: "flex", flexDirection: "column", background: OG.rink, padding: "32px 48px 28px 48px" }}>
-            <div style={{ fontFamily: "Oswald", fontWeight: 700, fontSize: 40, color: OG.ice, textTransform: "uppercase" }}>Team of the Week</div>
+            <div style={{ fontFamily: display, fontWeight: 700, fontSize: 40, color: OG.ice, textTransform: "uppercase" }}>Team of the Week</div>
             <div style={{ fontSize: 16, color: "#B9C9DC" }}>Week {week}</div>
           </div>
           <div style={{ height: 3, background: OG.centerRed }} />
@@ -64,7 +66,7 @@ export async function GET(req: NextRequest) {
                     position: "absolute",
                     top: 14,
                     right: 14,
-                    fontFamily: "Oswald",
+                    fontFamily: display,
                     fontSize: 13,
                     fontWeight: 700,
                     color: OG.ice,
@@ -86,7 +88,7 @@ export async function GET(req: NextRequest) {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontFamily: "Oswald",
+                        fontFamily: display,
                         fontSize: 26,
                         fontWeight: 700,
                         color: OG.ice,
@@ -95,10 +97,10 @@ export async function GET(req: NextRequest) {
                       {slot.player.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                      <div style={{ fontFamily: "Oswald", fontSize: 19, fontWeight: 700, color: OG.board }}>{slot.player.name}</div>
+                      <div style={{ fontFamily: display, fontSize: 19, fontWeight: 700, color: OG.board }}>{slot.player.name}</div>
                       <div style={{ fontSize: 13, color: OG.muted }}>{teamName(slot.player.teamId)}</div>
                     </div>
-                    <div style={{ fontFamily: "Oswald", fontSize: 22, fontWeight: 700, color: OG.centerRed }}>
+                    <div style={{ fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.centerRed }}>
                       {slot.player.points.toFixed(2)} pts
                     </div>
                   </>

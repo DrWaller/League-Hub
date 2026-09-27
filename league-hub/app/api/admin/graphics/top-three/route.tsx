@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
 import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
-import { loadGraphicFonts } from "@/lib/og-fonts";
+import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { OG } from "@/lib/og-theme";
 
 export const runtime = "nodejs";
@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
       loadGraphicFonts(),
     ]);
 
+    const { display, body } = getFontFamilies(fonts);
+
     if (!live) {
       return new Response("ESPN isn't connected, or no stats posted for this week yet.", { status: 400 });
     }
@@ -47,9 +49,9 @@ export async function GET(req: NextRequest) {
 
     return new ImageResponse(
       (
-        <div style={{ width: 1200, height: 640, display: "flex", flexDirection: "column", background: OG.ice, fontFamily: "Source Sans 3" }}>
+        <div style={{ width: 1200, height: 640, display: "flex", flexDirection: "column", background: OG.ice, fontFamily: body }}>
           <div style={{ display: "flex", flexDirection: "column", background: OG.rink, padding: "32px 48px 28px 48px" }}>
-            <div style={{ fontFamily: "Oswald", fontWeight: 700, fontSize: 40, color: OG.ice, textTransform: "uppercase" }}>
+            <div style={{ fontFamily: display, fontWeight: 700, fontSize: 40, color: OG.ice, textTransform: "uppercase" }}>
               Top 3 {POSITION_LABELS[position]}
             </div>
             <div style={{ fontSize: 16, color: "#B9C9DC" }}>Week {week}</div>
@@ -72,7 +74,7 @@ export async function GET(req: NextRequest) {
                   position: "relative",
                 }}
               >
-                <div style={{ position: "absolute", top: 16, left: 16, fontFamily: "Oswald", fontSize: 14, fontWeight: 700, color: medalColors[i] }}>
+                <div style={{ position: "absolute", top: 16, left: 16, fontFamily: display, fontSize: 14, fontWeight: 700, color: medalColors[i] }}>
                   {rankLabels[i]}
                 </div>
                 <div
@@ -84,7 +86,7 @@ export async function GET(req: NextRequest) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontFamily: "Oswald",
+                    fontFamily: display,
                     fontSize: 32,
                     fontWeight: 700,
                     color: OG.ice,
@@ -94,10 +96,10 @@ export async function GET(req: NextRequest) {
                   {p.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  <div style={{ fontFamily: "Oswald", fontSize: 22, fontWeight: 700, color: OG.board }}>{p.name}</div>
+                  <div style={{ fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.board }}>{p.name}</div>
                   <div style={{ fontSize: 14, color: OG.muted }}>{teamName(p.teamId)}</div>
                 </div>
-                <div style={{ fontFamily: "Oswald", fontSize: 28, fontWeight: 700, color: OG.centerRed }}>{p.points.toFixed(2)} pts</div>
+                <div style={{ fontFamily: display, fontSize: 28, fontWeight: 700, color: OG.centerRed }}>{p.points.toFixed(2)} pts</div>
               </div>
             ))}
             {top3.length === 0 && (

@@ -43,9 +43,22 @@ export async function loadGraphicFonts() {
       { name: "Source Sans 3", data: sourceSans600, weight: 600 as const, style: "normal" as const },
     ];
   } catch (err) {
-    // Better a plain-font image than a crashed route -- next/og falls back
-    // to its own default font when none are supplied.
+    // Better a plain-font image than a crashed route -- see getFontFamilies
+    // below for why the CALLER also needs to know this happened.
     console.error("loadGraphicFonts failed, falling back to default font", err);
     return [];
   }
+}
+
+// Satori (the renderer behind next/og) throws HARD if a style references a
+// font-family that isn't in the loaded fonts array -- it does not silently
+// fall back. So when loadGraphicFonts() returns [], the JSX must stop
+// asking for "Oswald" / "Source Sans 3" entirely (return undefined, which
+// omits the CSS property) rather than degrade to Satori's own default.
+export function getFontFamilies(fonts: Awaited<ReturnType<typeof loadGraphicFonts>>) {
+  const have = fonts.length > 0;
+  return {
+    display: have ? "Oswald" : undefined,
+    body: have ? "Source Sans 3" : undefined,
+  };
 }
