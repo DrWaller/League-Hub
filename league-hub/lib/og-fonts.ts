@@ -30,15 +30,22 @@ async function fetchFont(family: string, weight: number): Promise<ArrayBuffer> {
 }
 
 export async function loadGraphicFonts() {
-  const [oswald700, sourceSans400, sourceSans600] = await Promise.all([
-    fetchFont("Oswald", 700),
-    fetchFont("Source Sans 3", 400),
-    fetchFont("Source Sans 3", 600),
-  ]);
+  try {
+    const [oswald700, sourceSans400, sourceSans600] = await Promise.all([
+      fetchFont("Oswald", 700),
+      fetchFont("Source Sans 3", 400),
+      fetchFont("Source Sans 3", 600),
+    ]);
 
-  return [
-    { name: "Oswald", data: oswald700, weight: 700 as const, style: "normal" as const },
-    { name: "Source Sans 3", data: sourceSans400, weight: 400 as const, style: "normal" as const },
-    { name: "Source Sans 3", data: sourceSans600, weight: 600 as const, style: "normal" as const },
-  ];
+    return [
+      { name: "Oswald", data: oswald700, weight: 700 as const, style: "normal" as const },
+      { name: "Source Sans 3", data: sourceSans400, weight: 400 as const, style: "normal" as const },
+      { name: "Source Sans 3", data: sourceSans600, weight: 600 as const, style: "normal" as const },
+    ];
+  } catch (err) {
+    // Better a plain-font image than a crashed route -- next/og falls back
+    // to its own default font when none are supplied.
+    console.error("loadGraphicFonts failed, falling back to default font", err);
+    return [];
+  }
 }
