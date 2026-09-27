@@ -4,7 +4,7 @@ import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { OG } from "@/lib/og-theme";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         <div style={{ width: 1200, height: 640, display: "flex", flexDirection: "column", background: OG.ice, fontFamily: body }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: OG.rink, padding: "32px 48px 28px 48px" }}>
             <div style={{ fontFamily: display, fontWeight: 700, fontSize: 40, color: OG.ice, textTransform: "uppercase" }}>3 Stars of the Week</div>
-            <div style={{ fontSize: 16, color: "#B9C9DC" }}>Week {week}</div>
+            <div style={{ display: "flex", fontSize: 16, color: "#B9C9DC" }}>Week {week}</div>
           </div>
           <div style={{ height: 3, background: OG.centerRed }} />
           <div style={{ flexGrow: 1, display: "flex", padding: "40px 48px", gap: 24, alignItems: "flex-end" }}>
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
                   <div style={{ fontFamily: display, fontSize: 21, fontWeight: 700, color: OG.board }}>{p.name}</div>
                   <div style={{ fontSize: 13, color: OG.muted }}>{teamName(p.teamId)}</div>
                 </div>
-                <div style={{ fontFamily: display, fontSize: 24, fontWeight: 700, color: OG.centerRed }}>{p.points.toFixed(2)} pts</div>
+                <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, color: OG.centerRed }}>{p.points.toFixed(2)} pts</div>
               </div>
             ))}
             {top3.length === 0 && (

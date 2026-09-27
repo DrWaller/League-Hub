@@ -5,7 +5,7 @@ import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { OG } from "@/lib/og-theme";
 import { WeeklyPlayerStat } from "@/lib/types";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         <div style={{ width: 1200, height: 820, display: "flex", flexDirection: "column", background: OG.ice, fontFamily: body }}>
           <div style={{ display: "flex", flexDirection: "column", background: OG.rink, padding: "32px 48px 28px 48px" }}>
             <div style={{ fontFamily: display, fontWeight: 700, fontSize: 40, color: OG.ice, textTransform: "uppercase" }}>Team of the Week</div>
-            <div style={{ fontSize: 16, color: "#B9C9DC" }}>Week {week}</div>
+            <div style={{ display: "flex", fontSize: 16, color: "#B9C9DC" }}>Week {week}</div>
           </div>
           <div style={{ height: 3, background: OG.centerRed }} />
           <div style={{ flexGrow: 1, display: "flex", flexWrap: "wrap", padding: "36px 48px", gap: 24 }}>
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
                   {slot.slot}
                 </div>
                 {slot.player ? (
-                  <>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
                     <div
                       style={{
                         width: 76,
@@ -100,10 +100,10 @@ export async function GET(req: NextRequest) {
                       <div style={{ fontFamily: display, fontSize: 19, fontWeight: 700, color: OG.board }}>{slot.player.name}</div>
                       <div style={{ fontSize: 13, color: OG.muted }}>{teamName(slot.player.teamId)}</div>
                     </div>
-                    <div style={{ fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.centerRed }}>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.centerRed }}>
                       {slot.player.points.toFixed(2)} pts
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <div style={{ display: "flex", color: OG.muted, fontSize: 14, padding: "30px 0" }}>No data</div>
                 )}

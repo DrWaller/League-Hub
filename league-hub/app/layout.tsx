@@ -1,20 +1,7 @@
 import type { Metadata } from "next";
-import { Oswald, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import { getLeagueMeta } from "@/lib/espn";
-
-const display = Oswald({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-display",
-});
-
-const body = Source_Sans_3({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-body",
-});
 
 export const metadata: Metadata = {
   title: "Fantasy Hockey League",
@@ -29,7 +16,7 @@ export default async function RootLayout({
   const meta = await getLeagueMeta();
 
   return (
-    <html lang="en" className={`${display.variable} ${body.variable}`}>
+    <html lang="en">
       <body>
         <Nav leagueName={meta.name} />
         <main className="max-w-content mx-auto px-4 sm:px-6 py-10">{children}</main>
