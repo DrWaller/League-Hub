@@ -21,6 +21,7 @@ import {
   MonthlyAward,
   NewsletterIntro,
   NewsletterPeriodType,
+  SeasonHistoryRecord,
 } from "./types";
 
 export async function getTeamLogos(): Promise<Record<number, string>> {
@@ -412,4 +413,45 @@ export async function upsertNewsletterIntro(
     ON CONFLICT (season, period_type, period_key)
     DO UPDATE SET intro_text = ${introText}, updated_at = now();
   `;
+}
+
+
+// --- League History entries ---
+
+export async function getSeasonHistory(): Promise<SeasonHistoryRecord[]> {
+  try {
+    await ensureSchema();
+    const { rows } = await sql`
+      SELECT season, champion, runner_up, regular_season_leader, tags, note
+      FROM season_history ORDER BY season DESC;
+    `;
+    return rows.map((r) => ({
+      season: r.season as number,
+      champion: (r.champion as string) || null,
+      runnerUp: (r.runner_up as string) || null,
+      regularSeasonLeader: (r.regular_season_leader as string) || null,
+      tags: r.tags ? (r.tags as string).split("|").filter(Boolean) : [],
+      note: (r.note as string) || null,
+    }));
+  } catch (err) {
+    console.error("getSeasonHistory failed (is Postgres connected?)", err);
+    return [];
+  }
+}
+
+export async function upsertSeasonHistory(h: SeasonHistoryRecord) {
+  await ensureSchema();
+  const tags = h.tags.join("|");
+  await sql`
+    INSERT INTO season_history (season, champion, runner_up, regular_season_leader, tags, note, updated_at)
+    VALUES (${h.season}, ${h.champion}, ${h.runnerUp}, ${h.regularSeasonLeader}, ${tags}, ${h.note}, now())
+    ON CONFLICT (season) DO UPDATE SET
+      champion = ${h.champion}, runner_up = ${h.runnerUp}, regular_season_leader = ${h.regularSeasonLeader},
+      tags = ${tags}, note = ${h.note}, updated_at = now();
+  `;
+}
+
+export async function deleteSeasonHistory(season: number) {
+  await ensureSchema();
+  await sql`DELETE FROM season_history WHERE season = ${season};`;
 }

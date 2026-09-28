@@ -30,7 +30,7 @@ export function liveDataConfigured(): boolean {
   return Boolean(ESPN_S2 && ESPN_SWID);
 }
 
-async function fetchEspn(views: string[], season?: number) {
+async function fetchEspn(views: string[], season?: number, quiet = false) {
   if (!liveDataConfigured()) return null;
 
   const qs = views.map((v) => `view=${v}`).join("&");
@@ -44,12 +44,12 @@ async function fetchEspn(views: string[], season?: number) {
       next: { revalidate: season ? 86400 : 300 },
     });
     if (!res.ok) {
-      console.error("ESPN fetch failed", res.status, await res.text());
+      if (!quiet) console.error("ESPN fetch failed", res.status, await res.text());
       return null;
     }
     return await res.json();
   } catch (err) {
-    console.error("ESPN fetch error", err);
+    if (!quiet) console.error("ESPN fetch error", err);
     return null;
   }
 }
@@ -344,4 +344,57 @@ function positionName(id?: number): string {
     5: "G",
   };
   return id !== undefined ? map[id] ?? "?" : "?";
+}
+
+
+// ---------------------------------------------------------------------------
+// Past seasons, discovered from ESPN itself (no import needed)
+// ---------------------------------------------------------------------------
+
+export interface PastSeasonTeam {
+  id: number;
+  abbrev: string;
+  name: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+}
+
+// One team list per past season, cached a day (past seasons don't change).
+// Returns null when ESPN has nothing for that year -- which is exactly how
+// a season the league didn't play on ESPN (e.g. the Fantrax year) shows up.
+export async function getPastSeasonTeams(season: number): Promise<PastSeasonTeam[] | null> {
+  const data = await fetchEspn(["mTeam"], season, true);
+  if (!data?.teams?.length) return null;
+  return data.teams.map((t: any) => ({
+    id: t.id,
+    abbrev: t.abbrev,
+    name: t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev,
+    wins: t.record?.overall?.wins ?? 0,
+    losses: t.record?.overall?.losses ?? 0,
+    ties: t.record?.overall?.ties ?? 0,
+    pointsFor: t.record?.overall?.pointsFor ?? 0,
+    pointsAgainst: t.record?.overall?.pointsAgainst ?? 0,
+  }));
+}
+
+// Which earlier seasons does ESPN actually have for this league? Asks about
+// each of the last several years and keeps the ones that answer with teams.
+// Remembered for a few hours per server instance so it isn't re-asked on
+// every page view.
+let seasonProbe: { current: number; at: number; seasons: number[] } | null = null;
+const PROBE_YEARS = 12;
+
+export async function getPastSeasons(currentSeason: number): Promise<number[]> {
+  if (!liveDataConfigured()) return [];
+  if (seasonProbe && seasonProbe.current === currentSeason && Date.now() - seasonProbe.at < 6 * 3600 * 1000) {
+    return seasonProbe.seasons;
+  }
+  const years = Array.from({ length: PROBE_YEARS }, (_, i) => currentSeason - 1 - i);
+  const answers = await Promise.all(years.map((y) => getPastSeasonTeams(y).then((t) => (t ? y : null))));
+  const seasons = answers.filter((y): y is number => y !== null).sort((a, b) => b - a);
+  seasonProbe = { current: currentSeason, at: Date.now(), seasons };
+  return seasons;
 }

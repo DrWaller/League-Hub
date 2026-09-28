@@ -170,5 +170,17 @@ export async function ensureSchema() {
     );
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS season_history (
+      season INTEGER PRIMARY KEY,
+      champion TEXT,
+      runner_up TEXT,
+      regular_season_leader TEXT,
+      tags TEXT,
+      note TEXT,
+      updated_at TIMESTAMP DEFAULT now()
+    );
+  `;
+
   schemaReady = true;
 }

@@ -187,3 +187,17 @@ export interface NewsletterIntro {
   periodKey: string; // a week number as a string, or a monthly period's label
   introText: string;
 }
+
+
+// League History entries the commissioner writes by hand (champion, runner-up,
+// notes on odd seasons). The standings under each season come from ESPN.
+export const KNOWN_HISTORY_TAGS = ["COVID-shortened", "Played on Fantrax"] as const;
+
+export interface SeasonHistoryRecord {
+  season: number;
+  champion: string | null;
+  runnerUp: string | null;
+  regularSeasonLeader: string | null; // optional manual override of the auto-detected leader
+  tags: string[];
+  note: string | null;
+}

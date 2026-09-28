@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getRosters, getStandings, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
-import { getTeamLogos, getManagerSeasons } from "@/lib/content";
+import { getTeamLogos } from "@/lib/content";
+import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function RostersPage({
   const season = Number(searchParams.season) || meta.season;
   const isCurrentSeason = season === meta.season;
 
-  const [logos, allManagerSeasons] = await Promise.all([getTeamLogos(), getManagerSeasons()]);
+  const [logos, seasons] = await Promise.all([getTeamLogos(), getAvailableSeasons(meta.season)]);
 
   let rosters, live, teams: { id: number; name: string }[];
 
@@ -37,9 +38,6 @@ export default async function RostersPage({
   const roster = rosters.find((r) => r.teamId === selectedId);
   const team = teams.find((t) => t.id === selectedId);
 
-  const seasons = Array.from(new Set([meta.season, ...allManagerSeasons.map((s) => s.season)])).sort(
-    (a, b) => b - a
-  );
 
   return (
     <div>

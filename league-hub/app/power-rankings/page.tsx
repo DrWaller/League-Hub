@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getStandings, getMatchups, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
-import { getTeamLogos, getManagerSeasons } from "@/lib/content";
+import { getTeamLogos } from "@/lib/content";
+import { getAvailableSeasons } from "@/lib/seasons";
 import { calculatePowerRankings } from "@/lib/power-rankings";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
 import TeamLogo from "@/components/TeamLogo";
@@ -14,10 +15,10 @@ export default async function PowerRankingsPage({
   searchParams: { week?: string; season?: string };
 }) {
   const meta = await getLeagueMeta();
-  const [{ teams, live }, logos, managerSeasons] = await Promise.all([
+  const [{ teams, live }, logos, availableSeasons] = await Promise.all([
     getStandings(),
     getTeamLogos(),
-    getManagerSeasons(),
+    getAvailableSeasons(meta.season),
   ]);
   const rankings = calculatePowerRankings(teams);
   const teamById = (id: number) => teams.find((t) => t.id === id);
@@ -52,9 +53,7 @@ export default async function PowerRankingsPage({
     : 0;
   const luck = throughWeek ? computeLuck(luckMatchups, throughWeek) : null;
 
-  const luckSeasons = Array.from(
-    new Set([meta.season, luckSeason, ...managerSeasons.map((s) => s.season)])
-  ).sort((a, b) => b - a);
+  const luckSeasons = Array.from(new Set([...availableSeasons, luckSeason])).sort((a, b) => b - a);
 
   const luckHref = (season: number, week?: number) =>
     `/power-rankings?${season !== meta.season ? `season=${season}` : ""}${

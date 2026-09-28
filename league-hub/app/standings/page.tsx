@@ -1,19 +1,72 @@
-import { getStandings } from "@/lib/espn";
+import Link from "next/link";
+import { getStandings, getLeagueMeta, getPastSeasonTeams } from "@/lib/espn";
 import { getTeamLogos } from "@/lib/content";
+import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
 
 export const dynamic = "force-dynamic";
 
-export default async function StandingsPage() {
-  const [{ teams, live }, logos] = await Promise.all([getStandings(), getTeamLogos()]);
-  const playoffLine = 6; // adjust to your league's playoff cutoff
+interface Row {
+  id: number;
+  name: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  streak?: string;
+}
+
+export default async function StandingsPage({ searchParams }: { searchParams: { season?: string } }) {
+  const meta = await getLeagueMeta();
+  const season = Number(searchParams.season) || meta.season;
+  const isPast = season !== meta.season;
+  const playoffLine = 6; // adjust to your league's playoff cutoff (current season only)
+
+  const [seasons, logos] = await Promise.all([getAvailableSeasons(meta.season), getTeamLogos()]);
+
+  let rows: Row[] = [];
+  let live: boolean;
+  if (isPast) {
+    const past = await getPastSeasonTeams(season);
+    live = past !== null;
+    rows = (past ?? []).sort(
+      (a, b) => b.wins - b.losses - (a.wins - a.losses) || b.pointsFor - a.pointsFor
+    );
+  } else {
+    const current = await getStandings();
+    live = current.live;
+    rows = current.teams;
+  }
 
   return (
     <div>
-      <h1 className="font-display text-3xl mb-1">Standings</h1>
-      <p className="text-muted mb-8">
-        {live ? "Live from ESPN." : "Preview data — connect ESPN for live standings."}
+      <h1 className="font-display text-3xl mb-1">Standings{isPast ? ` — ${season}` : ""}</h1>
+      <p className="text-muted mb-4">
+        {isPast
+          ? live
+            ? "Final regular-season standings, from ESPN."
+            : `Couldn't load ${season} from ESPN.`
+          : live
+            ? "Live from ESPN."
+            : "Preview data — connect ESPN for live standings."}
       </p>
+
+      {seasons.length > 1 && (
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {seasons.map((s) => (
+            <Link
+              key={s}
+              href={s === meta.season ? "/standings" : `/standings?season=${s}`}
+              className={`px-3 py-1.5 text-sm border ${
+                s === season ? "bg-rink text-ice border-rink" : "border-ice-line hover:border-rink-bright"
+              }`}
+            >
+              {s}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm font-tabular border-collapse">
@@ -26,36 +79,41 @@ export default async function StandingsPage() {
               <th className="py-2 pr-4 font-body font-normal text-right">T</th>
               <th className="py-2 pr-4 font-body font-normal text-right">PF</th>
               <th className="py-2 pr-4 font-body font-normal text-right">PA</th>
-              <th className="py-2 pr-4 font-body font-normal text-right">Streak</th>
+              {!isPast && <th className="py-2 pr-4 font-body font-normal text-right">Streak</th>}
             </tr>
           </thead>
           <tbody>
-            {teams.map((t, i) => (
+            {rows.map((t, i) => (
               <tr
                 key={t.id}
                 className={`border-b border-ice-line/60 ${
-                  i === playoffLine - 1 ? "border-b-2 border-b-center-red" : ""
+                  !isPast && i === playoffLine - 1 ? "border-b-2 border-b-center-red" : ""
                 }`}
               >
                 <td className="py-3 pr-4 text-muted">{i + 1}</td>
                 <td className="py-3 pr-4 font-body">
                   <div className="flex items-center gap-2">
-                    <TeamLogo url={logos[t.id]} name={t.name} size={24} />
+                    {/* Logos are matched by team id, which is only trustworthy for the current season */}
+                    <TeamLogo url={isPast ? undefined : logos[t.id]} name={t.name} size={24} />
                     {t.name}
                   </div>
                 </td>
                 <td className="py-3 pr-4 text-right">{t.wins}</td>
                 <td className="py-3 pr-4 text-right">{t.losses}</td>
                 <td className="py-3 pr-4 text-right">{t.ties}</td>
-                <td className="py-3 pr-4 text-right">{t.pointsFor}</td>
-                <td className="py-3 pr-4 text-right">{t.pointsAgainst}</td>
-                <td className="py-3 pr-4 text-right">{t.streak ?? "—"}</td>
+                <td className="py-3 pr-4 text-right">{Math.round(t.pointsFor)}</td>
+                <td className="py-3 pr-4 text-right">{Math.round(t.pointsAgainst)}</td>
+                {!isPast && <td className="py-3 pr-4 text-right">{t.streak ?? "—"}</td>}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted mt-4">Red line marks the playoff cutoff.</p>
+      {!isPast ? (
+        <p className="text-xs text-muted mt-4">Red line marks the playoff cutoff.</p>
+      ) : (
+        <p className="text-xs text-muted mt-4">Ranked by regular-season record, then points for.</p>
+      )}
     </div>
   );
 }

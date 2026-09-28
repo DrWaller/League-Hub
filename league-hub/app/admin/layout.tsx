@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/admin/graphics", label: "Graphics" },
   { href: "/admin/keepers", label: "Keepers" },
   { href: "/admin/managers", label: "Managers" },
+  { href: "/admin/history", label: "League History" },
   { href: "/admin/trades", label: "Trades" },
   { href: "/admin/logos", label: "Team Logos" },
   { href: "/admin/espn-history", label: "ESPN History" },

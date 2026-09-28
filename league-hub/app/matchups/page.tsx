@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getMatchups, getStandings, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
-import { getTeamLogos, getMatchupContent, getManagerSeasons } from "@/lib/content";
+import { getTeamLogos, getMatchupContent } from "@/lib/content";
+import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +16,10 @@ export default async function MatchupsPage({
   const isCurrentSeason = season === meta.season;
   const week = Number(searchParams.week) || (isCurrentSeason ? meta.currentWeek : 1);
 
-  const [logos, content, allManagerSeasons] = await Promise.all([
+  const [logos, content, seasons] = await Promise.all([
     getTeamLogos(),
     getMatchupContent(season, week),
-    getManagerSeasons(),
+    getAvailableSeasons(meta.season),
   ]);
 
   let matchups, live, teamById: (id: number) => { name: string } | undefined;
@@ -41,11 +42,6 @@ export default async function MatchupsPage({
   const contentFor = (homeId: number, awayId: number) =>
     content.find((c) => c.homeTeamId === homeId && c.awayTeamId === awayId);
 
-  // Known seasons for the selector: every season with a manager record on
-  // file, plus the current live one.
-  const seasons = Array.from(new Set([meta.season, ...allManagerSeasons.map((s) => s.season)])).sort(
-    (a, b) => b - a
-  );
 
   return (
     <div>

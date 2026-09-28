@@ -16,6 +16,7 @@ export default async function AdminDashboard() {
     { href: "/admin/keepers", label: "Keepers", desc: "Log who each team kept, season by season." },
     { href: "/admin/managers", label: "Managers", desc: "Track each owner across team-name changes over the years." },
     { href: "/admin/trades", label: "Trades", desc: "Log player movement between managers." },
+    { href: "/admin/history", label: "League History", desc: "Champions, runners-up, and notes for each past season." },
     { href: "/admin/logos", label: "Team Logos", desc: "Upload a logo image for each team." },
     { href: "/admin/espn-history", label: "ESPN History Explorer", desc: "Check what ESPN's API returns for a past season." },
     { href: "/admin/import-records", label: "Import Records", desc: "Pull real win-loss records from ESPN for a past season." },

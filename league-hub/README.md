@@ -140,21 +140,40 @@ only the "Generate draft" button is disabled until this is added.
 
 
 
-`data/mock-data.ts` has a `LEAGUE_HISTORY` array — one object per season. It's
-edited by hand on purpose, not pulled from ESPN, because:
-- One season was played on Fantrax instead of ESPN.
-- One season ended early due to COVID-19.
+## League History and past seasons
 
-Both get a `tags` array (`"Played on Fantrax"` / `"COVID-shortened"`) that
-renders as a small badge on the History page, plus an optional `note` string
-for more context. Add a new season by copying an existing entry and editing
-the fields — nothing else in the app needs to change.
+**Past seasons are found automatically.** The site asks ESPN which earlier
+seasons it has for this league (the last dozen years), so Standings,
+Matchups, Rosters, the Luck Chart, and League History all offer the same
+season buttons with no import needed. A season the league didn't play on
+ESPN (the Fantrax year) simply isn't found there -- it still appears on
+League History once you write an entry for it.
+
+- **Standings** has a season selector; a past season shows its final
+  regular-season standings (ranked by record, then points for -- ESPN's own
+  tiebreakers may differ slightly).
+- **League History** (public) lists every past season, newest first, with
+  champion, runner-up, regular-season leader, any tags/notes, a tap-to-open
+  final standings table, and links to that season's Standings, Luck Chart
+  and Matchups. Standings come from ESPN; a manager's name shows in
+  brackets when you've assigned managers to that season on the Managers
+  page.
+- **Admin > League History** is where you record what ESPN can't know:
+  champion, runner-up, an optional leader override, the tags "COVID-shortened"
+  / "Played on Fantrax", and a note. Team names are suggested from that
+  season's ESPN teams as you type. The old sample data file is gone.
+- **Import Records** is no longer needed just to make a season show up. It
+  now only matters for linking a season's teams to managers (the Managers
+  page), and as a backup source for a season's standings if ESPN can't
+  answer.
+
+Season labels are ESPN's own season numbers (e.g. "2026"), the same
+numbering the rest of the site uses.
 
 ## Browsing historical matchups and rosters
 
-The Matchups and Rosters pages both have a season selector once at least
-one past season has a manager record on file (via Import Records or added
-by hand). Picking an older season pulls that season's actual schedule,
+The Matchups and Rosters pages both have a season selector (seasons are
+found automatically -- see above). Picking an older season pulls that season's actual schedule,
 scores, and rosters straight from ESPN — the same live-fetch approach as
 the current season, just pointed at a different year. Nothing is copied
 into the database for this; it's fetched fresh each time (and cached for a

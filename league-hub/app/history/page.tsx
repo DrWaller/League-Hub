@@ -1,57 +1,97 @@
-import { LEAGUE_HISTORY } from "@/data/mock-data";
-import { HistoryTag } from "@/lib/types";
+import { getLeagueMeta, getPastSeasonTeams } from "@/lib/espn";
+import { getSeasonHistory, getManagers, getManagerSeasons } from "@/lib/content";
+import { getAvailableSeasons } from "@/lib/seasons";
+import SeasonHistoryCard, { HistoryRow, SeasonHistoryCardData } from "@/components/SeasonHistoryCard";
 
-function TagPill({ tag }: { tag: HistoryTag }) {
-  const styles: Record<HistoryTag, string> = {
-    "COVID-shortened": "border-center-red text-center-red",
-    "Played on Fantrax": "border-muted text-muted",
+export const dynamic = "force-dynamic";
+
+const byRecord = (a: HistoryRow, b: HistoryRow) =>
+  b.wins - b.losses - (a.wins - a.losses) || b.pointsFor - a.pointsFor;
+
+export default async function HistoryPage() {
+  const meta = await getLeagueMeta();
+  const [available, curated, managers, managerSeasons] = await Promise.all([
+    getAvailableSeasons(meta.season),
+    getSeasonHistory(),
+    getManagers(),
+    getManagerSeasons(),
+  ]);
+
+  // History is about finished seasons: leave out the one in progress unless
+  // the commissioner has already written an entry for it.
+  const seasons = available.filter((s) => s !== meta.season || curated.some((c) => c.season === s));
+
+  const managerFor = (season: number, teamId: number) => {
+    const ms = managerSeasons.find((m) => m.season === season && m.teamId === teamId);
+    return ms?.managerId ? managers.find((m) => m.id === ms.managerId)?.name ?? null : null;
   };
-  return (
-    <span className={`inline-block text-xs px-2 py-0.5 border rounded-full ${styles[tag]}`}>
-      {tag}
-    </span>
-  );
-}
 
-export default function HistoryPage() {
-  const seasons = [...LEAGUE_HISTORY].sort((a, b) => b.year - a.year);
+  const cards: SeasonHistoryCardData[] = await Promise.all(
+    seasons.map(async (season) => {
+      const entry = curated.find((c) => c.season === season);
+      const espn = await getPastSeasonTeams(season);
+
+      // Prefer ESPN's own numbers; if ESPN can't answer, fall back to any
+      // records previously imported for that season.
+      let rows: HistoryRow[] = [];
+      if (espn) {
+        rows = espn.map((t) => ({
+          teamId: t.id,
+          name: t.name,
+          managerName: managerFor(season, t.id),
+          wins: t.wins,
+          losses: t.losses,
+          ties: t.ties,
+          pointsFor: t.pointsFor,
+          pointsAgainst: t.pointsAgainst,
+        }));
+      } else {
+        rows = managerSeasons
+          .filter((m) => m.season === season && m.wins !== null)
+          .map((m) => ({
+            teamId: m.teamId,
+            name: m.teamName,
+            managerName: managerFor(season, m.teamId),
+            wins: m.wins ?? 0,
+            losses: m.losses ?? 0,
+            ties: m.ties ?? 0,
+            pointsFor: m.pointsFor ?? 0,
+            pointsAgainst: m.pointsAgainst ?? 0,
+          }));
+      }
+      rows.sort(byRecord);
+
+      return {
+        season,
+        tags: entry?.tags ?? [],
+        champion: entry?.champion ?? null,
+        runnerUp: entry?.runnerUp ?? null,
+        leader: entry?.regularSeasonLeader ?? rows[0]?.name ?? null,
+        note: entry?.note ?? null,
+        rows,
+      };
+    })
+  );
 
   return (
     <div>
       <h1 className="font-display text-3xl mb-1">League History</h1>
       <p className="text-sm text-muted mb-10 max-w-prose">
-        Tracked by hand rather than pulled from ESPN, since one season was played on Fantrax and
-        another ended early because of COVID-19 — details ESPN&apos;s own history tab doesn&apos;t
-        capture. Edit <code className="text-xs">data/mock-data.ts</code> to add or correct a
-        season.
+        Every past season, newest first. Final standings come straight from ESPN; champions and
+        notes on the odd seasons are added by the commissioner.
       </p>
 
-      <ol className="relative border-l border-ice-line ml-2">
-        {seasons.map((s) => (
-          <li key={s.year} className="mb-10 ml-6">
-            <span className="absolute -left-[9px] w-4 h-4 rounded-full bg-rink border-2 border-ice" />
-            <div className="flex items-center gap-3 flex-wrap mb-1">
-              <h2 className="font-display text-xl">{s.year}</h2>
-              {s.tags?.map((tag) => <TagPill key={tag} tag={tag} />)}
-            </div>
-            <dl className="text-sm grid sm:grid-cols-3 gap-x-6 gap-y-1 mb-2">
-              <div>
-                <dt className="text-muted">Champion</dt>
-                <dd className="font-body font-medium">{s.champion}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Runner-up</dt>
-                <dd className="font-body">{s.runnerUp}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Regular Season Leader</dt>
-                <dd className="font-body">{s.regularSeasonLeader}</dd>
-              </div>
-            </dl>
-            {s.note && <p className="text-sm text-muted italic">{s.note}</p>}
-          </li>
-        ))}
-      </ol>
+      {cards.length === 0 ? (
+        <p className="text-muted">
+          No past seasons found yet. They appear here automatically once ESPN is connected.
+        </p>
+      ) : (
+        <ol className="relative border-l border-ice-line ml-2">
+          {cards.map((c) => (
+            <SeasonHistoryCard key={c.season} data={c} />
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
