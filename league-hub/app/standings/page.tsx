@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getStandings, getLeagueMeta, getPastSeasonTeams } from "@/lib/espn";
-import { getTeamLogos } from "@/lib/content";
+import { getTeamLogos, getPlayedElsewhereSeasons } from "@/lib/content";
+import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
 
@@ -23,11 +24,18 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
   const isPast = season !== meta.season;
   const playoffLine = 6; // adjust to your league's playoff cutoff (current season only)
 
-  const [seasons, logos] = await Promise.all([getAvailableSeasons(meta.season), getTeamLogos()]);
+  const [seasons, logos, elsewhere] = await Promise.all([
+    getAvailableSeasons(meta.season),
+    getTeamLogos(),
+    getPlayedElsewhereSeasons(),
+  ]);
+  const isElsewhere = isPast && elsewhere.has(season);
 
   let rows: Row[] = [];
   let live: boolean;
-  if (isPast) {
+  if (isElsewhere) {
+    live = false; // played on another platform: never touch ESPN for it
+  } else if (isPast) {
     const past = await getPastSeasonTeams(season);
     live = past !== null;
     rows = (past ?? []).sort(
@@ -43,7 +51,9 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
     <div>
       <h1 className="font-display text-3xl mb-1">Standings{isPast ? ` — ${season}` : ""}</h1>
       <p className="text-muted mb-4">
-        {isPast
+        {isElsewhere
+          ? "Played on another platform."
+          : isPast
           ? live
             ? "Final regular-season standings, from ESPN."
             : `Couldn't load ${season} from ESPN.`
@@ -68,6 +78,9 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
         </div>
       )}
 
+      {isElsewhere ? (
+        <PlayedElsewhereNotice season={season} />
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full text-sm font-tabular border-collapse">
           <thead>
@@ -109,7 +122,8 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
           </tbody>
         </table>
       </div>
-      {!isPast ? (
+      )}
+      {isElsewhere ? null : !isPast ? (
         <p className="text-xs text-muted mt-4">Red line marks the playoff cutoff.</p>
       ) : (
         <p className="text-xs text-muted mt-4">Ranked by regular-season record, then points for.</p>

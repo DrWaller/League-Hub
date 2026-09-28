@@ -193,6 +193,12 @@ export interface NewsletterIntro {
 // notes on odd seasons). The standings under each season come from ESPN.
 export const KNOWN_HISTORY_TAGS = ["COVID-shortened", "Played on Fantrax"] as const;
 
+// A season carrying this tag was played somewhere other than ESPN, so the
+// site must never show ESPN's data for it (standings, records, luck charts,
+// matchups, rosters) -- whatever ESPN happens to hold for that year isn't
+// the league's real history.
+export const PLAYED_ELSEWHERE_TAG = "Played on Fantrax";
+
 export interface SeasonHistoryRecord {
   season: number;
   champion: string | null;

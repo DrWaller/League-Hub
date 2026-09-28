@@ -155,6 +155,11 @@ export default function SeasonHistoryEditor() {
             </label>
           ))}
         </div>
+        <p className="text-xs text-muted mb-3 max-w-prose">
+          Ticking &ldquo;Played on Fantrax&rdquo; hides ESPN&apos;s data for that season everywhere on the
+          site (standings, luck chart, matchups, rosters, imports), so nothing from ESPN can affect
+          anyone&apos;s records.
+        </p>
         <label className="text-sm block mb-4">
           <div className="text-muted mb-1">Note (optional)</div>
           <textarea

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getHistoricalSeasonTeams } from "@/lib/espn";
-import { upsertHistoricalRecord } from "@/lib/content";
+import { upsertHistoricalRecord, getPlayedElsewhereSeasons } from "@/lib/content";
 
 // Imports real W-L records from ESPN for one season, per team. Creates or
 // updates the manager_team_seasons row's record fields + ESPN-sourced team
@@ -9,6 +9,14 @@ import { upsertHistoricalRecord } from "@/lib/content";
 export async function POST(req: NextRequest) {
   const { season } = await req.json();
   if (!season) return NextResponse.json({ error: "season is required" }, { status: 400 });
+
+  // Never save ESPN records for a season that was played on another platform.
+  if ((await getPlayedElsewhereSeasons()).has(Number(season))) {
+    return NextResponse.json(
+      { error: `${season} was played on Fantrax, so its ESPN data isn't imported (it would affect teams' records).` },
+      { status: 400 }
+    );
+  }
 
   const result = await getHistoricalSeasonTeams(season);
   if (!result.ok || !result.teams) {

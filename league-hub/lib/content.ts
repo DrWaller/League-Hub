@@ -9,6 +9,7 @@
 // the admin area should surface an error rather than silently lose an edit.
 
 import { sql, ensureSchema } from "./db";
+import { hideEspnDataForSeasons, seasonsPlayedElsewhere } from "./played-elsewhere";
 import {
   AwardCategory,
   WeeklyAward,
@@ -186,7 +187,7 @@ export async function getManagerSeasons(managerId?: number): Promise<ManagerSeas
     const { rows } = managerId
       ? await sql`SELECT id, manager_id, team_id, season, team_name, record_note, wins, losses, ties, points_for, points_against FROM manager_team_seasons WHERE manager_id = ${managerId} ORDER BY season;`
       : await sql`SELECT id, manager_id, team_id, season, team_name, record_note, wins, losses, ties, points_for, points_against FROM manager_team_seasons ORDER BY season, team_id;`;
-    return rows.map((r) => ({
+    const mapped: ManagerSeason[] = rows.map((r) => ({
       id: r.id as number,
       managerId: (r.manager_id as number) ?? null,
       teamId: r.team_id as number,
@@ -199,6 +200,8 @@ export async function getManagerSeasons(managerId?: number): Promise<ManagerSeas
       pointsFor: (r.points_for as number) ?? null,
       pointsAgainst: (r.points_against as number) ?? null,
     }));
+    // Seasons played on another platform never carry ESPN records.
+    return hideEspnDataForSeasons(mapped, await getPlayedElsewhereSeasons());
   } catch (err) {
     console.error("getManagerSeasons failed (is Postgres connected?)", err);
     return [];
@@ -454,4 +457,10 @@ export async function upsertSeasonHistory(h: SeasonHistoryRecord) {
 export async function deleteSeasonHistory(season: number) {
   await ensureSchema();
   await sql`DELETE FROM season_history WHERE season = ${season};`;
+}
+
+
+// Seasons tagged "Played on Fantrax" -- ESPN data for these must never be shown.
+export async function getPlayedElsewhereSeasons(): Promise<Set<number>> {
+  return seasonsPlayedElsewhere(await getSeasonHistory());
 }

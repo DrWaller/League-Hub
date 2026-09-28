@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getRosters, getStandings, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
-import { getTeamLogos } from "@/lib/content";
+import { getTeamLogos, getPlayedElsewhereSeasons } from "@/lib/content";
+import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
 
@@ -16,6 +17,15 @@ export default async function RostersPage({
   const isCurrentSeason = season === meta.season;
 
   const [logos, seasons] = await Promise.all([getTeamLogos(), getAvailableSeasons(meta.season)]);
+
+  if (!isCurrentSeason && (await getPlayedElsewhereSeasons()).has(season)) {
+    return (
+      <div>
+        <h1 className="font-display text-3xl mb-4">Rosters</h1>
+        <PlayedElsewhereNotice season={season} />
+      </div>
+    );
+  }
 
   let rosters, live, teams: { id: number; name: string }[];
 

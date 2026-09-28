@@ -1,6 +1,7 @@
 import { getLeagueMeta, getPastSeasonTeams } from "@/lib/espn";
 import { getSeasonHistory, getManagers, getManagerSeasons } from "@/lib/content";
-import { getAvailableSeasons } from "@/lib/seasons";
+import { getHistorySeasons } from "@/lib/seasons";
+import { seasonsPlayedElsewhere } from "@/lib/played-elsewhere";
 import SeasonHistoryCard, { HistoryRow, SeasonHistoryCardData } from "@/components/SeasonHistoryCard";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ const byRecord = (a: HistoryRow, b: HistoryRow) =>
 export default async function HistoryPage() {
   const meta = await getLeagueMeta();
   const [available, curated, managers, managerSeasons] = await Promise.all([
-    getAvailableSeasons(meta.season),
+    getHistorySeasons(meta.season),
     getSeasonHistory(),
     getManagers(),
     getManagerSeasons(),
@@ -19,6 +20,7 @@ export default async function HistoryPage() {
 
   // History is about finished seasons: leave out the one in progress unless
   // the commissioner has already written an entry for it.
+  const elsewhere = seasonsPlayedElsewhere(curated);
   const seasons = available.filter((s) => s !== meta.season || curated.some((c) => c.season === s));
 
   const managerFor = (season: number, teamId: number) => {
@@ -29,7 +31,8 @@ export default async function HistoryPage() {
   const cards: SeasonHistoryCardData[] = await Promise.all(
     seasons.map(async (season) => {
       const entry = curated.find((c) => c.season === season);
-      const espn = await getPastSeasonTeams(season);
+      // A season played on another platform never uses ESPN's numbers.
+      const espn = elsewhere.has(season) ? null : await getPastSeasonTeams(season);
 
       // Prefer ESPN's own numbers; if ESPN can't answer, fall back to any
       // records previously imported for that season.
@@ -45,7 +48,7 @@ export default async function HistoryPage() {
           pointsFor: t.pointsFor,
           pointsAgainst: t.pointsAgainst,
         }));
-      } else {
+      } else if (!elsewhere.has(season)) {
         rows = managerSeasons
           .filter((m) => m.season === season && m.wins !== null)
           .map((m) => ({

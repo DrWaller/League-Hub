@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getMatchups, getStandings, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
 import { renderLuckChart } from "@/lib/luck-image";
+import { getPlayedElsewhereSeasons } from "@/lib/content";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,10 @@ export async function GET(req: NextRequest) {
     const meta = await getLeagueMeta();
     const seasonParam = Number(req.nextUrl.searchParams.get("season")) || meta.season;
     const isPast = seasonParam !== meta.season;
+
+    if (isPast && (await getPlayedElsewhereSeasons()).has(seasonParam)) {
+      return new Response(`${seasonParam} was played on Fantrax, so there's no ESPN data to chart.`, { status: 400 });
+    }
 
     let matchups, live: boolean, teamName: (id: number) => string;
 

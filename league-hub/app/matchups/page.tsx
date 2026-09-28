@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getMatchups, getStandings, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
-import { getTeamLogos, getMatchupContent } from "@/lib/content";
+import { getTeamLogos, getMatchupContent, getPlayedElsewhereSeasons } from "@/lib/content";
+import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
 
@@ -21,6 +22,15 @@ export default async function MatchupsPage({
     getMatchupContent(season, week),
     getAvailableSeasons(meta.season),
   ]);
+
+  if (!isCurrentSeason && (await getPlayedElsewhereSeasons()).has(season)) {
+    return (
+      <div>
+        <h1 className="font-display text-3xl mb-4">Matchups</h1>
+        <PlayedElsewhereNotice season={season} />
+      </div>
+    );
+  }
 
   let matchups, live, teamById: (id: number) => { name: string } | undefined;
 

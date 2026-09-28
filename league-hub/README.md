@@ -162,6 +162,17 @@ League History once you write an entry for it.
   champion, runner-up, an optional leader override, the tags "COVID-shortened"
   / "Played on Fantrax", and a note. Team names are suggested from that
   season's ESPN teams as you type. The old sample data file is gone.
+- **A season played on another platform (the Fantrax year).** Tick
+  "Played on Fantrax" on that season's League History entry and the site
+  stops using ESPN for it *everywhere*: it's left out of the season buttons
+  on Standings / Matchups / Rosters / Luck Chart, opening it by address shows
+  a "played on Fantrax" notice instead of ESPN's numbers, its standings and
+  records never appear on League History, record imports for it are refused,
+  and any ESPN records or team names already saved for it by an earlier import
+  are hidden (leftover unassigned rows) or blanked (rows you assigned a manager
+  to). The season still appears on League History with its champion,
+  runner-up and notes. Untick the tag and everything reverts. The rule lives
+  in `lib/played-elsewhere.ts`.
 - **Import Records** is no longer needed just to make a season show up. It
   now only matters for linking a season's teams to managers (the Managers
   page), and as a backup source for a season's standings if ESPN can't

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getStandings, getMatchups, getLeagueMeta, getHistoricalSeasonTeams } from "@/lib/espn";
-import { getTeamLogos } from "@/lib/content";
+import { getTeamLogos, getPlayedElsewhereSeasons } from "@/lib/content";
+import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
 import { calculatePowerRankings } from "@/lib/power-rankings";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
@@ -26,11 +27,17 @@ export default async function PowerRankingsPage({
   // --- Luck Chart: current season by default, any past season on request ---
   const luckSeason = Number(searchParams.season) || meta.season;
   const isPast = luckSeason !== meta.season;
+  const luckElsewhere = isPast && (await getPlayedElsewhereSeasons()).has(luckSeason);
 
   let luckMatchups;
   let luckLive: boolean;
   let luckTeamName: (id: number) => string;
-  if (isPast) {
+  if (luckElsewhere) {
+    // Played on another platform: never ask ESPN about it.
+    luckMatchups = [];
+    luckLive = false;
+    luckTeamName = (id) => `Team ${id}`;
+  } else if (isPast) {
     const [m, hist] = await Promise.all([
       getMatchups(undefined, luckSeason),
       getHistoricalSeasonTeams(luckSeason),
@@ -154,7 +161,9 @@ export default async function PowerRankingsPage({
           unlucky. Regular season only; ties count as half a win.
         </p>
 
-        {!luckLive && isPast ? (
+        {luckElsewhere ? (
+          <PlayedElsewhereNotice season={luckSeason} />
+        ) : !luckLive && isPast ? (
           <p className="text-muted">Couldn&apos;t load {luckSeason} from ESPN.</p>
         ) : luck && luck.rows.length > 0 ? (
           <LuckTable
