@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background-color: #F3F6FA;
+  color: #14181D;
+}
+
+body {
+  font-family: var(--font-body), sans-serif;
+}
+
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Center-ice rule: a thin red line used as a section divider, echoing the
+   red line on a hockey rink. Used sparingly -- not on every section. */
+.rule-center {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #C41E3A 15%, #C41E3A 85%, transparent);
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: #C41E3A;
+  color: #F3F6FA;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,316 @@
+# Fantasy Hockey League Hub
+
+A public site for your ESPN league (ID 78683444): standings, weekly matchups,
+rosters, custom power rankings, and hand-curated league history.
+
+## What's real vs. preview right now
+
+Every page works today with clearly-fake preview data (see `data/mock-data.ts`).
+Nothing breaks or looks empty before you connect ESPN — a small banner just
+says "preview data" until the two environment variables below are set.
+
+## Deploying (same pattern as your other dashboard)
+
+1. **Upload to GitHub.** Create a new repo (e.g. `league-hub`) and drag-and-drop
+   this whole folder's contents in through GitHub's web upload — no local git
+   needed, same as before.
+2. **Import into Vercel.** New Project → import that repo → Vercel auto-detects
+   Next.js, no config needed. Deploy.
+3. **Add environment variables** in Vercel (Project → Settings → Environment
+   Variables):
+   - `ESPN_S2` — from your browser's ESPN cookies (see below)
+   - `ESPN_SWID` — same place, includes the curly braces
+   - `ESPN_LEAGUE_ID` — `78683444` (already the default if you skip this)
+   - `ESPN_SEASON_YEAR` — e.g. `2027`
+4. Redeploy (Vercel does this automatically after you save env vars, or trigger
+   it manually from the Deployments tab). The "preview data" banner disappears
+   once real data comes through.
+
+### Getting ESPN_S2 and ESPN_SWID
+
+This needs a computer (mobile browsers don't expose this):
+1. Log into fantasy.espn.com in a normal browser.
+2. Open DevTools (F12 or right-click → Inspect) → **Application** tab (Chrome)
+   or **Storage** tab (Firefox) → **Cookies** → `https://fantasy.espn.com`.
+3. Copy the `espn_s2` and `SWID` values into Vercel as above.
+
+`espn_s2` occasionally expires and needs refreshing (no fixed schedule).
+`SWID` tends to be stable for a long time.
+
+## Setting up the Commissioner admin area (/admin)
+
+The admin area lets you post Weekly Awards, matchup previews/recaps, keepers,
+and team logos — all from forms, no code editing. Three things to set up in
+Vercel, all one-time:
+
+1. **Set a password.** In Vercel → Settings → Environment Variables, add
+   `ADMIN_PASSWORD` with any password you choose. That's what gates `/admin`.
+2. **Connect Postgres.** In your Vercel project, go to the **Storage** tab →
+   **Create Database**, and choose a Postgres option — **Neon** is the
+   standard pick (Vercel's own Postgres product was retired; Neon is what
+   replaced it, and it's a one-click install from Vercel's Marketplace).
+   Connect it to this project. It automatically adds a `DATABASE_URL`
+   environment variable — no manual setup. The first time any admin page
+   runs, the app automatically creates the tables it needs.
+3. **Connect Blob storage** (for team logo uploads). Same **Storage** tab →
+   **Create Database** → **Blob**. Connect it to this project. Vercel adds
+   `BLOB_READ_WRITE_TOKEN` automatically.
+4. Redeploy once after connecting both (Deployments tab → latest → Redeploy)
+   so the new environment variables take effect.
+
+Then visit `yoursite.vercel.app/admin`, log in with the password from step 1,
+and you're in. There's also a small "Commissioner" link in the site's footer
+so you don't have to remember the URL.
+
+### Using the admin area day to day
+
+- **Weekly Awards**: pick a season/week, fill in whichever categories apply
+  (leave the rest blank), hit Save. A **"Suggest from stats"** button pulls
+  that week's actual top fantasy scorers (overall for the 3 Stars, by
+  position for Forward/Defense/Goalie) from ESPN and pre-fills the form —
+  review and adjust before saving, it's a starting point, not an autopilot.
+  Nothing shows on the public Awards page for a week until at least one
+  category has been filled in.
+- **Matchup Blurbs**: pick a week, write a short preview before it's played
+  or a summary after — each matchup saves independently. A **"Generate
+  draft"** button under each box asks Claude to write a short draft grounded
+  in real scores/records/top performers (never invented stats) — read it
+  over and edit before saving. Requires `ANTHROPIC_API_KEY` (see below);
+  everything else on the site works fine without it.
+- **Keepers**: add one player at a time per team/season; remove with the
+  "Remove" link if you make a mistake.
+- **Managers**: add each owner once, then assign them a row per season —
+  which ESPN team id they controlled, what that team was named that year,
+  and an optional record note. This is what lets the public Managers page
+  and the Keepers page's "By Team" view follow a person across team-name
+  changes. The Keepers admin page still saves by team id + season; the
+  Managers assignment is what maps that back to a person.
+- **Trades**: log a player moving between two managers in a given season —
+  shows up on both the Keepers page (season view) and each manager's
+  profile.
+- **Team Logos**: upload an image per team (square works best). It replaces
+  the initials badge everywhere on the site immediately.
+- **Monthly Periods**: define a "month" as a range of weeks with a label
+  you pick (e.g. "October", weeks 1–4) — it doesn't need to match calendar
+  months. This is what Monthly Awards and the monthly newsletter run on.
+- **Monthly Awards**: same player categories as Weekly Awards (3 Stars,
+  Forward/Defense/Goalie + runners-up), with its own "Suggest from stats"
+  button aggregating real points across the period's weeks. **Manager of
+  the Month** is shown alongside it but isn't something you fill in — it's
+  computed automatically from real win-loss results for that week range,
+  since a record is a fact, not an editorial pick.
+- **Trades** now has an optional **week** field, so a trade can be tied to
+  a specific week (used by the newsletter to know what happened when) —
+  leave it blank for older trades where you don't know the exact week.
+- **Newsletter**: a compiled recap page (weekly and monthly), not an email
+  — no email service to configure. Most of the page (scores, awards,
+  trades, standings) is assembled automatically from data you've already
+  entered elsewhere; the admin page is just for the intro paragraph, which
+  you can write yourself or generate with **Generate Draft** (uses the same
+  `ANTHROPIC_API_KEY` as matchup drafts, grounded in the real compiled
+  facts for that period).
+- **ESPN History Explorer**: a diagnostic tool, not a data source of its
+  own. Pick a past season and see exactly what ESPN's API returns for it —
+  team names/ids, and owner names if ESPN happens to retain them that far
+  back. Useful for filling in Managers accurately instead of guessing from
+  old spreadsheets, but not guaranteed to have data for every season.
+- **Import Records**: pulls the real win-loss-tie record and points
+  for/against for every team in a chosen season, straight from ESPN.
+  Preview first, then import. This only writes record data — it never
+  creates or changes a manager assignment, so it's safe to run before
+  Managers is filled in for that season. Run it once per season you want
+  (there's no bulk/range import — each season is a deliberate action, so
+  skipping one you don't trust yet, like an incomplete season, is just a
+  matter of not clicking Import for it). Afterward, any team-season row
+  that came in without a manager shows up in an "Unassigned Team-Seasons"
+  list on the Managers page for quick assignment.
+
+### Setting up AI-drafted matchup write-ups (optional)
+
+1. Go to console.anthropic.com, create an account if you don't have one,
+   and generate an API key. It's pay-as-you-go — a draft costs a fraction
+   of a cent, there's no subscription.
+2. In Vercel, add an environment variable named `ANTHROPIC_API_KEY` with
+   that key as the value.
+3. Redeploy.
+
+Without this set, every other part of the site (including the stat-based
+"Suggest from stats" button, which needs no AI) works exactly the same —
+only the "Generate draft" button is disabled until this is added.
+
+
+
+## League History and past seasons
+
+**Past seasons are found automatically.** The site asks ESPN which earlier
+seasons it has for this league (the last dozen years), so Standings,
+Matchups, Rosters, the Luck Chart, and League History all offer the same
+season buttons with no import needed. A season the league didn't play on
+ESPN (the Fantrax year) simply isn't found there -- it still appears on
+League History once you write an entry for it.
+
+- **Standings** has a season selector; a past season shows its final
+  regular-season standings (ranked by record, then points for -- ESPN's own
+  tiebreakers may differ slightly).
+- **League History** (public) lists every past season, newest first, with
+  season champion, runner-up, the regular-season 1st / 2nd / 3rd (taken from the
+  standings; the admin "1st place override" is only for when the league's
+  tiebreakers differ from record-then-points), any tags/notes, a tap-to-open
+  final standings table, and links to that season's Standings, Luck Chart
+  and Matchups. Standings come from ESPN; a manager's name shows in
+  brackets when you've assigned managers to that season on the Managers
+  page.
+- **Admin > League History** is where you record what ESPN can't know:
+  champion, runner-up, an optional 1st-place override, the tags "COVID-shortened"
+  / "Played on Fantrax", and a note. Team names are suggested from that
+  season's ESPN teams as you type. The old sample data file is gone.
+- **A season played on another platform (the Fantrax year).** Tick
+  "Played on Fantrax" on that season's League History entry and the site
+  stops using ESPN for it *everywhere*: it's left out of the season buttons
+  on Standings / Matchups / Rosters / Luck Chart, opening it by address shows
+  a "played on Fantrax" notice instead of ESPN's numbers, its standings and
+  records never appear on League History, record imports for it are refused,
+  and any ESPN records or team names already saved for it by an earlier import
+  are hidden (leftover unassigned rows) or blanked (rows you assigned a manager
+  to). The season still appears on League History with its champion,
+  runner-up and notes. Untick the tag and everything reverts. The rule lives
+  in `lib/played-elsewhere.ts`.
+- **Import Records** is no longer needed just to make a season show up. It
+  now only matters for linking a season's teams to managers (the Managers
+  page), and as a backup source for a season's standings if ESPN can't
+  answer.
+
+Season labels are ESPN's own season numbers (e.g. "2026"), the same
+numbering the rest of the site uses.
+
+## The Fantrax season, and the Records page
+
+**Entering a season played on another platform** (admin > *Fantrax Scores*).
+First tag the season "Played on Fantrax" on the League History admin page
+(this switches ESPN's data for that year off everywhere). Then paste that
+season's weekly scores, one game per line:
+
+    week, home team, home score, away team, away score
+
+(add `,playoff` to a playoff game; put a team name in "quotes" if it contains a
+comma). A live preview checks the paste as you type -- bad numbers, a team
+playing itself, a team in two games in one week, and (as warnings) a missing
+game or a misspelled team name -- and shows the standings it would produce so
+you can check them against Fantrax before saving. Saving again **replaces** the
+season's games, which is how you correct a mistake. Then link each team to its
+manager on the same page.
+
+The site then works that season out from the scores: Standings, Matchups, the
+Luck Chart (public page and image) and League History all show it, labelled as
+entered by hand. Rosters aren't tracked for it. Standings are computed from
+regular-season games (win-loss, then points for), so they should match
+Fantrax's own unless Fantrax used a different tiebreaker.
+
+**Linking managers to teams** (admin > *Link Managers*). The Records page adds up
+each *manager's* history, so every past team needs a manager. Pick a year and
+that year's own team names are listed, each with a manager dropdown that saves
+the moment you choose. The number on a year is how many of its teams still need a
+manager (a tick means done). Shortcuts: **Copy links from <previous year>** fills
+this year's unlinked teams from the same team slot last year; **fill other years**
+(next to a linked team) uses that manager for every other year where the team is
+still unlinked; for the Fantrax year, **Auto-link teams named after managers**
+does all ten in one tap. Linking only changes the manager -- it never overwrites
+a saved team name, note, or record.
+
+**Playoffs and games that don't count** (admin > *Playoffs & Rules*). For each
+finished season you set the week the playoffs began; every game from that week
+on is a playoff game and is left out of standings, the Luck Chart, and all-time
+totals. This *overrides* whatever ESPN (or the pasted scores' `,playoff` marker)
+said, so it doesn't depend on ESPN flagging playoffs correctly; leave it blank to
+use the data's own flags. You can also mark individual games (or a whole week) as
+"doesn't count" -- for games before the playoffs that shouldn't be counted, e.g.
+played after a team was eliminated. Games in playoff weeks are already left out of
+the regular season, so those don't need ticking. When a season has any ruling, its
+Standings and League History table are recomputed from the games that count
+(ESPN's own win-loss totals can't know about your rulings); with no rulings, ESPN's
+numbers are used as before. Rulings apply to finished seasons; the current
+season keeps using ESPN's live flags. The Matchups page labels playoff games and
+games that don't count. Logic: `lib/season-rules.ts`.
+
+**The Records page** (public, /records) totals up every finished season --
+ESPN and the hand-entered Fantrax one together, regular season only:
+- all-time standings per manager (record, win%, points, titles, runner-ups,
+  first-place finishes),
+- best and worst seasons and most points in a season,
+- single-game records (highest and lowest scores, biggest blowouts, closest
+  finishes), and
+- a head-to-head grid between every pair of managers.
+
+Titles and runner-ups come from League History: the champion/runner-up you
+type there has to match that season's team name (spelling and capitalization
+don't matter, spacing is ignored), otherwise the page says which one it
+couldn't match. Any team not yet linked to a manager is left out of the totals,
+and the page says how many. The maths lives in `lib/records.ts` and was
+cross-checked against a separate implementation on generated data; the database
+functions were run against a real Postgres engine.
+
+## Browsing historical matchups and rosters
+
+The Matchups and Rosters pages both have a season selector (seasons are
+found automatically -- see above). Picking an older season pulls that season's actual schedule,
+scores, and rosters straight from ESPN — the same live-fetch approach as
+the current season, just pointed at a different year. Nothing is copied
+into the database for this; it's fetched fresh each time (and cached for a
+day, since past seasons don't change).
+
+## Auto-generated graphics
+
+**Graphics** (in the admin area) generates shareable images — 3 Stars,
+Top 3 by Position, Team of the Week — from the same real weekly stats as
+the Awards "Suggest" button, no admin curation needed, just pick a week.
+Matches the visual style approved on the design canvas. Right-click or
+press-and-hold an image to save it; there's also a Download link. Uses
+`next/og` (built into Next.js — no extra service or API key).
+
+**Luck Chart**: what each team's record would be if it played every other
+team every week ("all-play" -- the "expected" record), against the record
+it actually has. The Luck column is actual win% minus expected win%:
+**green = lucky** (won more than the all-play record says), **red =
+unlucky**, shaded darker for bigger gaps, and the luckiest and unluckiest
+team are called out above the table. Also shown: median points per week
+vs. the league median, and "Chg" (places moved in expected-win% ranking
+since the week before). Ties count as half a win.
+
+It appears in two places: as a live table on the public **Power Rankings**
+page (season buttons, plus arrows to step through weeks; a past season
+opens on its end-of-season chart), and as a shareable image on the admin
+**Graphics** page (type a season there for a past season's final chart).
+Past seasons come straight from ESPN, so a season button appears for any
+season you've imported records for (or add `?season=2026` to the address).
+
+Only completed **regular-season** games count -- playoff games and bye
+weeks are excluded, since only some teams play them. Playoff games are
+recognised by ESPN's `playoffTierType` field, which is the one thing here
+not yet confirmed against a real league: if a past season's chart looks
+off (say, an extra week or two of very lopsided results), that's the first
+place to look (`getMatchups` in `lib/espn.ts`). The math is in
+`lib/luck.ts` and was cross-checked against a separate implementation on
+test data.
+
+**Not yet built**: Player Spotlight cards (need goal/assist/shot or
+win/save breakdowns — separate ESPN stat categories not mapped yet).
+
+## Known gaps / good next steps
+
+- **Power rankings movement (↑/↓ vs. last week)**: needs last week's ranking
+  persisted somewhere — now that Postgres is connected for the admin CMS,
+  this could reuse it (a small table snapshotting rankings each week). Not
+  wired up yet — the model itself (`lib/power-rankings.ts`) is ready for it.
+- **Power rankings formula**: the current blend (win% / point differential /
+  streak) is a reasonable starting point, not a definitive one. Worth
+  revisiting once a season's worth of results shows whether it's actually
+  predictive, or whether a category should be weighted differently.
+- **Admin area has one shared password**, not per-owner logins. Fine for a
+  single commissioner; if other people should be able to post awards/blurbs
+  independently, that would need real accounts (e.g. NextAuth) instead.
+- **ESPN's API is unofficial and undocumented.** If a page ever looks wrong
+  after an ESPN update, `lib/espn.ts` is the one file that talks to ESPN —
+  start there.
+- **Team names**: pulled from ESPN's `name` field (falling back to the older
+  `location + nickname` split, then the abbreviation). If a team ever shows
+  up oddly, it likely hasn't set a custom name in ESPN's own team settings.
