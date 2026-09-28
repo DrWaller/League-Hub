@@ -169,14 +169,30 @@ Matches the visual style approved on the design canvas. Right-click or
 press-and-hold an image to save it; there's also a Download link. Uses
 `next/og` (built into Next.js — no extra service or API key).
 
-**Luck Chart**: for the chosen week, shows each team's all-play record
-(what they'd have gone playing every other team every week, "expected"),
-against their actual record, the gap between the two, and median points
-per week vs. the league median. "Chg" is how many places a team moved in
-expected-win% ranking since the week before. Ties count as half a win.
-Only final matchups count, so a week still in progress is ignored. The
-math lives in `lib/luck.ts` and was cross-checked against a separate
-implementation on test data.
+**Luck Chart**: what each team's record would be if it played every other
+team every week ("all-play" -- the "expected" record), against the record
+it actually has. The Luck column is actual win% minus expected win%:
+**green = lucky** (won more than the all-play record says), **red =
+unlucky**, shaded darker for bigger gaps, and the luckiest and unluckiest
+team are called out above the table. Also shown: median points per week
+vs. the league median, and "Chg" (places moved in expected-win% ranking
+since the week before). Ties count as half a win.
+
+It appears in two places: as a live table on the public **Power Rankings**
+page (season buttons, plus arrows to step through weeks; a past season
+opens on its end-of-season chart), and as a shareable image on the admin
+**Graphics** page (type a season there for a past season's final chart).
+Past seasons come straight from ESPN, so a season button appears for any
+season you've imported records for (or add `?season=2026` to the address).
+
+Only completed **regular-season** games count -- playoff games and bye
+weeks are excluded, since only some teams play them. Playoff games are
+recognised by ESPN's `playoffTierType` field, which is the one thing here
+not yet confirmed against a real league: if a past season's chart looks
+off (say, an extra week or two of very lopsided results), that's the first
+place to look (`getMatchups` in `lib/espn.ts`). The math is in
+`lib/luck.ts` and was cross-checked against a separate implementation on
+test data.
 
 **Not yet built**: Player Spotlight cards (need goal/assist/shot or
 win/save breakdowns — separate ESPN stat categories not mapped yet).

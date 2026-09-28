@@ -78,6 +78,7 @@ function GraphicCard({ title, url }: { title: string; url: string }) {
 
 export default function AdminGraphicsPage() {
   const [week, setWeek] = useState<number>(1);
+  const [luckSeason, setLuckSeason] = useState<string>("");
 
   const cards = [
     { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}` },
@@ -86,7 +87,12 @@ export default function AdminGraphicsPage() {
       url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}`,
     })),
     { title: "Team of the Week", url: `/api/admin/graphics/team-of-week?week=${week}` },
-    { title: "Luck Chart (through this week)", url: `/api/admin/graphics/luck-chart?week=${week}` },
+    luckSeason
+      ? {
+          title: `Luck Chart — end of ${luckSeason}`,
+          url: `/api/admin/graphics/luck-chart?season=${encodeURIComponent(luckSeason)}`,
+        }
+      : { title: "Luck Chart (through this week)", url: `/api/admin/graphics/luck-chart?week=${week}` },
   ];
 
   return (
@@ -110,6 +116,18 @@ export default function AdminGraphicsPage() {
           onChange={(e) => setWeek(Math.max(1, Number(e.target.value) || 1))}
           className="border border-ice-line px-3 py-2 w-28"
         />
+      </label>
+
+      <label className="text-sm inline-block mb-8 ml-6">
+        <div className="text-muted mb-1">Luck Chart season (optional)</div>
+        <input
+          type="number"
+          placeholder="e.g. 2026"
+          value={luckSeason}
+          onChange={(e) => setLuckSeason(e.target.value)}
+          className="border border-ice-line px-3 py-2 w-36"
+        />
+        <div className="text-xs text-muted mt-1">Leave blank for the current season. A past season shows its final chart.</div>
       </label>
 
       <div className="space-y-10">

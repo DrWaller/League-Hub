@@ -34,8 +34,43 @@ function winPct(w: number, l: number, t: number): number {
   return games > 0 ? (w + t * 0.5) / games : 0;
 }
 
+// Colors for the luck coding: green = lucky (won more than the all-play
+// record says they should have), red = unlucky.
+export const LUCK_COLORS = { lucky: "#1F7A4D", unlucky: "#C41E3A", neutral: "#5B6672" };
+
+export function luckColor(diff: number): string {
+  return diff > 0 ? LUCK_COLORS.lucky : diff < 0 ? LUCK_COLORS.unlucky : LUCK_COLORS.neutral;
+}
+
+// Soft background tint whose strength grows with how lucky/unlucky the gap
+// is (a 30-point gap or more is the strongest shade). Undefined when even.
+export function luckTint(diff: number): string | undefined {
+  if (Math.abs(diff) < 0.005) return undefined;
+  const alpha = 0.1 + 0.3 * Math.min(Math.abs(diff) / 0.3, 1);
+  const rgb = diff > 0 ? "47, 133, 90" : "196, 30, 58";
+  return `rgba(${rgb}, ${alpha.toFixed(2)})`;
+}
+
+export function luckExtremes(rows: LuckRow[]) {
+  const byDiff = [...rows].sort((a, b) => b.diff - a.diff);
+  const top = byDiff[0];
+  const bottom = byDiff[byDiff.length - 1];
+  return {
+    luckiest: top && top.diff > 0 ? top : null,
+    unluckiest: bottom && bottom.diff < 0 ? bottom : null,
+  };
+}
+
+// Only completed REGULAR-SEASON games count: playoff games (only some
+// teams play them) would distort an all-play comparison.
+export function regularSeasonFinals(matchups: Matchup[]): Matchup[] {
+  return matchups.filter(
+    (m) => m.isFinal && !m.isPlayoff && m.homeTeamId != null && m.awayTeamId != null
+  );
+}
+
 function computeThrough(matchups: Matchup[], throughWeek: number) {
-  const finals = matchups.filter((m) => m.isFinal && m.week <= throughWeek);
+  const finals = regularSeasonFinals(matchups).filter((m) => m.week <= throughWeek);
 
   const scoresByWeek = new Map<number, Map<number, number>>();
   const teams = new Map<number, { w: number; l: number; t: number; scores: number[] }>();

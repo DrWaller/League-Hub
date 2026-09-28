@@ -114,14 +114,18 @@ export async function getMatchups(
   }
 
   const matchups: Matchup[] = data.schedule
+    // A playoff bye shows up as an entry with only one team -- skip it.
+    .filter((m: any) => m.home?.teamId != null && m.away?.teamId != null)
     .filter((m: any) => !week || m.matchupPeriodId === week)
     .map((m: any) => ({
       week: m.matchupPeriodId,
-      homeTeamId: m.home?.teamId,
+      homeTeamId: m.home.teamId,
       homeScore: m.home?.totalPoints ?? 0,
-      awayTeamId: m.away?.teamId,
+      awayTeamId: m.away.teamId,
       awayScore: m.away?.totalPoints ?? 0,
-      isFinal: m.winner && m.winner !== "UNDECIDED",
+      isFinal: Boolean(m.winner && m.winner !== "UNDECIDED"),
+      // ESPN marks postseason games with a playoffTierType other than NONE.
+      isPlayoff: Boolean(m.playoffTierType && m.playoffTierType !== "NONE"),
     }));
 
   return { matchups, live: true };

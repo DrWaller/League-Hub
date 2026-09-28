@@ -35,22 +35,31 @@ export default async function HomePage() {
               This Week&apos;s Marquee Matchup
             </h1>
             {marquee ? (
-              <div className="flex items-center gap-4 font-tabular">
-                <div className="text-right flex-1">
-                  <div className="font-body text-lg flex items-center justify-end gap-2">
-                    {teamById(marquee.homeTeamId)?.name}
-                    <TeamLogo url={logos[marquee.homeTeamId]} name={teamById(marquee.homeTeamId)?.name ?? ""} size={28} />
-                  </div>
-                  <div className="font-display text-3xl">{marquee.homeScore}</div>
-                </div>
-                <div className="text-ice/50 font-display text-xl">vs</div>
-                <div className="flex-1">
-                  <div className="font-body text-lg flex items-center gap-2">
-                    <TeamLogo url={logos[marquee.awayTeamId]} name={teamById(marquee.awayTeamId)?.name ?? ""} size={28} />
-                    {teamById(marquee.awayTeamId)?.name}
-                  </div>
-                  <div className="font-display text-3xl">{marquee.awayScore}</div>
-                </div>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3 font-tabular">
+                {[
+                  { id: marquee.homeTeamId, score: marquee.homeScore },
+                  null,
+                  { id: marquee.awayTeamId, score: marquee.awayScore },
+                ].map((side, i) =>
+                  side === null ? (
+                    <div key={i} className="text-ice/50 font-display text-xl pt-3">
+                      vs
+                    </div>
+                  ) : (
+                    <div key={i} className="min-w-0 flex flex-col items-center text-center gap-2">
+                      <div className="rounded-sm ring-1 ring-ice/40">
+                        <TeamLogo url={logos[side.id]} name={teamById(side.id)?.name ?? ""} size={44} />
+                      </div>
+                      {/* Two lines tall on purpose, so a long name wrapping never pushes one score out of line with the other */}
+                      <div className="font-body text-base leading-tight min-h-[2.5rem] flex items-center justify-center">
+                        {teamById(side.id)?.name}
+                      </div>
+                      <div className="font-display text-4xl">
+                        {marquee.isFinal || marquee.homeScore + marquee.awayScore > 0 ? side.score : "–"}
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
             ) : (
               <p className="text-ice/70">No matchups scheduled yet.</p>

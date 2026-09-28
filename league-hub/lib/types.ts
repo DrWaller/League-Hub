@@ -22,6 +22,7 @@ export interface Matchup {
   awayTeamId: number;
   awayScore: number;
   isFinal: boolean;
+  isPlayoff?: boolean; // true for postseason games (excluded from the Luck Chart)
 }
 
 export interface RosterPlayer {
