@@ -5,6 +5,7 @@ import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { OG } from "@/lib/og-theme";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {

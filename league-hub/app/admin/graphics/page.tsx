@@ -15,6 +15,7 @@ export default function AdminGraphicsPage() {
     { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}` },
     ...TOP_THREE_POSITIONS.map((p) => ({ title: p.label, url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}` })),
     { title: "Team of the Week", url: `/api/admin/graphics/team-of-week?week=${week}` },
+    { title: "Luck Chart (through this week)", url: `/api/admin/graphics/luck-chart?week=${week}` },
   ];
 
   return (

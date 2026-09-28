@@ -169,11 +169,17 @@ Matches the visual style approved on the design canvas. Right-click or
 press-and-hold an image to save it; there's also a Download link. Uses
 `next/og` (built into Next.js — no extra service or API key).
 
+**Luck Chart**: for the chosen week, shows each team's all-play record
+(what they'd have gone playing every other team every week, "expected"),
+against their actual record, the gap between the two, and median points
+per week vs. the league median. "Chg" is how many places a team moved in
+expected-win% ranking since the week before. Ties count as half a win.
+Only final matchups count, so a week still in progress is ignored. The
+math lives in `lib/luck.ts` and was cross-checked against a separate
+implementation on test data.
+
 **Not yet built**: Player Spotlight cards (need goal/assist/shot or
-win/save breakdowns — separate ESPN stat categories not mapped yet) and
-the Luck Chart (needs an all-play record computed across every team,
-every week — bigger than what's built so far). Natural next additions
-once the simpler graphics are confirmed working against a real week.
+win/save breakdowns — separate ESPN stat categories not mapped yet).
 
 ## Known gaps / good next steps
 

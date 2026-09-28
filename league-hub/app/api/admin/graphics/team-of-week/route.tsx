@@ -6,6 +6,7 @@ import { OG } from "@/lib/og-theme";
 import { WeeklyPlayerStat } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
