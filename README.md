@@ -270,6 +270,20 @@ Matches the visual style approved on the design canvas. Right-click or
 press-and-hold an image to save it; there's also a Download link. Uses
 `next/og` (built into Next.js — no extra service or API key).
 
+**Player headshots**: each player's photo circle uses their real ESPN
+headshot when one's on file, and falls back to the same initials-circle
+style as before when it isn't (ESPN doesn't have a photo for every player).
+The photo is checked for real before the image is generated (with a strict
+timeout), so a missing or slow photo can never break the graphic -- worst
+case, that one player just shows initials. The URL pattern
+(`a.espncdn.com/i/headshots/nhl/players/full/{id}.png`) is documented and
+was verified against a real local test image end-to-end (circular clipping,
+crop-not-stretch, colored borders, and the fallback all confirmed working),
+but this environment can't reach ESPN's own image servers to test against
+them directly, so the very first real check of ESPN's actual photos happens
+on a live deployment. Logic lives in `lib/headshots.ts` (the availability
+check) and `lib/og-avatar.tsx` (the shared avatar element).
+
 **Luck Chart**: what each team's record would be if it played every other
 team every week ("all-play" -- the "expected" record), against the record
 it actually has. The Luck column is actual win% minus expected win%:
