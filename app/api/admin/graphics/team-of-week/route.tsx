@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
-import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
+import { getWeeklyPlayerStats, getStandings, getLeagueMeta, getPastSeasonTeams } from "@/lib/espn";
+import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
@@ -15,19 +16,33 @@ export async function GET(req: NextRequest) {
     const week = Number(req.nextUrl.searchParams.get("week"));
     if (!week) return new Response("week is required", { status: 400 });
 
-    const [{ players, live }, { teams }, fonts] = await Promise.all([
-      getWeeklyPlayerStats(week),
-      getStandings(),
+    // ?season=YYYY pulls a past season's already-completed weeks -- useful
+    // for testing (or just generating) a graphic before the current season
+    // has any stats posted yet. Without it, this is the current season.
+    const meta = await getLeagueMeta();
+    const seasonParam = Number(req.nextUrl.searchParams.get("season")) || meta.season;
+    const isPast = seasonParam !== meta.season;
+
+    if (isPast && (await getPlayedElsewhereSeasons()).has(seasonParam)) {
+      return new Response(`${seasonParam} was played on Fantrax, so there's no ESPN player data to use.`, { status: 400 });
+    }
+
+    const [{ players, live }, teamsResult, fonts] = await Promise.all([
+      getWeeklyPlayerStats(week, isPast ? seasonParam : undefined),
+      isPast ? getPastSeasonTeams(seasonParam) : getStandings().then((s) => s.teams),
       loadGraphicFonts(),
     ]);
 
     const { display, body } = getFontFamilies(fonts);
 
-    if (!live) {
-      return new Response("ESPN isn't connected, or no stats posted for this week yet.", { status: 400 });
+    if (!live || !teamsResult) {
+      return new Response(
+        isPast ? `Couldn't load season ${seasonParam} from ESPN.` : "ESPN isn't connected, or no stats posted for this week yet.",
+        { status: 400 }
+      );
     }
 
-    const teamName = (id: number) => teams.find((t) => t.id === id)?.name ?? "";
+    const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
     const byPos = (pos: string) => [...players].filter((p) => p.position === pos).sort((a, b) => b.points - a.points);
 
     const lineup: { slot: string; player: WeeklyPlayerStat | undefined }[] = [
@@ -48,7 +63,7 @@ export async function GET(req: NextRequest) {
         <div style={{ width: 1200, height: 820, display: "flex", flexDirection: "column", background: OG.ice, fontFamily: body }}>
           <div style={{ display: "flex", flexDirection: "column", background: OG.rink, padding: "32px 48px 28px 48px" }}>
             <div style={{ fontFamily: display, fontWeight: 700, fontSize: 40, color: OG.ice, textTransform: "uppercase" }}>Team of the Week</div>
-            <div style={{ display: "flex", fontSize: 16, color: "#B9C9DC" }}>Week {week}</div>
+            <div style={{ display: "flex", fontSize: 16, color: "#B9C9DC" }}>{isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`}</div>
           </div>
           <div style={{ height: 3, background: OG.centerRed }} />
           <div style={{ flexGrow: 1, display: "flex", flexWrap: "wrap", padding: "36px 48px", gap: 24 }}>

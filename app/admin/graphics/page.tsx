@@ -78,15 +78,18 @@ function GraphicCard({ title, url }: { title: string; url: string }) {
 
 export default function AdminGraphicsPage() {
   const [week, setWeek] = useState<number>(1);
+  const [weekSeason, setWeekSeason] = useState<string>("");
   const [luckSeason, setLuckSeason] = useState<string>("");
 
+  const seasonQS = weekSeason ? `&season=${encodeURIComponent(weekSeason)}` : "";
+
   const cards = [
-    { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}` },
+    { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}${seasonQS}` },
     ...TOP_THREE_POSITIONS.map((p) => ({
       title: p.label,
-      url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}`,
+      url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}${seasonQS}`,
     })),
-    { title: "Team of the Week", url: `/api/admin/graphics/team-of-week?week=${week}` },
+    { title: "Team of the Week", url: `/api/admin/graphics/team-of-week?week=${week}${seasonQS}` },
     luckSeason
       ? {
           title: `Luck Chart — end of ${luckSeason}`,
@@ -107,28 +110,48 @@ export default function AdminGraphicsPage() {
         shows here instead of the picture. The Luck Chart also lives on the public Power Rankings page.
       </p>
 
-      <label className="text-sm inline-block mb-8">
-        <div className="text-muted mb-1">Week</div>
-        <input
-          type="number"
-          min={1}
-          value={week}
-          onChange={(e) => setWeek(Math.max(1, Number(e.target.value) || 1))}
-          className="border border-ice-line px-3 py-2 w-28"
-        />
-      </label>
+      <div className="flex flex-wrap gap-6 mb-8">
+        <label className="text-sm inline-block">
+          <div className="text-muted mb-1">Week</div>
+          <input
+            type="number"
+            min={1}
+            value={week}
+            onChange={(e) => setWeek(Math.max(1, Number(e.target.value) || 1))}
+            className="border border-ice-line px-3 py-2 w-28"
+          />
+        </label>
 
-      <label className="text-sm inline-block mb-8 ml-6">
-        <div className="text-muted mb-1">Luck Chart season (optional)</div>
-        <input
-          type="number"
-          placeholder="e.g. 2026"
-          value={luckSeason}
-          onChange={(e) => setLuckSeason(e.target.value)}
-          className="border border-ice-line px-3 py-2 w-36"
-        />
-        <div className="text-xs text-muted mt-1">Leave blank for the current season. A past season shows its final chart.</div>
-      </label>
+        <label className="text-sm inline-block">
+          <div className="text-muted mb-1">Season (optional)</div>
+          <input
+            type="number"
+            placeholder="e.g. 2026"
+            value={weekSeason}
+            onChange={(e) => setWeekSeason(e.target.value)}
+            className="border border-ice-line px-3 py-2 w-36"
+          />
+          <div className="text-xs text-muted mt-1 max-w-[16rem]">
+            Applies to the three week-based graphics above. Leave blank for the current season --
+            useful before this season has any stats posted yet, e.g. to check real players&apos;
+            photos show up correctly.
+          </div>
+        </label>
+
+        <label className="text-sm inline-block">
+          <div className="text-muted mb-1">Luck Chart season (optional)</div>
+          <input
+            type="number"
+            placeholder="e.g. 2026"
+            value={luckSeason}
+            onChange={(e) => setLuckSeason(e.target.value)}
+            className="border border-ice-line px-3 py-2 w-36"
+          />
+          <div className="text-xs text-muted mt-1 max-w-[16rem]">
+            Leave blank for the current season. A past season shows its final chart.
+          </div>
+        </label>
+      </div>
 
       <div className="space-y-10">
         {cards.map((c) => (
