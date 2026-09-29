@@ -152,50 +152,87 @@ export async function getRosters(season?: number): Promise<{ rosters: Roster[]; 
   return { rosters, live: true };
 }
 
-// Every rostered player's ACTUAL fantasy points for one specific week --
-// used to compute real "who actually had a big week" award suggestions,
-// as opposed to season-to-date totals. statSourceId 0 = actual (not
-// projected); scoringPeriodId lines up with the "week" numbers used
-// everywhere else in this app.
+// Which ESPN scoring periods (days) make up a matchup week. In fantasy hockey
+// a scoringPeriodId is ONE DAY and a matchup week spans roughly seven of
+// them, so "week 4" is NOT scoringPeriodId 4. ESPN publishes the mapping in
+// the league settings (scheduleSettings.matchupPeriods: { "1": [1..7], ... }).
+// Falls back to [week] if the mapping isn't there, which is the old behavior.
+export async function getScoringPeriodsForWeek(week: number, season?: number): Promise<number[]> {
+  const data = await fetchEspn(["mSettings"], season, true);
+  const raw = data?.settings?.scheduleSettings?.matchupPeriods?.[String(week)];
+  if (Array.isArray(raw) && raw.length > 0) {
+    return raw.map(Number).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+  }
+  return [week];
+}
+
+// ESPN lineup slots that don't score for the fantasy team (per the
+// community espn-api hockey constants: 7 = Bench, 8 = IR).
+const NON_SCORING_SLOTS = new Set([7, 8]);
+
+// Every rostered player's ACTUAL fantasy points for one matchup week: their
+// daily scores summed across every scoring day in that week, counting only
+// days they were in an active lineup slot. statSourceId 0 = actual (not
+// projected). Raw stat counts (goals, assists, ...) are summed the same way.
 export async function getWeeklyPlayerStats(
   week: number,
   season?: number
-): Promise<{ players: WeeklyPlayerStat[]; live: boolean }> {
+): Promise<{ players: WeeklyPlayerStat[]; live: boolean; scoringPeriods?: number[] }> {
+  const scoringPeriods = await getScoringPeriodsForWeek(week, season);
+
   // ESPN's roster response only includes season-aggregate stat buckets
-  // (scoringPeriodId 0, split out by statSplitTypeId instead -- season
-  // total, last-7-days, etc.) unless a specific scoringPeriodId is asked
-  // for explicitly. Confirmed via the admin Roster Stats Probe: without
-  // this, a past season's roster fetch never contains real per-week data
-  // at all, no matter which week the code searches for afterward.
-  const data = await fetchEspn(["mRoster", "mTeam"], season, false, `scoringPeriodId=${week}`);
-  if (!data?.teams) {
+  // unless a specific scoringPeriodId is asked for explicitly (confirmed via
+  // the admin Roster Stats Probe), so each day is its own request.
+  const days = await Promise.all(
+    scoringPeriods.map((sp) => fetchEspn(["mRoster", "mTeam"], season, false, `scoringPeriodId=${sp}`).then((data) => ({ sp, data })))
+  );
+
+  if (!days.some((d) => d.data?.teams)) {
     return { players: [], live: false };
   }
 
-  const players: WeeklyPlayerStat[] = [];
+  const byPlayer = new Map<number, WeeklyPlayerStat>();
 
-  for (const t of data.teams) {
-    for (const e of t.roster?.entries ?? []) {
-      const player = e.playerPoolEntry?.player;
-      if (!player) continue;
+  for (const { sp, data } of days) {
+    for (const t of data?.teams ?? []) {
+      for (const e of t.roster?.entries ?? []) {
+        const player = e.playerPoolEntry?.player;
+        if (!player) continue;
+        if (NON_SCORING_SLOTS.has(e.lineupSlotId)) continue; // benched / IR that day
 
-      const weekStat = (player.stats ?? []).find(
-        (s: any) => s.scoringPeriodId === week && s.statSourceId === 0
-      );
-      if (!weekStat) continue; // player didn't play / no actual stats posted for this week yet
+        const dayStat = (player.stats ?? []).find(
+          (x: any) => x.scoringPeriodId === sp && x.statSourceId === 0
+        );
+        if (!dayStat) continue; // didn't play that day / no actual stats posted yet
 
-      players.push({
-        id: player.id,
-        name: player.fullName ?? "Unknown Player",
-        position: positionName(player.defaultPositionId),
-        teamId: t.id,
-        points: weekStat.appliedTotal ?? 0,
-        stats: weekStat.stats && typeof weekStat.stats === "object" ? weekStat.stats : undefined,
-      });
+        const existing = byPlayer.get(player.id);
+        const dayStats: Record<string, number> | undefined =
+          dayStat.stats && typeof dayStat.stats === "object" ? dayStat.stats : undefined;
+
+        if (!existing) {
+          byPlayer.set(player.id, {
+            id: player.id,
+            name: player.fullName ?? "Unknown Player",
+            position: positionName(player.defaultPositionId),
+            teamId: t.id,
+            points: dayStat.appliedTotal ?? 0,
+            stats: dayStats ? { ...dayStats } : undefined,
+          });
+        } else {
+          existing.points += dayStat.appliedTotal ?? 0;
+          existing.teamId = t.id; // days are processed in order, so this ends as the latest team
+          if (dayStats) {
+            existing.stats = existing.stats ?? {};
+            for (const [k, v] of Object.entries(dayStats)) {
+              existing.stats[k] = (existing.stats[k] ?? 0) + Number(v);
+            }
+          }
+        }
+      }
     }
   }
 
-  return { players, live: true };
+  return { players: Array.from(byPlayer.values()), live: true, scoringPeriods };
 }
 
 // Diagnostic only -- for a given season+week, fetches player roster stats

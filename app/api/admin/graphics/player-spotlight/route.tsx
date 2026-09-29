@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       return new Response(`${seasonParam} was played on Fantrax, so there's no ESPN player data to use.`, { status: 400 });
     }
 
-    const [{ players, live }, teamsResult, fonts] = await Promise.all([
+    const [{ players, live, scoringPeriods }, teamsResult, fonts] = await Promise.all([
       getWeeklyPlayerStats(week, isPast ? seasonParam : undefined),
       isPast ? getPastSeasonTeams(seasonParam) : getStandings().then((s) => s.teams),
       loadGraphicFonts(),
@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
     if (params.get("debug")) {
       return Response.json({
         week,
+        scoringDaysUsed: scoringPeriods,
         player: { id: player.id, name: player.name, position: player.position, points: player.points },
         rawStats: player.stats ?? null,
         note: "Keys are ESPN stat ids. Compare against lib/espn-stats.ts.",
