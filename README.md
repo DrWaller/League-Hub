@@ -284,6 +284,12 @@ them directly, so the very first real check of ESPN's actual photos happens
 on a live deployment. Logic lives in `lib/headshots.ts` (the availability
 check) and `lib/og-avatar.tsx` (the shared avatar element).
 
+All three graphics also take an optional `?season=YYYY` (and a matching
+field on the admin Graphics page) to pull a **past** season's already-
+completed weeks instead of the current one -- handy before the current
+season has any stats posted yet, e.g. to check real players' photos show
+up correctly without waiting.
+
 **Luck Chart**: what each team's record would be if it played every other
 team every week ("all-play" -- the "expected" record), against the record
 it actually has. The Luck column is actual win% minus expected win%:
