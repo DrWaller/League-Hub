@@ -154,16 +154,41 @@ export async function getRosters(season?: number): Promise<{ rosters: Roster[]; 
 
 // Which ESPN scoring periods (days) make up a matchup week. In fantasy hockey
 // a scoringPeriodId is ONE DAY and a matchup week spans roughly seven of
-// them, so "week 4" is NOT scoringPeriodId 4. ESPN publishes the mapping in
-// the league settings (scheduleSettings.matchupPeriods: { "1": [1..7], ... }).
-// Falls back to [week] if the mapping isn't there, which is the old behavior.
-export async function getScoringPeriodsForWeek(week: number, season?: number): Promise<number[]> {
-  const data = await fetchEspn(["mSettings"], season, true);
-  const raw = data?.settings?.scheduleSettings?.matchupPeriods?.[String(week)];
+// them, so "week 4" is NOT scoringPeriodId 4. Tried in order:
+//   1. league settings: scheduleSettings.matchupPeriods { "1": [1..7], ... }
+//   2. the schedule itself: each matchup's pointsByScoringPeriod keys are the
+//      days that matchup covered (only exists once games have been played)
+//   3. [week] -- the old behavior, used only if neither is available.
+export async function getScoringPeriodsForWeek(
+  week: number,
+  season?: number
+): Promise<{ periods: number[]; source: string; scheduleSettingsKeys: string[] }> {
+  const settings = await fetchEspn(["mSettings"], season, true);
+  const ss = settings?.settings?.scheduleSettings;
+  const scheduleSettingsKeys = ss && typeof ss === "object" ? Object.keys(ss) : [];
+
+  const raw = ss?.matchupPeriods?.[String(week)];
   if (Array.isArray(raw) && raw.length > 0) {
-    return raw.map(Number).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+    const periods = raw.map(Number).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+    if (periods.length > 0) return { periods, source: "settings.matchupPeriods", scheduleSettingsKeys };
   }
-  return [week];
+
+  const sched = await fetchEspn(["mMatchup", "mMatchupScore"], season, true);
+  const days = new Set<number>();
+  for (const m of sched?.schedule ?? []) {
+    if (m.matchupPeriodId !== week) continue;
+    for (const side of [m.home, m.away]) {
+      for (const k of Object.keys(side?.pointsByScoringPeriod ?? {})) {
+        const n = Number(k);
+        if (Number.isFinite(n)) days.add(n);
+      }
+    }
+  }
+  if (days.size > 0) {
+    return { periods: Array.from(days).sort((a, b) => a - b), source: "schedule.pointsByScoringPeriod", scheduleSettingsKeys };
+  }
+
+  return { periods: [week], source: "fallback (no mapping found)", scheduleSettingsKeys };
 }
 
 // ESPN lineup slots that don't score for the fantasy team (per the
@@ -178,7 +203,8 @@ export async function getWeeklyPlayerStats(
   week: number,
   season?: number
 ): Promise<{ players: WeeklyPlayerStat[]; live: boolean; scoringPeriods?: number[]; diag?: Record<string, unknown> }> {
-  const scoringPeriods = await getScoringPeriodsForWeek(week, season);
+  const mapping = await getScoringPeriodsForWeek(week, season);
+  const scoringPeriods = mapping.periods;
 
   // ESPN's roster response only includes season-aggregate stat buckets
   // unless a specific scoringPeriodId is asked for explicitly (confirmed via
@@ -194,6 +220,8 @@ export async function getWeeklyPlayerStats(
   const byPlayer = new Map<number, WeeklyPlayerStat>();
   // Counters that explain an empty result (shown by the Player Spotlight route).
   const diag = {
+    mappingSource: mapping.source,
+    scheduleSettingsKeys: mapping.scheduleSettingsKeys,
     daysRequested: scoringPeriods.length,
     daysThatReturnedTeams: days.filter((d) => d.data?.teams).length,
     rosterEntries: 0,

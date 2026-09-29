@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
       return Response.json({
         week,
         scoringDaysUsed: scoringPeriods,
+        diagnostics: diag,
         player: { id: player.id, name: player.name, position: player.position, points: player.points },
         rawStats: player.stats ?? null,
         note: "Keys are ESPN stat ids. Compare against lib/espn-stats.ts.",
