@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       return new Response(`${seasonParam} was played on Fantrax, so there's no ESPN player data to use.`, { status: 400 });
     }
 
-    const [{ players, live, scoringPeriods }, teamsResult, fonts] = await Promise.all([
+    const [{ players, live, scoringPeriods, diag }, teamsResult, fonts] = await Promise.all([
       getWeeklyPlayerStats(week, isPast ? seasonParam : undefined),
       isPast ? getPastSeasonTeams(seasonParam) : getStandings().then((s) => s.teams),
       loadGraphicFonts(),
@@ -71,7 +71,8 @@ export async function GET(req: NextRequest) {
 
     if (!player) {
       return new Response(
-        playerId ? "That player has no stats posted for this week." : "No stats posted for this week yet.",
+        (playerId ? "That player has no stats posted for this week." : "No stats posted for this week yet.") +
+          `\n\nDiagnostics (send these to Claude if this looks wrong):\nseason=${seasonParam} week=${week} scoringDaysUsed=${JSON.stringify(scoringPeriods)}\n${JSON.stringify(diag)}`,
         { status: 400 }
       );
     }

@@ -177,7 +177,7 @@ const NON_SCORING_SLOTS = new Set([7, 8]);
 export async function getWeeklyPlayerStats(
   week: number,
   season?: number
-): Promise<{ players: WeeklyPlayerStat[]; live: boolean; scoringPeriods?: number[] }> {
+): Promise<{ players: WeeklyPlayerStat[]; live: boolean; scoringPeriods?: number[]; diag?: Record<string, unknown> }> {
   const scoringPeriods = await getScoringPeriodsForWeek(week, season);
 
   // ESPN's roster response only includes season-aggregate stat buckets
@@ -192,18 +192,39 @@ export async function getWeeklyPlayerStats(
   }
 
   const byPlayer = new Map<number, WeeklyPlayerStat>();
+  // Counters that explain an empty result (shown by the Player Spotlight route).
+  const diag = {
+    daysRequested: scoringPeriods.length,
+    daysThatReturnedTeams: days.filter((d) => d.data?.teams).length,
+    rosterEntries: 0,
+    skippedBenchOrIR: 0,
+    noActualStatForThatDay: 0,
+    scoringPeriodIdsSeenOnPlayers: [] as number[],
+    slotIdsSeen: [] as number[],
+  };
+  const seenSp = new Set<number>();
+  const seenSlots = new Set<number>();
 
   for (const { sp, data } of days) {
     for (const t of data?.teams ?? []) {
       for (const e of t.roster?.entries ?? []) {
         const player = e.playerPoolEntry?.player;
         if (!player) continue;
-        if (NON_SCORING_SLOTS.has(e.lineupSlotId)) continue; // benched / IR that day
+        diag.rosterEntries++;
+        seenSlots.add(e.lineupSlotId);
+        for (const x of player.stats ?? []) if (x.statSourceId === 0) seenSp.add(x.scoringPeriodId);
+        if (NON_SCORING_SLOTS.has(e.lineupSlotId)) {
+          diag.skippedBenchOrIR++; // benched / IR that day
+          continue;
+        }
 
         const dayStat = (player.stats ?? []).find(
           (x: any) => x.scoringPeriodId === sp && x.statSourceId === 0
         );
-        if (!dayStat) continue; // didn't play that day / no actual stats posted yet
+        if (!dayStat) {
+          diag.noActualStatForThatDay++; // didn't play that day / no actual stats posted yet
+          continue;
+        }
 
         const existing = byPlayer.get(player.id);
         const dayStats: Record<string, number> | undefined =
@@ -232,7 +253,9 @@ export async function getWeeklyPlayerStats(
     }
   }
 
-  return { players: Array.from(byPlayer.values()), live: true, scoringPeriods };
+  diag.scoringPeriodIdsSeenOnPlayers = Array.from(seenSp).sort((a, b) => a - b).slice(0, 60);
+  diag.slotIdsSeen = Array.from(seenSlots).sort((a, b) => a - b);
+  return { players: Array.from(byPlayer.values()), live: true, scoringPeriods, diag };
 }
 
 // Diagnostic only -- for a given season+week, fetches player roster stats
