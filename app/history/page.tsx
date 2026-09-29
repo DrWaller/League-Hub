@@ -3,7 +3,6 @@ import { getSeasonBundle } from "@/lib/season-data";
 import { getSeasonHistory, getManagers, getManagerSeasons } from "@/lib/content";
 import { getHistorySeasons } from "@/lib/seasons";
 import { seasonsPlayedElsewhere } from "@/lib/played-elsewhere";
-import { buildPodium } from "@/lib/history-podium";
 import SeasonHistoryCard, { HistoryRow, SeasonHistoryCardData } from "@/components/SeasonHistoryCard";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +70,7 @@ export default async function HistoryPage() {
         tags: entry?.tags ?? [],
         champion: entry?.champion ?? null,
         runnerUp: entry?.runnerUp ?? null,
-        podium: buildPodium(rows.map((r) => ({ name: r.name, managerName: r.managerName })), entry?.regularSeasonLeader ?? null),
+        thirdPlace: entry?.thirdPlace ?? null,
         note: entry?.note ?? null,
         rows,
       };

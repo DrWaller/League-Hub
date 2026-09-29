@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     season,
     champion: clean(b.champion),
     runnerUp: clean(b.runnerUp),
-    regularSeasonLeader: clean(b.regularSeasonLeader),
+    thirdPlace: clean(b.thirdPlace),
     tags: Array.isArray(b.tags) ? b.tags.filter((t: unknown) => typeof t === "string" && t.trim()) : [],
     note: clean(b.note),
   });
