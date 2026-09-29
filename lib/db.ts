@@ -181,6 +181,12 @@ export async function ensureSchema() {
       updated_at TIMESTAMP DEFAULT now()
     );
   `;
+  // The table used to have "regular_season_leader" instead of "third_place"
+  // (renamed when that field's meaning changed). CREATE TABLE IF NOT EXISTS
+  // only runs on a table that doesn't exist yet, so a database that already
+  // had the old column needs this to actually pick up the new one -- without
+  // touching champion / runner_up / tags / note, which are untouched.
+  await sql`ALTER TABLE season_history ADD COLUMN IF NOT EXISTS third_place TEXT;`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS manual_teams (
