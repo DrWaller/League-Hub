@@ -191,8 +191,82 @@ export async function getWeeklyPlayerStats(
   return { players, live: true };
 }
 
-// Diagnostic only -- fetches a PAST season directly from ESPN (bypassing
-// the current-season default) to see what ESPN actually retained: team
+// Diagnostic only -- for a given season+week, fetches player roster stats
+// TWO ways: the normal way (no scoringPeriodId in the request -- what
+// getWeeklyPlayerStats actually does today) and with an explicit
+// scoringPeriodId added to the request. Reports what came back from each,
+// so a real mismatch (e.g. a past season simply not returning full stats
+// history the normal way) shows up directly instead of being guessed at.
+export interface RosterStatsProbe {
+  ok: boolean;
+  totalEntries: number;
+  entriesWithAnyStats: number;
+  scoringPeriodIdsSeen: number[];
+  statSourceIdsSeen: number[];
+  matchingRequestedWeek: number; // entries with scoringPeriodId === week && statSourceId === 0 (what the real code looks for)
+  samplePlayer: { name: string; statsArrayLength: number; sampleStats: unknown[] } | null;
+}
+
+async function probeRosterStats(season: number, week: number, withScoringPeriod: boolean): Promise<RosterStatsProbe> {
+  if (!liveDataConfigured()) {
+    return { ok: false, totalEntries: 0, entriesWithAnyStats: 0, scoringPeriodIdsSeen: [], statSourceIdsSeen: [], matchingRequestedWeek: 0, samplePlayer: null };
+  }
+  const qs = withScoringPeriod
+    ? `view=mRoster&view=mTeam&scoringPeriodId=${week}`
+    : `view=mRoster&view=mTeam`;
+  const data = await fetch(`${buildBase(season)}?${qs}`, {
+    headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` },
+    next: { revalidate: 0 },
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+
+  if (!data?.teams) return { ok: false, totalEntries: 0, entriesWithAnyStats: 0, scoringPeriodIdsSeen: [], statSourceIdsSeen: [], matchingRequestedWeek: 0, samplePlayer: null };
+
+  let total = 0;
+  let withStats = 0;
+  let matching = 0;
+  const periods = new Set<number>();
+  const sources = new Set<number>();
+  let sample: RosterStatsProbe["samplePlayer"] = null;
+
+  for (const t of data.teams) {
+    for (const e of t.roster?.entries ?? []) {
+      const player = e.playerPoolEntry?.player;
+      if (!player) continue;
+      total++;
+      const stats = player.stats ?? [];
+      if (stats.length > 0) {
+        withStats++;
+        if (!sample) sample = { name: player.fullName ?? "?", statsArrayLength: stats.length, sampleStats: stats.slice(0, 3) };
+      }
+      for (const s of stats) {
+        if (typeof s.scoringPeriodId === "number") periods.add(s.scoringPeriodId);
+        if (typeof s.statSourceId === "number") sources.add(s.statSourceId);
+        if (s.scoringPeriodId === week && s.statSourceId === 0) matching++;
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    totalEntries: total,
+    entriesWithAnyStats: withStats,
+    scoringPeriodIdsSeen: Array.from(periods).sort((a, b) => a - b),
+    statSourceIdsSeen: Array.from(sources).sort((a, b) => a - b),
+    matchingRequestedWeek: matching,
+    samplePlayer: sample,
+  };
+}
+
+export async function diagnoseRosterStats(season: number, week: number) {
+  const [withoutPeriod, withPeriod] = await Promise.all([
+    probeRosterStats(season, week, false),
+    probeRosterStats(season, week, true),
+  ]);
+  return { season, week, withoutScoringPeriodParam: withoutPeriod, withScoringPeriodParam: withPeriod };
+}
+
 // names/ids for that year, and owner info if present. Whether historical
 // data goes back this far, and whether owner names are included, varies
 // and isn't something that can be verified without a live request -- this

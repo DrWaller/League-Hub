@@ -261,6 +261,20 @@ the current season, just pointed at a different year. Nothing is copied
 into the database for this; it's fetched fresh each time (and cached for a
 day, since past seasons don't change).
 
+## Diagnosing missing past-season player stats
+
+If Graphics says "no stats posted" for a past season/week that definitely
+was played, **admin > Roster Stats Probe** shows exactly what ESPN sends
+back for that season+week, tried two ways: the normal request (no
+scoring-period specified -- what Graphics actually does) and the same
+request with an explicit `scoringPeriodId` added. If the normal request
+comes back with an empty stats array while the explicit one has real data,
+that's ESPN not returning full stats history for a past season by default,
+and `getWeeklyPlayerStats` in `lib/espn.ts` would need to start sending
+`scoringPeriodId` explicitly for past seasons. This wasn't something that
+could be confirmed without a live ESPN connection, so the tool exists to
+find out rather than guess.
+
 ## Auto-generated graphics
 
 **Graphics** (in the admin area) generates shareable images — 3 Stars,
