@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { PodiumEntry } from "@/lib/history-podium";
 
 // Show "(Manager)" after a team name only when it adds something -- not when
 // the team is named after the manager already.
-const showManager = (team: string, manager: string | null) =>
-  Boolean(manager) && manager!.trim().toLowerCase() !== team.trim().toLowerCase();
+const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
 export interface HistoryRow {
   teamId: number;
@@ -22,7 +20,7 @@ export interface SeasonHistoryCardData {
   tags: string[];
   champion: string | null;
   runnerUp: string | null;
-  podium: PodiumEntry[]; // regular-season 1st / 2nd / 3rd (from the standings, or the 1st-place override)
+  thirdPlace: string | null; // playoff third-place finisher
   note: string | null;
   rows: HistoryRow[]; // empty when ESPN has no data for the season (e.g. played elsewhere)
 }
@@ -32,8 +30,21 @@ function tagClass(tag: string) {
 }
 
 export default function SeasonHistoryCard({ data }: { data: SeasonHistoryCardData }) {
-  const { season, tags, champion, runnerUp, podium, note, rows } = data;
-  const ordinals = ["1st", "2nd", "3rd"];
+  const { season, tags, champion, runnerUp, thirdPlace, note, rows } = data;
+
+  // The standings table (rows) knows each team's manager; champion/runner-up/
+  // third are just typed team names, so look the manager up by matching name.
+  const managerOf = (team: string) => rows.find((r) => norm(r.name) === norm(team))?.managerName ?? null;
+  const podium = [
+    { place: "Champion", team: champion, strong: true },
+    { place: "Runner-up", team: runnerUp, strong: false },
+    { place: "3rd Place", team: thirdPlace, strong: false },
+  ].filter((p): p is { place: string; team: string; strong: boolean } => Boolean(p.team));
+
+  // The best regular-season record, not the playoff result -- this is knowable
+  // straight from the standings, so it's shown automatically rather than typed
+  // in, and it's kept visually separate so it's never mistaken for the champion.
+  const regularSeasonChampion = rows.length > 0 ? rows[0] : null;
 
   return (
     <li className="mb-10 ml-6">
@@ -47,38 +58,33 @@ export default function SeasonHistoryCard({ data }: { data: SeasonHistoryCardDat
         ))}
       </div>
 
-      {champion || runnerUp ? (
-        <dl className="text-sm grid sm:grid-cols-2 gap-x-6 gap-y-2 mb-3">
-          {champion && (
-            <div>
-              <dt className="text-muted">Season champion</dt>
-              <dd className="font-body font-semibold">{champion}</dd>
-            </div>
-          )}
-          {runnerUp && (
-            <div>
-              <dt className="text-muted">Runner-up</dt>
-              <dd className="font-body">{runnerUp}</dd>
-            </div>
-          )}
+      {podium.length > 0 ? (
+        <dl className="text-sm grid sm:grid-cols-3 gap-x-6 gap-y-2 mb-2">
+          {podium.map((p) => {
+            const mgr = managerOf(p.team);
+            return (
+              <div key={p.place}>
+                <dt className="text-muted">{p.place}</dt>
+                <dd className={p.strong ? "font-body font-semibold" : "font-body"}>
+                  {p.team}
+                  {mgr && norm(mgr) !== norm(p.team) && <span className="text-muted"> ({mgr})</span>}
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       ) : (
-        <p className="text-sm text-muted mb-3">No champion recorded for this season yet.</p>
+        <p className="text-sm text-muted mb-2">No playoff results recorded for this season yet.</p>
       )}
 
-      {podium.length > 0 && (
-        <div className="mb-3">
-          <div className="text-sm text-muted mb-1">Regular-season finish</div>
-          <ol className="text-sm grid sm:grid-cols-3 gap-x-6 gap-y-1">
-            {podium.map((p, i) => (
-              <li key={`${p.name}-${i}`}>
-                <span className="text-muted font-tabular">{ordinals[i]}</span>{" "}
-                <span className="font-body">{p.name}</span>
-                {showManager(p.name, p.managerName) && <span className="text-muted"> ({p.managerName})</span>}
-              </li>
-            ))}
-          </ol>
-        </div>
+      {regularSeasonChampion && (
+        <p className="text-sm mb-3">
+          <span className="text-muted">Regular season champion: </span>
+          <span className="font-body font-medium">{regularSeasonChampion.name}</span>
+          {regularSeasonChampion.managerName && norm(regularSeasonChampion.managerName) !== norm(regularSeasonChampion.name) && (
+            <span className="text-muted"> ({regularSeasonChampion.managerName})</span>
+          )}
+        </p>
       )}
 
       {note && <p className="text-sm text-muted italic mb-2">{note}</p>}
@@ -106,7 +112,9 @@ export default function SeasonHistoryCard({ data }: { data: SeasonHistoryCardDat
                       <td className="py-2 pr-3 text-muted">{i + 1}</td>
                       <td className="py-2 pr-3 font-body">
                         {r.name}
-                        {showManager(r.name, r.managerName) && <span className="text-muted"> ({r.managerName})</span>}
+                        {r.managerName && norm(r.managerName) !== norm(r.name) && (
+                          <span className="text-muted"> ({r.managerName})</span>
+                        )}
                       </td>
                       <td className="py-2 pr-3 text-right">
                         {r.wins}-{r.losses}

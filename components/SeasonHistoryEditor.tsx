@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { KNOWN_HISTORY_TAGS, SeasonHistoryRecord } from "@/lib/types";
 
-const EMPTY = { season: "", champion: "", runnerUp: "", leader: "", note: "", tags: [] as string[] };
+const EMPTY = { season: "", champion: "", runnerUp: "", thirdPlace: "", note: "", tags: [] as string[] };
 
 export default function SeasonHistoryEditor() {
   const [entries, setEntries] = useState<SeasonHistoryRecord[]>([]);
@@ -22,7 +22,7 @@ export default function SeasonHistoryEditor() {
   }, [load]);
 
   // Suggest that season's actual team names (from ESPN) for the champion /
-  // runner-up boxes. Purely a convenience -- typing anything also works.
+  // runner-up / third place boxes. Purely a convenience -- typing anything also works.
   async function loadTeamNames(season: string) {
     setTeamNames([]);
     if (!Number(season)) return;
@@ -40,7 +40,7 @@ export default function SeasonHistoryEditor() {
       season: String(e.season),
       champion: e.champion ?? "",
       runnerUp: e.runnerUp ?? "",
-      leader: e.regularSeasonLeader ?? "",
+      thirdPlace: e.thirdPlace ?? "",
       note: e.note ?? "",
       tags: e.tags,
     });
@@ -64,7 +64,7 @@ export default function SeasonHistoryEditor() {
           season: Number(form.season),
           champion: form.champion,
           runnerUp: form.runnerUp,
-          regularSeasonLeader: form.leader,
+          thirdPlace: form.thirdPlace,
           tags: form.tags,
           note: form.note,
         }),
@@ -102,11 +102,10 @@ export default function SeasonHistoryEditor() {
       <div className="border border-ice-line p-5 mb-8">
         <h2 className="font-display text-lg mb-1">Add or edit a season</h2>
         <p className="text-xs text-muted mb-4">
-          The standings under each season, and its regular-season 1st / 2nd / 3rd, come from the
-          standings automatically. This is only for what they can&apos;t know: who won the playoffs, and
-          notes on odd seasons. Use the 1st place override only if the league&apos;s tiebreakers put a
-          different team first. Saving a season that already
-          has an entry replaces it.
+          Playoff results: Champion, Runner-up, and 3rd Place. (The Regular Season Champion shown on the
+          public page is worked out automatically from the standings -- no need to enter it here.) The
+          standings themselves come from ESPN automatically, or from the weekly scores you enter for a
+          Fantrax season. Saving a season that already has an entry replaces it.
         </p>
         <div className="grid sm:grid-cols-2 gap-3 mb-3">
           <label className="text-sm">
@@ -118,16 +117,6 @@ export default function SeasonHistoryEditor() {
               value={form.season}
               onChange={(e) => setForm({ ...form, season: e.target.value })}
               onBlur={(e) => loadTeamNames(e.target.value)}
-            />
-          </label>
-          <label className="text-sm">
-            <div className="text-muted mb-1">1st place override (optional)</div>
-            <input
-              className={input}
-              list="hist-teams"
-              placeholder="Leave blank: 1st-3rd come from the standings"
-              value={form.leader}
-              onChange={(e) => setForm({ ...form, leader: e.target.value })}
             />
           </label>
           <label className="text-sm">
@@ -146,6 +135,16 @@ export default function SeasonHistoryEditor() {
               list="hist-teams"
               value={form.runnerUp}
               onChange={(e) => setForm({ ...form, runnerUp: e.target.value })}
+            />
+          </label>
+          <label className="text-sm">
+            <div className="text-muted mb-1">3rd Place (optional)</div>
+            <input
+              className={input}
+              list="hist-teams"
+              placeholder="Leave blank if there was no 3rd-place game"
+              value={form.thirdPlace}
+              onChange={(e) => setForm({ ...form, thirdPlace: e.target.value })}
             />
           </label>
         </div>
@@ -195,7 +194,7 @@ export default function SeasonHistoryEditor() {
               <div className="text-sm">
                 <div className="font-display text-lg">{e.season}</div>
                 <div className="text-muted">
-                  Champion: {e.champion ?? "—"} · Runner-up: {e.runnerUp ?? "—"}
+                  Champion: {e.champion ?? "—"} · Runner-up: {e.runnerUp ?? "—"} · 3rd: {e.thirdPlace ?? "—"}
                 </div>
                 {e.tags.length > 0 && <div className="text-xs text-muted">{e.tags.join(", ")}</div>}
               </div>

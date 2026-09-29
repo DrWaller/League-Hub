@@ -54,17 +54,6 @@ export interface PowerRankingEntry {
   previousRank?: number;
 }
 
-export type HistoryTag = "COVID-shortened" | "Played on Fantrax";
-
-export interface SeasonHistory {
-  year: number;
-  champion: string;
-  runnerUp: string;
-  regularSeasonLeader: string;
-  tags?: HistoryTag[];
-  note?: string;
-}
-
 export interface LeagueMeta {
   name: string;
   size: number;
@@ -204,7 +193,7 @@ export interface SeasonHistoryRecord {
   season: number;
   champion: string | null;
   runnerUp: string | null;
-  regularSeasonLeader: string | null; // optional manual override of the auto-detected leader
+  thirdPlace: string | null; // playoff third-place finisher (the third-place game winner)
   tags: string[];
   note: string | null;
 }

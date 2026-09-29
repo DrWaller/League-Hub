@@ -152,18 +152,21 @@ League History once you write an entry for it.
 - **Standings** has a season selector; a past season shows its final
   regular-season standings (ranked by record, then points for -- ESPN's own
   tiebreakers may differ slightly).
-- **League History** (public) lists every past season, newest first, with
-  season champion, runner-up, the regular-season 1st / 2nd / 3rd (taken from the
-  standings; the admin "1st place override" is only for when the league's
-  tiebreakers differ from record-then-points), any tags/notes, a tap-to-open
-  final standings table, and links to that season's Standings, Luck Chart
-  and Matchups. Standings come from ESPN; a manager's name shows in
-  brackets when you've assigned managers to that season on the Managers
-  page.
-- **Admin > League History** is where you record what ESPN can't know:
-  champion, runner-up, an optional 1st-place override, the tags "COVID-shortened"
-  / "Played on Fantrax", and a note. Team names are suggested from that
-  season's ESPN teams as you type. The old sample data file is gone.
+- **League History** (public) lists every past season, newest first, with its
+  playoff result -- Champion, Runner-up, and 3rd Place, each entered by hand
+  since ESPN has no idea who won the playoffs -- plus the **Regular Season
+  Champion**, worked out automatically from that season's final standings (no
+  typing needed, and it's shown separately so it's never confused with the
+  playoff Champion when the two differ) -- any tags/notes, a tap-to-open final
+  standings table, and links to that season's Standings, Luck Chart and
+  Matchups. The final-standings table comes from ESPN; a manager's name shows
+  in brackets (on the podium and in that table) when you've assigned managers
+  to that season on the Managers page.
+- **Admin > League History** is where you enter the playoff result --
+  Champion, Runner-up, and an optional 3rd Place -- plus the tags
+  "COVID-shortened" / "Played on Fantrax", and a note. Team names are
+  suggested from that season's ESPN teams as you type. There's no field for
+  Regular Season Champion; that one takes care of itself.
 - **A season played on another platform (the Fantrax year).** Tick
   "Played on Fantrax" on that season's League History entry and the site
   stops using ESPN for it *everywhere*: it's left out of the season buttons

@@ -428,14 +428,14 @@ export async function getSeasonHistory(): Promise<SeasonHistoryRecord[]> {
   try {
     await ensureSchema();
     const { rows } = await sql`
-      SELECT season, champion, runner_up, regular_season_leader, tags, note
+      SELECT season, champion, runner_up, third_place, tags, note
       FROM season_history ORDER BY season DESC;
     `;
     return rows.map((r) => ({
       season: r.season as number,
       champion: (r.champion as string) || null,
       runnerUp: (r.runner_up as string) || null,
-      regularSeasonLeader: (r.regular_season_leader as string) || null,
+      thirdPlace: (r.third_place as string) || null,
       tags: r.tags ? (r.tags as string).split("|").filter(Boolean) : [],
       note: (r.note as string) || null,
     }));
@@ -449,10 +449,10 @@ export async function upsertSeasonHistory(h: SeasonHistoryRecord) {
   await ensureSchema();
   const tags = h.tags.join("|");
   await sql`
-    INSERT INTO season_history (season, champion, runner_up, regular_season_leader, tags, note, updated_at)
-    VALUES (${h.season}, ${h.champion}, ${h.runnerUp}, ${h.regularSeasonLeader}, ${tags}, ${h.note}, now())
+    INSERT INTO season_history (season, champion, runner_up, third_place, tags, note, updated_at)
+    VALUES (${h.season}, ${h.champion}, ${h.runnerUp}, ${h.thirdPlace}, ${tags}, ${h.note}, now())
     ON CONFLICT (season) DO UPDATE SET
-      champion = ${h.champion}, runner_up = ${h.runnerUp}, regular_season_leader = ${h.regularSeasonLeader},
+      champion = ${h.champion}, runner_up = ${h.runnerUp}, third_place = ${h.thirdPlace},
       tags = ${tags}, note = ${h.note}, updated_at = now();
   `;
 }
