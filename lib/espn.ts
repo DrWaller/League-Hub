@@ -30,10 +30,10 @@ export function liveDataConfigured(): boolean {
   return Boolean(ESPN_S2 && ESPN_SWID);
 }
 
-async function fetchEspn(views: string[], season?: number, quiet = false) {
+async function fetchEspn(views: string[], season?: number, quiet = false, extraParams?: string) {
   if (!liveDataConfigured()) return null;
 
-  const qs = views.map((v) => `view=${v}`).join("&");
+  const qs = views.map((v) => `view=${v}`).join("&") + (extraParams ? `&${extraParams}` : "");
   try {
     const res = await fetch(`${buildBase(season)}?${qs}`, {
       headers: {
@@ -161,7 +161,13 @@ export async function getWeeklyPlayerStats(
   week: number,
   season?: number
 ): Promise<{ players: WeeklyPlayerStat[]; live: boolean }> {
-  const data = await fetchEspn(["mRoster", "mTeam"], season);
+  // ESPN's roster response only includes season-aggregate stat buckets
+  // (scoringPeriodId 0, split out by statSplitTypeId instead -- season
+  // total, last-7-days, etc.) unless a specific scoringPeriodId is asked
+  // for explicitly. Confirmed via the admin Roster Stats Probe: without
+  // this, a past season's roster fetch never contains real per-week data
+  // at all, no matter which week the code searches for afterward.
+  const data = await fetchEspn(["mRoster", "mTeam"], season, false, `scoringPeriodId=${week}`);
   if (!data?.teams) {
     return { players: [], live: false };
   }
