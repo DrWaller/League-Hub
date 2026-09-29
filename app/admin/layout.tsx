@@ -20,6 +20,7 @@ const LINKS = [
   { href: "/admin/trades", label: "Trades" },
   { href: "/admin/logos", label: "Team Logos" },
   { href: "/admin/espn-history", label: "ESPN History" },
+  { href: "/admin/roster-stats-probe", label: "Roster Stats Probe" },
   { href: "/admin/import-records", label: "Import Records" },
 ];
 

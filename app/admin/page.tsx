@@ -22,6 +22,7 @@ export default async function AdminDashboard() {
     { href: "/admin/link-managers", label: "Link Managers", desc: "Link each past team to its manager, for the Records page." },
     { href: "/admin/logos", label: "Team Logos", desc: "Upload a logo image for each team." },
     { href: "/admin/espn-history", label: "ESPN History Explorer", desc: "Check what ESPN's API returns for a past season." },
+    { href: "/admin/roster-stats-probe", label: "Roster Stats Probe", desc: "Diagnose why Graphics might not find player stats for a past week." },
     { href: "/admin/import-records", label: "Import Records", desc: "Pull real win-loss records from ESPN for a past season." },
   ];
 
