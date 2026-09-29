@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
 import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
+import { checkHeadshots, headshotUrl } from "@/lib/headshots";
+import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 
 export const runtime = "nodejs";
@@ -44,6 +46,7 @@ export async function GET(req: NextRequest) {
       .filter((p) => POSITION_GROUPS[position].includes(p.position))
       .sort((a, b) => b.points - a.points)
       .slice(0, 3);
+    const availableHeadshots = await checkHeadshots(top3.map((p) => p.id));
 
     const medalColors = [OG.gold, OG.silver, OG.bronze];
     const rankLabels = ["1ST", "2ND", "3RD"];
@@ -78,24 +81,15 @@ export async function GET(req: NextRequest) {
                 <div style={{ position: "absolute", top: 16, left: 16, fontFamily: display, fontSize: 14, fontWeight: 700, color: medalColors[i] }}>
                   {rankLabels[i]}
                 </div>
-                <div
-                  style={{
-                    width: 96,
-                    height: 96,
-                    borderRadius: 48,
-                    background: OG.rink,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontFamily: display,
-                    fontSize: 32,
-                    fontWeight: 700,
-                    color: OG.ice,
-                    border: `3px solid ${medalColors[i]}`,
-                  }}
-                >
-                  {p.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
-                </div>
+                <PlayerAvatar
+                  name={p.name}
+                  src={headshotUrl(p.id)}
+                  hasHeadshot={availableHeadshots.has(p.id)}
+                  size={96}
+                  fontFamily={display}
+                  fontSize={32}
+                  border={`3px solid ${medalColors[i]}`}
+                />
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div style={{ fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.board }}>{p.name}</div>
                   <div style={{ fontSize: 14, color: OG.muted }}>{teamName(p.teamId)}</div>

@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
 import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
+import { checkHeadshots, headshotUrl } from "@/lib/headshots";
+import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 import { WeeklyPlayerStat } from "@/lib/types";
 
@@ -36,6 +38,10 @@ export async function GET(req: NextRequest) {
       { slot: "G", player: byPos("G")[0] },
       { slot: "D", player: byPos("D")[1] },
     ];
+
+    const availableHeadshots = await checkHeadshots(
+      lineup.map((l) => l.player?.id).filter((id): id is number => id !== undefined)
+    );
 
     return new ImageResponse(
       (
@@ -80,23 +86,14 @@ export async function GET(req: NextRequest) {
                 </div>
                 {slot.player ? (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                    <div
-                      style={{
-                        width: 76,
-                        height: 76,
-                        borderRadius: 38,
-                        background: OG.rink,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontFamily: display,
-                        fontSize: 26,
-                        fontWeight: 700,
-                        color: OG.ice,
-                      }}
-                    >
-                      {slot.player.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
-                    </div>
+                    <PlayerAvatar
+                      name={slot.player.name}
+                      src={headshotUrl(slot.player.id)}
+                      hasHeadshot={availableHeadshots.has(slot.player.id)}
+                      size={76}
+                      fontFamily={display}
+                      fontSize={26}
+                    />
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <div style={{ fontFamily: display, fontSize: 19, fontWeight: 700, color: OG.board }}>{slot.player.name}</div>
                       <div style={{ fontSize: 13, color: OG.muted }}>{teamName(slot.player.teamId)}</div>

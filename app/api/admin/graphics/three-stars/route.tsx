@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
 import { getWeeklyPlayerStats, getStandings } from "@/lib/espn";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
+import { checkHeadshots, headshotUrl } from "@/lib/headshots";
+import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 
 export const runtime = "nodejs";
@@ -26,6 +28,7 @@ export async function GET(req: NextRequest) {
 
     const teamName = (id: number) => teams.find((t) => t.id === id)?.name ?? "";
     const top3 = [...players].sort((a, b) => b.points - a.points).slice(0, 3);
+    const availableHeadshots = await checkHeadshots(top3.map((p) => p.id));
 
     const medalColors = [OG.gold, OG.silver, OG.bronze];
     const labels = ["1ST STAR", "2ND STAR", "3RD STAR"];
@@ -61,23 +64,14 @@ export async function GET(req: NextRequest) {
                 }}
               >
                 <div style={{ fontFamily: display, fontSize: 15, fontWeight: 700, color: medalColors[i], letterSpacing: 1 }}>{labels[i]}</div>
-                <div
-                  style={{
-                    width: 88,
-                    height: 88,
-                    borderRadius: 44,
-                    background: OG.rink,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontFamily: display,
-                    fontSize: 30,
-                    fontWeight: 700,
-                    color: OG.ice,
-                  }}
-                >
-                  {p.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
-                </div>
+                <PlayerAvatar
+                  name={p.name}
+                  src={headshotUrl(p.id)}
+                  hasHeadshot={availableHeadshots.has(p.id)}
+                  size={88}
+                  fontFamily={display}
+                  fontSize={30}
+                />
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div style={{ fontFamily: display, fontSize: 21, fontWeight: 700, color: OG.board }}>{p.name}</div>
                   <div style={{ fontSize: 13, color: OG.muted }}>{teamName(p.teamId)}</div>
