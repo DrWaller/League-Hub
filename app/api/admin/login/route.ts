@@ -1,20 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ADMIN_COOKIE, isValidAdminPassword } from "@/lib/auth";
+import { ADMIN_COOKIE, SESSION_SECONDS, createAdminSession, isValidAdminPassword } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
+  let password: unknown;
+  try {
+    ({ password } = await req.json());
+  } catch {
+    return NextResponse.json({ error: "Bad request" }, { status: 400 });
+  }
 
-  if (!isValidAdminPassword(password)) {
+  if (!(await isValidAdminPassword(password))) {
     return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
 
+  const session = await createAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "ADMIN_PASSWORD isn't set on the server." }, { status: 500 });
+  }
+
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(ADMIN_COOKIE, password, {
+  // The cookie holds a signed, expiring token -- never the password itself.
+  res.cookies.set(ADMIN_COOKIE, session, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30 days
+    maxAge: SESSION_SECONDS,
   });
   return res;
 }

@@ -40,6 +40,9 @@ export interface WeeklyPlayerStat {
   position: string; // C, LW, RW, D, G
   teamId: number;
   points: number; // actual fantasy points for that one specific week
+  // Raw ESPN stat counts for that week, keyed by ESPN's numeric stat id
+  // (see lib/espn-stats.ts). Absent when ESPN didn't include a breakdown.
+  stats?: Record<string, number>;
 }
 
 export interface Roster {

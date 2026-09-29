@@ -80,11 +80,16 @@ export default function AdminGraphicsPage() {
   const [week, setWeek] = useState<number>(1);
   const [weekSeason, setWeekSeason] = useState<string>("");
   const [luckSeason, setLuckSeason] = useState<string>("");
+  const [spotlightPosition, setSpotlightPosition] = useState<string>("any");
 
   const seasonQS = weekSeason ? `&season=${encodeURIComponent(weekSeason)}` : "";
 
   const cards = [
     { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}${seasonQS}` },
+    {
+      title: "Player Spotlight",
+      url: `/api/admin/graphics/player-spotlight?week=${week}&position=${spotlightPosition}${seasonQS}`,
+    },
     ...TOP_THREE_POSITIONS.map((p) => ({
       title: p.label,
       url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}${seasonQS}`,
@@ -132,10 +137,24 @@ export default function AdminGraphicsPage() {
             className="border border-ice-line px-3 py-2 w-36"
           />
           <div className="text-xs text-muted mt-1 max-w-[16rem]">
-            Applies to the three week-based graphics above. Leave blank for the current season --
+            Applies to the week-based graphics above. Leave blank for the current season --
             useful before this season has any stats posted yet, e.g. to check real players&apos;
             photos show up correctly.
           </div>
+        </label>
+
+        <label className="text-sm inline-block">
+          <div className="text-muted mb-1">Player Spotlight position</div>
+          <select
+            value={spotlightPosition}
+            onChange={(e) => setSpotlightPosition(e.target.value)}
+            className="border border-ice-line px-3 py-2 w-40 bg-white"
+          >
+            <option value="any">Top scorer (any)</option>
+            <option value="forward">Forward</option>
+            <option value="defense">Defenseman</option>
+            <option value="goalie">Goalie</option>
+          </select>
         </label>
 
         <label className="text-sm inline-block">

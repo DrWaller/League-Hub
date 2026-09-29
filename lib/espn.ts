@@ -190,6 +190,7 @@ export async function getWeeklyPlayerStats(
         position: positionName(player.defaultPositionId),
         teamId: t.id,
         points: weekStat.appliedTotal ?? 0,
+        stats: weekStat.stats && typeof weekStat.stats === "object" ? weekStat.stats : undefined,
       });
     }
   }

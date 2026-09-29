@@ -261,19 +261,22 @@ the current season, just pointed at a different year. Nothing is copied
 into the database for this; it's fetched fresh each time (and cached for a
 day, since past seasons don't change).
 
-## Diagnosing missing past-season player stats
+## Player weekly stats now explicitly request the week
 
-If Graphics says "no stats posted" for a past season/week that definitely
-was played, **admin > Roster Stats Probe** shows exactly what ESPN sends
-back for that season+week, tried two ways: the normal request (no
-scoring-period specified -- what Graphics actually does) and the same
-request with an explicit `scoringPeriodId` added. If the normal request
-comes back with an empty stats array while the explicit one has real data,
-that's ESPN not returning full stats history for a past season by default,
-and `getWeeklyPlayerStats` in `lib/espn.ts` would need to start sending
-`scoringPeriodId` explicitly for past seasons. This wasn't something that
-could be confirmed without a live ESPN connection, so the tool exists to
-find out rather than guess.
+**Confirmed and fixed.** ESPN's roster response only ever contains season-
+aggregate stat buckets (`scoringPeriodId: 0`, distinguished by
+`statSplitTypeId` instead -- season total, last-7-days, etc.) unless the
+request explicitly asks for a specific `scoringPeriodId`. Without it, a
+past season's roster fetch contained no real per-week data at all, no
+matter which week the code searched for afterward -- confirmed directly
+against the live league via the admin Roster Stats Probe page (still there
+for future debugging). `getWeeklyPlayerStats` in `lib/espn.ts` now always
+asks ESPN for the specific week explicitly. This fixes Graphics, the
+Weekly Awards "Suggest from stats" button, and Matchup Blurbs' draft
+suggestion for any week, current or past. As a side effect it also fixes a
+latent caching bug: different weeks of the same past season used to share
+one cached response (up to 24 hours) since the week wasn't part of the
+request URL at all; each week now gets its own.
 
 ## Auto-generated graphics
 
@@ -329,8 +332,14 @@ place to look (`getMatchups` in `lib/espn.ts`). The math is in
 `lib/luck.ts` and was cross-checked against a separate implementation on
 test data.
 
-**Not yet built**: Player Spotlight cards (need goal/assist/shot or
-win/save breakdowns — separate ESPN stat categories not mapped yet).
+**Player Spotlight**: one featured player per week (top scorer by default,
+or narrow by position on the Graphics page; `?playerId=` picks a specific
+player, `?season=` a past season) with headshot, points, and stat tiles --
+goals/assists/shots for skaters, saves/SV%/GA/wins for goalies. The ESPN stat
+ids come from the community `espn-api` project's hockey map, NOT verified
+against this league: open `/api/admin/graphics/player-spotlight?week=N&debug=1`
+(logged in) to see a player's raw stat ids and, if a tile looks wrong, fix the
+ids in `lib/espn-stats.ts` (the only place they live).
 
 ## Known gaps / good next steps
 
@@ -342,6 +351,9 @@ win/save breakdowns — separate ESPN stat categories not mapped yet).
   streak) is a reasonable starting point, not a definitive one. Worth
   revisiting once a season's worth of results shows whether it's actually
   predictive, or whether a category should be weighted differently.
+- **Admin login** stores a signed, expiring session token in the cookie (never
+  the password). Optionally set `ADMIN_SESSION_SECRET` in Vercel for extra
+  hardening; changing it or `ADMIN_PASSWORD` logs everyone out.
 - **Admin area has one shared password**, not per-owner logins. Fine for a
   single commissioner; if other people should be able to post awards/blurbs
   independently, that would need real accounts (e.g. NextAuth) instead.
