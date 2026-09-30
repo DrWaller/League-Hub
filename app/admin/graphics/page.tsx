@@ -91,6 +91,8 @@ export default function AdminGraphicsPage() {
   const seasonQS = weekSeason ? `&season=${encodeURIComponent(weekSeason)}` : "";
 
   const cards = [
+    { title: "Weekly Scoreboard", url: `/api/admin/graphics/scoreboard?week=${week}${seasonQS}` },
+    { title: "Power Rankings", url: `/api/admin/graphics/power-rankings?week=${week}` },
     { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}${seasonQS}` },
     {
       title: "Player Spotlight",
