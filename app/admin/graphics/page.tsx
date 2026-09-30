@@ -82,6 +82,12 @@ export default function AdminGraphicsPage() {
   const [luckSeason, setLuckSeason] = useState<string>("");
   const [spotlightPosition, setSpotlightPosition] = useState<string>("any");
 
+  // Open with the week chosen on the Weekly Checklist (?week=N).
+  useEffect(() => {
+    const w = Number(new URLSearchParams(window.location.search).get("week"));
+    if (w >= 1) setWeek(w);
+  }, []);
+
   const seasonQS = weekSeason ? `&season=${encodeURIComponent(weekSeason)}` : "";
 
   const cards = [

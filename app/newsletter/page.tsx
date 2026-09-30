@@ -12,6 +12,10 @@ import {
 } from "@/lib/content";
 import { AWARD_LABELS, AwardCategory } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
+import PowerRankingsList from "@/components/PowerRankingsList";
+import LuckTable from "@/components/LuckTable";
+import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
+import { computeLuck, regularSeasonFinals } from "@/lib/luck";
 
 export const dynamic = "force-dynamic";
 
@@ -147,6 +151,19 @@ export default async function NewsletterPage({
     getTrades(season),
   ]);
   const weekTrades = allTrades.filter((t) => t.week === week);
+
+  // Power rankings and the luck chart "as of" this week. Current season only
+  // (they're built from this season's live standings and results).
+  let ranking: ReturnType<typeof calculatePowerRankingsWithMovement> | null = null;
+  let luck: ReturnType<typeof computeLuck> | null = null;
+  if (season === meta.season) {
+    const all = await getMatchups();
+    const finalsThrough = regularSeasonFinals(all.matchups).filter((m) => m.week <= week);
+    if (finalsThrough.length > 0) {
+      ranking = calculatePowerRankingsWithMovement(teams, all.matchups, week);
+      luck = computeLuck(all.matchups, ranking.throughWeek);
+    }
+  }
   const introData = await getNewsletterIntro(season, "week", String(week));
   const introText = introData?.introText ?? "";
 
@@ -208,6 +225,28 @@ export default async function NewsletterPage({
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {ranking && (
+          <div>
+            <h3 className="font-display text-lg mb-1">Power Rankings</h3>
+            <p className="text-xs text-muted mb-3">
+              Through week {ranking.throughWeek}
+              {ranking.throughWeek > 1 ? `. Arrows show movement since week ${ranking.throughWeek - 1}.` : "."}
+            </p>
+            <PowerRankingsList rankings={ranking.rankings} teams={ranking.teams} logos={logos} />
+          </div>
+        )}
+
+        {luck && luck.rows.length > 0 && (
+          <div>
+            <h3 className="font-display text-lg mb-1">Luck Chart</h3>
+            <p className="text-xs text-muted mb-3 max-w-prose">
+              Actual record vs. the record each team would have if it played every other team every week, through
+              week {ranking?.throughWeek}. Green is lucky, red is unlucky.
+            </p>
+            <LuckTable rows={luck.rows} leagueMedian={luck.leagueMedian} teamName={teamName} logos={logos} />
           </div>
         )}
 

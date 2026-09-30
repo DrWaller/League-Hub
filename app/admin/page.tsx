@@ -7,6 +7,7 @@ export default async function AdminDashboard() {
   const meta = await getLeagueMeta();
 
   const cards = [
+    { href: "/admin/weekly", label: "Weekly Checklist", desc: "One page for the weekly routine: blurbs, awards, writeup, graphics, power rankings, luck chart." },
     { href: "/admin/awards", label: "Weekly Awards", desc: "3 Stars, Forward/Defense/Goalie of the Week + runners-up." },
     { href: "/admin/graphics", label: "Graphics", desc: "Auto-generated shareable images from real weekly stats." },
     { href: "/admin/monthly-periods", label: "Monthly Periods", desc: "Define the week ranges Monthly Awards use." },
@@ -27,6 +28,7 @@ export default async function AdminDashboard() {
   ];
 
   const weeklySteps = [
+    { href: "/admin/weekly", label: "Weekly Checklist", desc: "See what's done for the week and jump to what's left." },
     { href: "/admin/matchups", label: "Matchup Blurbs", desc: "Recap last week's games (or preview next week's)." },
     { href: "/admin/awards", label: "Weekly Awards", desc: `Suggest from stats, review, save week ${meta.currentWeek}.` },
     { href: "/admin/graphics", label: "Graphics", desc: "Generate and share this week's images." },

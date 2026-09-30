@@ -6,25 +6,10 @@ import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
 import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
-import TeamLogo from "@/components/TeamLogo";
+import PowerRankingsList from "@/components/PowerRankingsList";
 import LuckTable from "@/components/LuckTable";
 
 export const dynamic = "force-dynamic";
-
-// Up/down arrow with the number of places moved since last week.
-function Movement({ change }: { change: number }) {
-  if (change === 0) return <span className="text-xs text-muted w-10 text-right">—</span>;
-  const up = change > 0;
-  return (
-    <span
-      className="text-xs font-tabular w-10 text-right font-semibold"
-      style={{ color: up ? "#1F7A4D" : "#C41E3A" }}
-      title={`${up ? "Up" : "Down"} ${Math.abs(change)} since last week`}
-    >
-      {up ? "▲" : "▼"} {Math.abs(change)}
-    </span>
-  );
-}
 
 export default async function PowerRankingsPage({
   searchParams,
@@ -103,36 +88,7 @@ export default async function PowerRankingsPage({
         </a>
       </p>
 
-      <ol className="space-y-2">
-        {rankings.map((r) => {
-          const team = teamById(r.teamId);
-          if (!team) return null;
-          return (
-            <li
-              key={r.teamId}
-              className="flex items-center justify-between border border-ice-line px-5 py-4"
-            >
-              <div className="flex items-center gap-4">
-                <span className="w-8 h-8 rounded-full bg-rink text-ice flex items-center justify-center font-display">
-                  {r.rank}
-                </span>
-                <TeamLogo url={logos[team.id]} name={team.name} size={32} />
-                <div>
-                  <div className="font-body font-medium">{team.name}</div>
-                  <div className="text-xs text-muted">
-                    {team.wins}-{team.losses}
-                    {team.ties ? `-${team.ties}` : ""} · {team.streak ?? "—"}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                {r.previousRank != null && <Movement change={r.previousRank - r.rank} />}
-                <div className="font-tabular text-lg">{r.score.toFixed(2)}</div>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+      <PowerRankingsList rankings={rankings} teams={teams} logos={logos} />
 
       <section id="luck" className="mt-16 scroll-mt-6">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-3">

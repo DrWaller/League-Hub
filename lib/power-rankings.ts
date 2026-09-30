@@ -128,9 +128,11 @@ export function teamsThroughWeek(teams: Team[], matchups: Matchup[], throughWeek
 // movement.
 export function calculatePowerRankingsWithMovement(
   teams: Team[],
-  matchups: Matchup[]
+  matchups: Matchup[],
+  maxWeek?: number // rank "as of" this week instead of the latest final week (used by the newsletter)
 ): { rankings: PowerRankingEntry[]; teams: Team[]; throughWeek: number } {
-  const throughWeek = regularSeasonFinals(matchups).reduce((max, m) => Math.max(max, m.week), 0);
+  const latest = regularSeasonFinals(matchups).reduce((max, m) => Math.max(max, m.week), 0);
+  const throughWeek = maxWeek ? Math.min(latest, maxWeek) : latest;
   if (throughWeek === 0) return { rankings: calculatePowerRankings(teams), teams, throughWeek: 0 };
 
   const currentTeams = teamsThroughWeek(teams, matchups, throughWeek);
