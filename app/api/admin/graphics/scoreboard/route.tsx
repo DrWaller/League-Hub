@@ -3,6 +3,7 @@ import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
 import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { getSeasonBundle } from "@/lib/season-data";
 import { renderScoreboard } from "@/lib/scoreboard-image";
+import { isPortrait, renderPortraitScoreboard } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { Matchup } from "@/lib/types";
 
@@ -47,13 +48,14 @@ export async function GET(req: NextRequest) {
       return new Response(`No games are final yet for week ${week}${isPast ? ` of ${seasonParam}` : ""}.`, { status: 400 });
     }
 
-    return await renderScoreboard({
+    const opts = {
       matchups,
       week,
       teamName,
       logos: await loadLogoData(isPast),
       title: isPast ? `Week ${week} scoreboard - ${seasonParam}` : undefined,
-    });
+    };
+    return isPortrait(req.nextUrl.searchParams.get("format")) ? await renderPortraitScoreboard(opts) : await renderScoreboard(opts);
   } catch (err) {
     console.error("Scoreboard graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

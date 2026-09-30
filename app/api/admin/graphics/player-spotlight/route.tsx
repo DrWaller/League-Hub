@@ -7,6 +7,7 @@ import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
+import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight } from "@/lib/portrait-graphics";
 import { spotlightTiles } from "@/lib/espn-stats";
 
 export const runtime = "nodejs";
@@ -93,6 +94,17 @@ export async function GET(req: NextRequest) {
     const team = teamsResult.find((t) => t.id === player.teamId)?.name ?? "";
     const tiles = spotlightTiles(player.position, player.stats);
     const availableHeadshots = await checkHeadshots([player.id]);
+
+    if (isPortrait(params.get("format"))) {
+      return await renderPortraitSpotlight({
+        subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
+        positionName: POSITION_NAMES[player.position] ?? player.position,
+        player: { id: player.id, name: player.name, teamId: player.teamId, teamName: team, points: player.points },
+        tiles,
+        logos,
+        hasHeadshot: availableHeadshots.has(player.id),
+      });
+    }
 
     return new ImageResponse(
       (

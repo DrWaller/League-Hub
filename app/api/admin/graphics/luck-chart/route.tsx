@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
 import { renderLuckChart } from "@/lib/luck-image";
+import { isPortrait, renderPortraitLuck } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { getSeasonBundle } from "@/lib/season-data";
@@ -49,7 +50,8 @@ export async function GET(req: NextRequest) {
     if (rows.length === 0) return new Response(`No final matchups through week ${week} yet.`, { status: 400 });
 
     const title = isPast && week === latest ? `Luck chart - ${seasonParam} final` : undefined;
-    return await renderLuckChart({ rows, leagueMedian, week, teamName, title, logos: await loadLogoData(isPast) });
+    const opts = { rows, leagueMedian, week, teamName, title, logos: await loadLogoData(isPast) };
+    return isPortrait(req.nextUrl.searchParams.get("format")) ? await renderPortraitLuck(opts) : await renderLuckChart(opts);
   } catch (err) {
     console.error("Luck chart route failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

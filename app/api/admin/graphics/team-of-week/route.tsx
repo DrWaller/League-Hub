@@ -7,6 +7,7 @@ import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
+import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight } from "@/lib/portrait-graphics";
 import { WeeklyPlayerStat } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -59,6 +60,20 @@ export async function GET(req: NextRequest) {
     const availableHeadshots = await checkHeadshots(
       lineup.map((l) => l.player?.id).filter((id): id is number => id !== undefined)
     );
+
+    if (isPortrait(req.nextUrl.searchParams.get("format"))) {
+      return await renderPortraitTeamOfWeek({
+        subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
+        lineup: lineup.map((l) => ({
+          slot: l.slot,
+          player: l.player
+            ? { id: l.player.id, name: l.player.name, teamId: l.player.teamId, teamName: teamName(l.player.teamId), points: l.player.points }
+            : undefined,
+        })),
+        logos,
+        headshots: availableHeadshots,
+      });
+    }
 
     return new ImageResponse(
       (

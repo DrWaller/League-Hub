@@ -7,6 +7,7 @@ import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
+import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight } from "@/lib/portrait-graphics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,19 @@ export async function GET(req: NextRequest) {
     const medalColors = [OG.gold, OG.silver, OG.bronze];
     const labels = ["1ST STAR", "2ND STAR", "3RD STAR"];
     const heights = [320, 290, 260];
+
+    if (isPortrait(req.nextUrl.searchParams.get("format"))) {
+      return await renderPortraitPlayerList({
+        title: "3 Stars of the Week",
+        subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
+        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points })),
+        labels,
+        colors: medalColors,
+        emptyMessage: "No stats posted for this week yet.",
+        logos,
+        headshots: availableHeadshots,
+      });
+    }
 
     return new ImageResponse(
       (

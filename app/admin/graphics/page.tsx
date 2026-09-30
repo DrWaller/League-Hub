@@ -17,7 +17,7 @@ type State =
 // answers with an error instead of a picture -- "no final matchups yet",
 // "ESPN isn't connected", a crash -- the actual message shows up here
 // instead of a blank broken-image icon.
-function GraphicCard({ title, url }: { title: string; url: string }) {
+function GraphicCard({ title, url, portrait }: { title: string; url: string; portrait?: boolean }) {
   const [state, setState] = useState<State>({ status: "loading" });
 
   useEffect(() => {
@@ -70,7 +70,7 @@ function GraphicCard({ title, url }: { title: string; url: string }) {
       )}
       {state.status === "ok" && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={state.src} alt={title} className="w-full border border-ice-line" />
+        <img src={state.src} alt={title} className={`w-full border border-ice-line ${portrait ? "max-w-sm" : ""}`} />
       )}
     </div>
   );
@@ -81,6 +81,7 @@ export default function AdminGraphicsPage() {
   const [weekSeason, setWeekSeason] = useState<string>("");
   const [luckSeason, setLuckSeason] = useState<string>("");
   const [spotlightPosition, setSpotlightPosition] = useState<string>("any");
+  const [format, setFormat] = useState<"landscape" | "portrait">("landscape");
 
   // Open with the week chosen on the Weekly Checklist (?week=N).
   useEffect(() => {
@@ -90,7 +91,9 @@ export default function AdminGraphicsPage() {
 
   const seasonQS = weekSeason ? `&season=${encodeURIComponent(weekSeason)}` : "";
 
-  const cards = [
+  const fmtQS = format === "portrait" ? "&format=portrait" : "";
+
+  const rawCards = [
     { title: "Weekly Scoreboard", url: `/api/admin/graphics/scoreboard?week=${week}${seasonQS}` },
     { title: "Power Rankings", url: `/api/admin/graphics/power-rankings?week=${week}` },
     { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}${seasonQS}` },
@@ -110,6 +113,7 @@ export default function AdminGraphicsPage() {
         }
       : { title: "Luck Chart (through this week)", url: `/api/admin/graphics/luck-chart?week=${week}` },
   ];
+  const cards = rawCards.map((c) => ({ ...c, url: c.url + fmtQS }));
 
   return (
     <div>
@@ -152,6 +156,18 @@ export default function AdminGraphicsPage() {
         </label>
 
         <label className="text-sm inline-block">
+          <div className="text-muted mb-1">Shape</div>
+          <select
+            value={format}
+            onChange={(e) => setFormat(e.target.value as "landscape" | "portrait")}
+            className="border border-ice-line px-3 py-2 w-44 bg-white"
+          >
+            <option value="landscape">Landscape (wide)</option>
+            <option value="portrait">Portrait (phone / Instagram)</option>
+          </select>
+        </label>
+
+        <label className="text-sm inline-block">
           <div className="text-muted mb-1">Player Spotlight position</div>
           <select
             value={spotlightPosition}
@@ -182,7 +198,7 @@ export default function AdminGraphicsPage() {
 
       <div className="space-y-10">
         {cards.map((c) => (
-          <GraphicCard key={c.title} title={c.title} url={c.url} />
+          <GraphicCard key={c.title} title={c.title} url={c.url} portrait={format === "portrait"} />
         ))}
       </div>
     </div>
