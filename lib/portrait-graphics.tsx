@@ -7,6 +7,7 @@ import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
 import { TeamBadge, TeamLine } from "./og-team-logo";
 import { PlayerAvatar } from "./og-avatar";
 import { headshotUrl } from "./headshots";
+import { PreviewGame, sideLine } from "./preview-image";
 
 // Portrait (1080 x 1350, 4:5) versions of every weekly graphic, for phones and
 // social posts. Selected with ?format=portrait on each graphics route.
@@ -364,6 +365,46 @@ export async function renderPortraitSpotlight(opts: {
             </div>
           )}
         </div>
+      </div>
+    ),
+  });
+}
+
+// ---------------------------------------------------------------- matchup preview
+export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: number; logos?: Record<number, string> }) {
+  const logos = opts.logos ?? {};
+  const n = Math.max(1, opts.games.length);
+  const GAP = 16;
+  const avail = H - HEADER_H - BODY_PAD_Y;
+  const cardH = Math.min(220, Math.floor((avail - (n - 1) * GAP) / n));
+  const badge = Math.min(60, Math.floor(cardH / 2) - 22);
+
+  return frame({
+    title: `Week ${opts.week} matchups`,
+    subtitle: "Records and power rankings going in",
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column", gap: GAP }}>
+        {opts.games.map((g, i) => {
+          const row = (s: typeof g.home) => (
+            <div style={{ display: "flex", flex: 1, alignItems: "center", gap: 18, padding: "0 24px" }}>
+              <TeamBadge name={s.name} logo={logos[s.teamId]} size={badge} fontFamily={display} />
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+                <div style={{ display: "flex", fontSize: 30, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 740, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{s.name}</div>
+                <div style={{ display: "flex", fontSize: 20, lineHeight: 1.2, color: OG.muted }}>{sideLine(s)}</div>
+              </div>
+            </div>
+          );
+          return (
+            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", border: `1px solid ${OG.iceLine}`, borderRadius: 10, position: "relative" }}>
+              {row(g.home)}
+              <div style={{ display: "flex", alignItems: "center", height: 1, background: OG.iceLine, margin: "0 24px" }} />
+              {row(g.away)}
+              <div style={{ position: "absolute", right: 24, top: Math.floor(cardH / 2) - 16, display: "flex", fontFamily: display, fontSize: 20, fontWeight: 700, color: OG.ice, background: OG.centerRed, padding: "4px 12px", borderRadius: 5 }}>
+                VS
+              </div>
+            </div>
+          );
+        })}
       </div>
     ),
   });

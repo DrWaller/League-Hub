@@ -15,9 +15,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { week, homeTeamId, awayTeamId, mode } = await req.json();
+  const { season, week, homeTeamId, awayTeamId, mode } = await req.json();
   if (!week || !homeTeamId || !awayTeamId || !mode) {
     return NextResponse.json({ error: "week, homeTeamId, awayTeamId, and mode are required" }, { status: 400 });
+  }
+
+  // Drafts are built from the CURRENT season's live standings and stats, so a
+  // past season would silently mix in the wrong teams and scores. Refuse it.
+  const currentMeta = await getLeagueMeta();
+  if (season && Number(season) !== currentMeta.season) {
+    return NextResponse.json(
+      { error: `Drafts can only be generated for the current season (${currentMeta.season}). Write ${season} blurbs by hand.` },
+      { status: 400 }
+    );
   }
 
   const [meta, { teams }, { matchups }, { players }] = await Promise.all([

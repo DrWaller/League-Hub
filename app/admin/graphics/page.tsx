@@ -94,6 +94,7 @@ export default function AdminGraphicsPage() {
   const fmtQS = format === "portrait" ? "&format=portrait" : "";
 
   const rawCards = [
+    { title: "Matchup Preview (upcoming week)", url: `/api/admin/graphics/matchup-preview?week=${week}` },
     { title: "Weekly Scoreboard", url: `/api/admin/graphics/scoreboard?week=${week}${seasonQS}` },
     { title: "Power Rankings", url: `/api/admin/graphics/power-rankings?week=${week}` },
     { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}${seasonQS}` },

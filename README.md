@@ -341,6 +341,49 @@ against this league: open `/api/admin/graphics/player-spotlight?week=N&debug=1`
 (logged in) to see a player's raw stat ids and, if a tile looks wrong, fix the
 ids in `lib/espn-stats.ts` (the only place they live).
 
+## Weekly routine, more graphics, and admin extras
+
+**Weekly Checklist** (`/admin/weekly`): pick a week and see what's done
+(matchup blurbs, awards, writeup) with links to the tool for each step,
+including Generate Graphics opened to that week. It's on the admin dashboard.
+
+**More graphics** (all on the admin Graphics page, all with a download link):
+- **Matchup Preview** -- the upcoming week's games with each team's record and
+  power-ranking spot going in (results through the previous week). Current
+  season only.
+- **Weekly Scoreboard** -- every matchup's final score, winners highlighted,
+  plus high score and closest game. Works for past seasons via `?season=`.
+- **Power Rankings** -- the ranked list with record, streak, score and
+  movement arrows. Current season only.
+- **Team logos** appear on these and on the Luck Chart, and beside team names
+  on the player graphics. Only PNG, JPEG and GIF logos can be drawn; any other
+  file type (WebP, SVG) or a failed download just shows that team's initials.
+  Past seasons show no logos (a past team id may belong to a different manager).
+- **Portrait shape**: the Shape dropdown switches every graphic to a 1080 x 1350
+  (4:5) layout for phones and Instagram; add `&format=portrait` to any graphic's
+  address to get it directly. Layouts are in `lib/portrait-graphics.tsx`.
+
+**Power rankings** blend win %, point differential and streak (see
+`lib/power-rankings.ts`), built only from completed regular-season games. Movement
+arrows compare the ranking through the latest final week to the week before;
+nothing is stored. The admin **Formula Test** (`/admin/formula-test`) backtests
+the formula against every past season; on this league's 7 seasons nothing beat
+the current formula by more than noise, so the weights were left alone.
+
+**Weekly stats and the week -> scoring period mapping**: `getWeeklyPlayerStats`
+asks ESPN which scoring periods make up a matchup week (league settings first,
+then the schedule) and sums them, counting only days a player was in an active
+lineup slot (bench/IR skipped). This league scores weekly, so each week maps to
+one period. Empty results show diagnostics (season, days used, counts) instead
+of a bare error.
+
+**Admin login**: the cookie holds a signed, expiring token, never the password.
+Optionally set `ADMIN_SESSION_SECRET` in Vercel; changing it or `ADMIN_PASSWORD`
+logs everyone out.
+
+**AI-drafted blurbs** only work for the current season; asking for a past
+season returns a clear message instead of mixing in current-season data.
+
 ## Known gaps / good next steps
 
 - **Power rankings movement (▲/▼ vs. last week)**: built. Nothing is stored:
