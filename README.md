@@ -78,7 +78,15 @@ so you don't have to remember the URL.
   over and edit before saving. Requires `ANTHROPIC_API_KEY` (see below);
   everything else on the site works fine without it.
 - **Keepers**: add one player at a time per team/season; remove with the
-  "Remove" link if you make a mistake.
+  "Remove" link if you make a mistake. **Import Keepers** (`/admin/keeper-import`)
+  pulls them in bulk from the Keeper History Google Sheet (one tab per season):
+  preview first, add-only (keepers already on the site are skipped, so it's safe
+  to re-run as 2027 keepers come in). It matches the sheet's manager names to
+  Managers and uses the team linked to them for that season (falling back to their
+  latest earlier team when the season isn't linked yet). The keeper type and
+  position are saved in the note. The sheet must be shared as "Anyone with the
+  link" for the site to read it, otherwise use the paste box. Parsing is in
+  `lib/keeper-import.ts`.
 - **Managers**: add each owner once, then assign them a row per season —
   which ESPN team id they controlled, what that team was named that year,
   and an optional record note. This is what lets the public Managers page
