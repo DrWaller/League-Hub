@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { Team, PowerRankingEntry } from "./types";
 import { OG } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
+import { TeamBadge } from "./og-team-logo";
 
 // Satori notes (same as the luck chart): every element with more than one
 // child needs display:flex, and each table cell's text is precomputed into
@@ -22,12 +23,14 @@ export async function renderPowerRankings(opts: {
   rankings: PowerRankingEntry[];
   teams: Team[];
   throughWeek: number;
+  logos?: Record<number, string>;
 }) {
   const { rankings, teams, throughWeek } = opts;
+  const logos = opts.logos ?? {};
   const fonts = await loadGraphicFonts();
   const { display, body } = getFontFamilies(fonts);
 
-  const ROW_H = 56;
+  const ROW_H = 60;
   const height = 132 + 3 + 24 + 40 + rankings.length * ROW_H + 56;
 
   const rows = rankings.map((r, i) => {
@@ -38,6 +41,7 @@ export async function renderPowerRankings(opts: {
     const moveColor = change == null || change === 0 ? OG.muted : change > 0 ? GREEN : OG.centerRed;
     const rec = team ? `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}` : "";
     return {
+      teamId: r.teamId,
       bg: i % 2 === 0 ? "#FFFFFF" : OG.icePanel,
       cells: [
         { text: String(r.rank), color: OG.rink, weight: 700 as const },
@@ -86,10 +90,17 @@ export async function renderPowerRankings(opts: {
                     fontSize: j === 0 ? 22 : 20,
                     fontWeight: cell.weight,
                     color: cell.color,
-                    ...(j === 2 ? { overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } : {}),
+                    
                   }}
                 >
-                  {cell.text}
+                  {j === 2 ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <TeamBadge name={cell.text} logo={logos[row.teamId]} size={38} fontFamily={display} />
+                      <div style={{ display: "flex" }}>{cell.text}</div>
+                    </div>
+                  ) : (
+                    cell.text
+                  )}
                 </div>
               ))}
             </div>

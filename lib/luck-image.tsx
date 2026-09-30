@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { LuckRow, luckColor, luckExtremes, luckTint } from "./luck";
 import { OG } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
+import { TeamBadge } from "./og-team-logo";
 
 // Satori notes: every element with more than one child needs an explicit
 // display:flex, fragments (<>) aren't supported, and there's no CSS grid --
@@ -30,8 +31,10 @@ export async function renderLuckChart(opts: {
   week: number;
   teamName: (id: number) => string;
   title?: string; // e.g. "Luck chart - 2025 final"
+  logos?: Record<number, string>;
 }) {
   const { rows, leagueMedian, week, teamName } = opts;
+  const logos = opts.logos ?? {};
   const fonts = await loadGraphicFonts();
   const { display, body } = getFontFamilies(fonts);
   const { luckiest, unluckiest } = luckExtremes(rows);
@@ -43,6 +46,7 @@ export async function renderLuckChart(opts: {
     const diffPts = Math.round(r.diff * 100);
     const chg = r.rankChange;
     return {
+      teamId: r.teamId,
       bg: i % 2 === 0 ? "#FFFFFF" : OG.icePanel,
       cells: [
         { text: chg ? signed(chg) : "-", color: OG.muted, weight: 600 as const, bg: undefined as string | undefined },
@@ -99,7 +103,14 @@ export async function renderLuckChart(opts: {
                     ...(cell.bg ? { background: cell.bg, paddingRight: 10 } : {}),
                   }}
                 >
-                  {cell.text}
+                  {j === 1 ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <TeamBadge name={cell.text} logo={logos[row.teamId]} size={32} fontFamily={display} />
+                      <div style={{ display: "flex" }}>{cell.text}</div>
+                    </div>
+                  ) : (
+                    cell.text
+                  )}
                 </div>
               ))}
             </div>

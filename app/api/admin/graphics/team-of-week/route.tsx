@@ -6,6 +6,7 @@ import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
+import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { WeeklyPlayerStat } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const logos = await loadLogoData(isPast);
     const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
     const byPos = (pos: string) => [...players].filter((p) => p.position === pos).sort((a, b) => b.points - a.points);
 
@@ -111,7 +113,7 @@ export async function GET(req: NextRequest) {
                     />
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <div style={{ fontFamily: display, fontSize: 19, fontWeight: 700, color: OG.board }}>{slot.player.name}</div>
-                      <div style={{ fontSize: 13, color: OG.muted }}>{teamName(slot.player.teamId)}</div>
+                      <TeamLine name={teamName(slot.player.teamId)} logo={logos[slot.player.teamId]} size={16} fontSize={13} />
                     </div>
                     <div style={{ display: "flex", fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.centerRed }}>
                       {slot.player.points.toFixed(2)} pts

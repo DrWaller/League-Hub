@@ -6,6 +6,7 @@ import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
+import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const logos = await loadLogoData(isPast);
     const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
     const top3 = [...players].sort((a, b) => b.points - a.points).slice(0, 3);
     const availableHeadshots = await checkHeadshots(top3.map((p) => p.id));
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest) {
                 />
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div style={{ fontFamily: display, fontSize: 21, fontWeight: 700, color: OG.board }}>{p.name}</div>
-                  <div style={{ fontSize: 13, color: OG.muted }}>{teamName(p.teamId)}</div>
+                  <TeamLine name={teamName(p.teamId)} logo={logos[p.teamId]} size={16} fontSize={13} />
                 </div>
                 <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, color: OG.centerRed }}>{p.points.toFixed(2)} pts</div>
               </div>

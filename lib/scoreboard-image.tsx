@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { Matchup } from "./types";
 import { OG } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
+import { TeamBadge } from "./og-team-logo";
 
 const GREEN_TINT = "#DCEFE4";
 
@@ -10,8 +11,10 @@ export async function renderScoreboard(opts: {
   week: number;
   teamName: (id: number) => string;
   title?: string; // e.g. "Week 4 scoreboard - 2026"
+  logos?: Record<number, string>;
 }) {
   const { matchups, week, teamName } = opts;
+  const logos = opts.logos ?? {};
   const fonts = await loadGraphicFonts();
   const { display, body } = getFontFamilies(fonts);
 
@@ -36,27 +39,32 @@ export async function renderScoreboard(opts: {
     ? `Closest game: ${teamName(close.homeScore > close.awayScore ? close.homeTeamId : close.awayTeamId)} by ${Math.abs(close.homeScore - close.awayScore).toFixed(1)}`
     : "";
 
-  const ROW_H = 68;
+  const ROW_H = 72;
   const height = 132 + 3 + 28 + games.length * ROW_H + 70;
 
-  const name = (id: number, win: boolean, tie: boolean, align: "flex-start" | "flex-end") => (
-    <div
-      style={{
-        display: "flex",
-        width: 420,
-        justifyContent: align,
-        alignItems: "center",
-        fontSize: 22,
-        fontWeight: win || tie ? 700 : 400,
-        color: win || tie ? OG.board : OG.muted,
-        overflow: "hidden",
-        whiteSpace: "nowrap",
-        textOverflow: "ellipsis",
-      }}
-    >
-      {teamName(id)}
-    </div>
-  );
+  const name = (id: number, win: boolean, tie: boolean, align: "flex-start" | "flex-end") => {
+    const badge = <TeamBadge name={teamName(id)} logo={logos[id]} size={44} fontFamily={display} />;
+    return (
+      <div style={{ display: "flex", width: 440, justifyContent: align, alignItems: "center", gap: 14 }}>
+        {align === "flex-start" ? badge : null}
+        <div
+          style={{
+            display: "flex",
+            fontSize: 22,
+            fontWeight: win || tie ? 700 : 400,
+            color: win || tie ? OG.board : OG.muted,
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
+            maxWidth: 360,
+          }}
+        >
+          {teamName(id)}
+        </div>
+        {align === "flex-end" ? badge : null}
+      </div>
+    );
+  };
 
   const score = (n: number, win: boolean, final: boolean) => (
     <div

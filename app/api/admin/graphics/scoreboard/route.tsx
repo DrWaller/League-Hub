@@ -3,6 +3,7 @@ import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
 import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { getSeasonBundle } from "@/lib/season-data";
 import { renderScoreboard } from "@/lib/scoreboard-image";
+import { loadLogoData } from "@/lib/og-team-logo";
 import { Matchup } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
       matchups,
       week,
       teamName,
+      logos: await loadLogoData(isPast),
       title: isPast ? `Week ${week} scoreboard - ${seasonParam}` : undefined,
     });
   } catch (err) {

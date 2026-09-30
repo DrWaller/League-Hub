@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
 import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { renderPowerRankings } from "@/lib/power-rankings-image";
+import { loadLogoData } from "@/lib/og-team-logo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     const { rankings, teams: ranked, throughWeek } = calculatePowerRankingsWithMovement(teams, m.matchups, week);
     if (throughWeek === 0) return new Response("No completed regular-season games yet, so there's nothing to rank.", { status: 400 });
 
-    return await renderPowerRankings({ rankings, teams: ranked, throughWeek });
+    return await renderPowerRankings({ rankings, teams: ranked, throughWeek, logos: await loadLogoData() });
   } catch (err) {
     console.error("Power rankings graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

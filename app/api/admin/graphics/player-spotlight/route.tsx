@@ -6,6 +6,7 @@ import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
+import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { spotlightTiles } from "@/lib/espn-stats";
 
 export const runtime = "nodejs";
@@ -88,6 +89,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const logos = await loadLogoData(isPast);
     const team = teamsResult.find((t) => t.id === player.teamId)?.name ?? "";
     const tiles = spotlightTiles(player.position, player.stats);
     const availableHeadshots = await checkHeadshots([player.id]);
@@ -134,7 +136,7 @@ export async function GET(req: NextRequest) {
                 <div style={{ display: "flex", fontFamily: display, fontSize: 48, fontWeight: 700, color: OG.board, lineHeight: 1.1 }}>
                   {player.name}
                 </div>
-                <div style={{ display: "flex", fontSize: 20, color: OG.muted }}>{team}</div>
+                <TeamLine name={team} logo={logos[player.teamId]} size={26} fontSize={20} align="flex-start" />
                 <div style={{ display: "flex", fontFamily: display, fontSize: 36, fontWeight: 700, color: OG.centerRed, marginTop: 10 }}>
                   {player.points.toFixed(2)} pts
                 </div>
