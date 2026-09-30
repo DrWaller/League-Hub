@@ -12,13 +12,13 @@ import { TeamBadge } from "./og-team-logo";
 const COLS = [
   { key: "chg", label: "Chg", width: 56, align: "center" as const },
   { key: "team", label: "Team", width: 300, align: "flex-start" as const },
-  { key: "allPlay", label: "All-play", width: 120, align: "flex-end" as const },
-  { key: "exp", label: "Exp win%", width: 110, align: "flex-end" as const },
-  { key: "actual", label: "Actual", width: 110, align: "flex-end" as const },
-  { key: "act", label: "Act win%", width: 110, align: "flex-end" as const },
-  { key: "diff", label: "Luck", width: 90, align: "flex-end" as const },
-  { key: "med", label: "Med pts/wk", width: 100, align: "flex-end" as const },
-  { key: "vs", label: "Med vs lg", width: 108, align: "flex-end" as const },
+  { key: "allPlay", label: "All-play", width: 120, align: "center" as const },
+  { key: "exp", label: "Exp win%", width: 110, align: "center" as const },
+  { key: "actual", label: "Actual", width: 110, align: "center" as const },
+  { key: "act", label: "Act win%", width: 110, align: "center" as const },
+  { key: "diff", label: "Luck", width: 90, align: "center" as const },
+  { key: "med", label: "Med pts/wk", width: 100, align: "center" as const },
+  { key: "vs", label: "Med vs lg", width: 108, align: "center" as const },
 ];
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;

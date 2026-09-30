@@ -56,13 +56,13 @@ export default function LuckTable({
               <th className="py-2 pr-3 font-body font-normal">#</th>
               <th className="hidden sm:table-cell py-2 pr-3 font-body font-normal">Chg</th>
               <th className="py-2 pr-4 font-body font-normal">Team</th>
-              <th className="hidden sm:table-cell py-2 pr-4 font-body font-normal text-right">All-play</th>
-              <th className="py-2 pr-4 font-body font-normal text-right">Exp win%</th>
-              <th className="py-2 pr-4 font-body font-normal text-right">Actual</th>
-              <th className="hidden sm:table-cell py-2 pr-4 font-body font-normal text-right">Act win%</th>
-              <th className="py-2 px-3 font-body font-normal text-right">Luck</th>
-              <th className="hidden sm:table-cell py-2 pr-4 font-body font-normal text-right">Med pts/wk</th>
-              <th className="hidden sm:table-cell py-2 font-body font-normal text-right">Med vs lg</th>
+              <th className="hidden sm:table-cell py-2 px-3 font-body font-normal text-center">All-play</th>
+              <th className="py-2 px-3 font-body font-normal text-center">Exp win%</th>
+              <th className="py-2 px-3 font-body font-normal text-center">Actual</th>
+              <th className="hidden sm:table-cell py-2 px-3 font-body font-normal text-center">Act win%</th>
+              <th className="py-2 px-3 font-body font-normal text-center">Luck</th>
+              <th className="hidden sm:table-cell py-2 px-3 font-body font-normal text-center">Med pts/wk</th>
+              <th className="hidden sm:table-cell py-2 px-3 font-body font-normal text-center">Med vs lg</th>
             </tr>
           </thead>
           <tbody>
@@ -78,19 +78,19 @@ export default function LuckTable({
                       {teamName(r.teamId)}
                     </div>
                   </td>
-                  <td className="hidden sm:table-cell py-3 pr-4 text-right text-muted">{record(r.allPlayW, r.allPlayL, r.allPlayT)}</td>
-                  <td className="py-3 pr-4 text-right text-muted">{pct(r.expWinPct)}</td>
-                  <td className="py-3 pr-4 text-right">{record(r.actW, r.actL, r.actT)}</td>
-                  <td className="hidden sm:table-cell py-3 pr-4 text-right">{pct(r.actWinPct)}</td>
+                  <td className="hidden sm:table-cell py-3 px-3 text-center text-muted">{record(r.allPlayW, r.allPlayL, r.allPlayT)}</td>
+                  <td className="py-3 px-3 text-center text-muted">{pct(r.expWinPct)}</td>
+                  <td className="py-3 px-3 text-center">{record(r.actW, r.actL, r.actT)}</td>
+                  <td className="hidden sm:table-cell py-3 px-3 text-center">{pct(r.actWinPct)}</td>
                   {/* Luck cell: green = lucky, red = unlucky, shaded by size of the gap */}
                   <td
-                    className="py-3 px-3 text-right font-semibold"
+                    className="py-3 px-3 text-center font-semibold"
                     style={{ color: luckColor(r.diff), background: luckTint(r.diff) }}
                   >
                     {signed(diffPts)}%
                   </td>
-                  <td className="hidden sm:table-cell py-3 pr-4 text-right text-muted">{r.medPts.toFixed(1)}</td>
-                  <td className="hidden sm:table-cell py-3 text-right font-semibold">{signed(r.medVsLeague, 1)}</td>
+                  <td className="hidden sm:table-cell py-3 px-3 text-center text-muted">{r.medPts.toFixed(1)}</td>
+                  <td className="hidden sm:table-cell py-3 px-3 text-center font-semibold">{signed(r.medVsLeague, 1)}</td>
                 </tr>
               );
             })}
