@@ -7,6 +7,7 @@ export default async function AdminDashboard() {
   const meta = await getLeagueMeta();
 
   const cards = [
+    { href: "/admin/formula-test", label: "Formula Test", desc: "Backtest the power rankings formula against every past season." },
     { href: "/admin/weekly", label: "Weekly Checklist", desc: "One page for the weekly routine: blurbs, awards, writeup, graphics, power rankings, luck chart." },
     { href: "/admin/awards", label: "Weekly Awards", desc: "3 Stars, Forward/Defense/Goalie of the Week + runners-up." },
     { href: "/admin/graphics", label: "Graphics", desc: "Auto-generated shareable images from real weekly stats." },
