@@ -92,7 +92,7 @@ export default async function RecordsPage() {
       {records.unmatchedChampions.length > 0 && (
         <p className="text-xs text-muted mb-2 max-w-prose">
           Couldn&apos;t match {records.unmatchedChampions.map((u) => `${u.season} ${u.role} “${u.name}”`).join("; ")} to a manager&apos;s team, so
-          those titles aren&apos;t counted. The name must match that season&apos;s team name.
+          those titles aren&apos;t counted. In League History, use that season&apos;s team name or the manager&apos;s name, and make sure that team is linked to a manager.
         </p>
       )}
 

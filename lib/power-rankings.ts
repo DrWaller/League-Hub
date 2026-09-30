@@ -9,7 +9,8 @@
 //
 // Weights are deliberately in one place and easy to tune.
 
-import { Team, PowerRankingEntry } from "./types";
+import { Team, PowerRankingEntry, Matchup } from "./types";
+import { regularSeasonFinals } from "./luck";
 
 const WEIGHTS = {
   winPct: 0.5,
@@ -60,8 +61,84 @@ export function calculatePowerRankings(teams: Team[]): PowerRankingEntry[] {
     teamId: s.teamId,
     score: Math.round(s.score * 100) / 100,
     rank: i + 1,
-    // Week-over-week movement needs last week's snapshot persisted
-    // somewhere (Vercel KV/Postgres, etc.) -- not wired up in v1.
-    // See README "Known gaps."
   }));
+}
+
+// Rebuilds each team's regular-season record (and streak) using only games
+// through `throughWeek`, straight from the weekly results. This is what lets
+// the rankings be recomputed "as of last week" with nothing stored.
+export function teamsThroughWeek(teams: Team[], matchups: Matchup[], throughWeek: number): Team[] {
+  const finals = regularSeasonFinals(matchups)
+    .filter((m) => m.week <= throughWeek)
+    .sort((a, b) => a.week - b.week);
+
+  const rec = new Map<number, { w: number; l: number; t: number; pf: number; pa: number; results: ("W" | "L" | "T")[] }>();
+  const get = (id: number) => {
+    if (!rec.has(id)) rec.set(id, { w: 0, l: 0, t: 0, pf: 0, pa: 0, results: [] });
+    return rec.get(id)!;
+  };
+
+  for (const m of finals) {
+    const h = get(m.homeTeamId);
+    const a = get(m.awayTeamId);
+    h.pf += m.homeScore;
+    h.pa += m.awayScore;
+    a.pf += m.awayScore;
+    a.pa += m.homeScore;
+    if (m.homeScore > m.awayScore) {
+      h.w++;
+      a.l++;
+      h.results.push("W");
+      a.results.push("L");
+    } else if (m.awayScore > m.homeScore) {
+      a.w++;
+      h.l++;
+      a.results.push("W");
+      h.results.push("L");
+    } else {
+      h.t++;
+      a.t++;
+      h.results.push("T");
+      a.results.push("T");
+    }
+  }
+
+  return teams.map((t) => {
+    const r = rec.get(t.id);
+    if (!r) return { ...t, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, streak: undefined };
+    const last = r.results[r.results.length - 1];
+    let run = 0;
+    for (let i = r.results.length - 1; i >= 0 && r.results[i] === last; i--) run++;
+    return {
+      ...t,
+      wins: r.w,
+      losses: r.l,
+      ties: r.t,
+      pointsFor: r.pf,
+      pointsAgainst: r.pa,
+      streak: last === "W" || last === "L" ? `${last}${run}` : undefined,
+    };
+  });
+}
+
+// Power rankings with week-over-week movement. Once at least one regular-
+// season week is final, both the current ranking and last week's are
+// computed from the same weekly results (so the arrows always agree with the
+// list). Before that, it falls back to the plain standings and shows no
+// movement.
+export function calculatePowerRankingsWithMovement(
+  teams: Team[],
+  matchups: Matchup[]
+): { rankings: PowerRankingEntry[]; teams: Team[]; throughWeek: number } {
+  const throughWeek = regularSeasonFinals(matchups).reduce((max, m) => Math.max(max, m.week), 0);
+  if (throughWeek === 0) return { rankings: calculatePowerRankings(teams), teams, throughWeek: 0 };
+
+  const currentTeams = teamsThroughWeek(teams, matchups, throughWeek);
+  const rankings = calculatePowerRankings(currentTeams);
+
+  if (throughWeek > 1) {
+    const prevRank = new Map(calculatePowerRankings(teamsThroughWeek(teams, matchups, throughWeek - 1)).map((r) => [r.teamId, r.rank]));
+    for (const r of rankings) r.previousRank = prevRank.get(r.teamId);
+  }
+  return { rankings, teams: currentTeams, throughWeek };
 }

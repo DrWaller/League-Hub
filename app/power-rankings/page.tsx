@@ -4,12 +4,27 @@ import { getSeasonBundle } from "@/lib/season-data";
 import { getTeamLogos, getPlayedElsewhereSeasons } from "@/lib/content";
 import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
-import { calculatePowerRankings } from "@/lib/power-rankings";
+import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
 import TeamLogo from "@/components/TeamLogo";
 import LuckTable from "@/components/LuckTable";
 
 export const dynamic = "force-dynamic";
+
+// Up/down arrow with the number of places moved since last week.
+function Movement({ change }: { change: number }) {
+  if (change === 0) return <span className="text-xs text-muted w-10 text-right">—</span>;
+  const up = change > 0;
+  return (
+    <span
+      className="text-xs font-tabular w-10 text-right font-semibold"
+      style={{ color: up ? "#1F7A4D" : "#C41E3A" }}
+      title={`${up ? "Up" : "Down"} ${Math.abs(change)} since last week`}
+    >
+      {up ? "▲" : "▼"} {Math.abs(change)}
+    </span>
+  );
+}
 
 export default async function PowerRankingsPage({
   searchParams,
@@ -17,12 +32,16 @@ export default async function PowerRankingsPage({
   searchParams: { week?: string; season?: string };
 }) {
   const meta = await getLeagueMeta();
-  const [{ teams, live }, logos, availableSeasons] = await Promise.all([
+  const [{ teams: standingsTeams, live }, logos, availableSeasons, currentMatchups] = await Promise.all([
     getStandings(),
     getTeamLogos(),
     getAvailableSeasons(meta.season),
+    getMatchups(),
   ]);
-  const rankings = calculatePowerRankings(teams);
+  const { rankings, teams, throughWeek: rankThroughWeek } = calculatePowerRankingsWithMovement(
+    standingsTeams,
+    currentMatchups.matchups
+  );
   const teamById = (id: number) => teams.find((t) => t.id === id);
 
   // --- Luck Chart: current season by default, any past season on request ---
@@ -40,8 +59,7 @@ export default async function PowerRankingsPage({
     luckLive = bundle !== null;
     luckTeamName = (id) => bundle?.teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
   } else {
-    const m = await getMatchups();
-    luckMatchups = m.matchups;
+    luckMatchups = currentMatchups.matchups;
     luckLive = live;
     luckTeamName = (id) => teamById(id)?.name ?? `Team ${id}`;
   }
@@ -74,6 +92,11 @@ export default async function PowerRankingsPage({
         game, and current streak — so a team quietly outscoring the league shows up here even
         before it shows up in the standings.
       </p>
+      {rankThroughWeek > 1 && (
+        <p className="text-xs text-muted mb-3 max-w-prose">
+          Through week {rankThroughWeek}. Arrows show movement since week {rankThroughWeek - 1}.
+        </p>
+      )}
       <p className="text-sm mb-8">
         <a href="#luck" className="text-rink hover:underline">
           Jump to the Luck Chart
@@ -102,7 +125,10 @@ export default async function PowerRankingsPage({
                   </div>
                 </div>
               </div>
-              <div className="font-tabular text-lg">{r.score.toFixed(2)}</div>
+              <div className="flex items-center gap-4">
+                {r.previousRank != null && <Movement change={r.previousRank - r.rank} />}
+                <div className="font-tabular text-lg">{r.score.toFixed(2)}</div>
+              </div>
             </li>
           );
         })}

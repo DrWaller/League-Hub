@@ -343,10 +343,11 @@ ids in `lib/espn-stats.ts` (the only place they live).
 
 ## Known gaps / good next steps
 
-- **Power rankings movement (↑/↓ vs. last week)**: needs last week's ranking
-  persisted somewhere — now that Postgres is connected for the admin CMS,
-  this could reuse it (a small table snapshotting rankings each week). Not
-  wired up yet — the model itself (`lib/power-rankings.ts`) is ready for it.
+- **Power rankings movement (▲/▼ vs. last week)**: built. Nothing is stored:
+  the ranking is recomputed from the weekly results both through the latest
+  completed week and through the week before, and the difference is the
+  arrow. Playoff and excluded games don't count. Before the first week is
+  final it falls back to the plain standings with no arrows.
 - **Power rankings formula**: the current blend (win% / point differential /
   streak) is a reasonable starting point, not a definitive one. Worth
   revisiting once a season's worth of results shows whether it's actually

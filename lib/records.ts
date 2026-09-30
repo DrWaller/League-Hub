@@ -89,7 +89,45 @@ export interface Records {
   unmatchedChampions: { season: number; name: string; role: "champion" | "runner-up" }[];
 }
 
-const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+// Lowercase, accents and punctuation stripped, spaces collapsed -- so
+// "Evan's Team!" and "evans team" compare equal.
+const norm = (s: string) =>
+  s
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/['\u2019]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+// League History champions are typed by hand, so they may be a team name OR
+// a manager's name, and may not match exactly. Tries, in order: exact team
+// name, exact manager name, then partial matches either way. A tier only
+// counts when it points to exactly one team, so an ambiguous name is
+// reported as unmatched instead of guessed.
+function findEntryTeam(entry: string, teams: RecTeam[], managerName: (t: RecTeam) => string): RecTeam | undefined {
+  const n = norm(entry);
+  if (!n) return undefined;
+  const tiers: ((t: RecTeam) => boolean)[] = [
+    (t) => norm(t.name) === n,
+    (t) => t.managerId != null && norm(managerName(t)) === n,
+    (t) => {
+      const tn = norm(t.name);
+      return tn.length >= 3 && (tn.includes(n) || n.includes(tn));
+    },
+    (t) => {
+      if (t.managerId == null) return false;
+      const mn = norm(managerName(t));
+      return mn.length >= 3 && (` ${n} `.includes(` ${mn} `) || ` ${mn} `.includes(` ${n} `));
+    },
+  ];
+  for (const pred of tiers) {
+    const hits = teams.filter(pred);
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) return undefined;
+  }
+  return undefined;
+}
 const winPct = (w: number, l: number, t: number) => (w + l + t > 0 ? (w + t * 0.5) / (w + l + t) : 0);
 const TOP = 5;
 
@@ -177,8 +215,9 @@ export function buildRecords(managers: RecManager[], seasons: RecSeason[]): Reco
       .sort((p, q) => q.pct - p.pct || q.pf - p.pf);
     const rankOf = new Map(ranked.map((r, i) => [r.id, i + 1]));
 
-    const champTeam = s.champion ? s.teams.find((t) => norm(t.name) === norm(s.champion!)) : undefined;
-    const runnerTeam = s.runnerUp ? s.teams.find((t) => norm(t.name) === norm(s.runnerUp!)) : undefined;
+    const managerName = (t: RecTeam) => (t.managerId ? nameOf.get(t.managerId) ?? "" : "");
+    const champTeam = s.champion ? findEntryTeam(s.champion, s.teams, managerName) : undefined;
+    const runnerTeam = s.runnerUp ? findEntryTeam(s.runnerUp, s.teams, managerName) : undefined;
     if (s.champion && !champTeam?.managerId) unmatchedChampions.push({ season: s.season, name: s.champion, role: "champion" });
     if (s.runnerUp && !runnerTeam?.managerId) unmatchedChampions.push({ season: s.season, name: s.runnerUp, role: "runner-up" });
 
