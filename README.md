@@ -379,16 +379,18 @@ the formula against every past season; on this league's 7 seasons nothing beat
 the current formula by more than noise, so the weights were left alone.
 
 **Weekly stats and the week -> scoring period mapping**: this league scores
-DAILY (a scoring period is one day) with weekly matchups, so "week N" is a group
-of days. `getWeeklyPlayerStats` reads which days belong to a week from the
-schedule (each matchup's `pointsByScoringPeriod`), sums every day, and counts
-only days a player was in an active lineup slot (bench/IR skipped). Don't use
-`scheduleSettings.matchupPeriods` for this: it maps matchup periods to other
-matchup periods (e.g. a two-week playoff round), not to days. If a week has no
-day breakdown yet, the graphic reports that instead of using one night as a
-week. `/api/admin/period-probe` (logged in) shows ESPN's status, schedule
-settings and the days seen per matchup week, for checking the mapping.
-Empty results show diagnostics (season, days used, counts).
+DAILY (a scoring period is one day) with multi-day matchup weeks, so "week N" is
+a group of days. ESPN does NOT say which days belong to a week for this league
+(the schedule has no per-day breakdown, and `scheduleSettings.matchupPeriods`
+just maps matchup periods to matchup periods), so the commissioner enters each
+week's length once per season at **Week Days** (`/admin/week-days`), copied from
+ESPN's schedule page. `lib/week-calendar.ts` turns those lengths into days.
+`getWeeklyPlayerStats` uses ESPN's per-day data if it ever appears, otherwise
+the saved week lengths, and sums every day, counting only days a player was in an
+active lineup slot (bench/IR skipped). With nothing saved, the player graphics
+(3 Stars, Top 3, Team of the Week, Player Spotlight) show an error pointing to
+Week Days instead of reporting one night as a week. `/api/admin/period-probe`
+(logged in) shows what ESPN returns, for checking. Empty results show diagnostics.
 
 **Admin login**: the cookie holds a signed, expiring token, never the password.
 Optionally set `ADMIN_SESSION_SECRET` in Vercel; changing it or `ADMIN_PASSWORD`

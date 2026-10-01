@@ -7,6 +7,7 @@
 // this is the first file to check.
 
 import { Team, Matchup, Roster, LeagueMeta, WeeklyPlayerStat } from "./types";
+import { getWeekCalendar, periodsForWeek } from "./week-calendar";
 import {
   MOCK_TEAMS,
   MOCK_MATCHUPS,
@@ -161,8 +162,9 @@ export async function getRosters(season?: number): Promise<{ rosters: Roster[]; 
 // (scheduleSettings.matchupPeriods in the league settings is NOT usable for
 // this -- it maps matchup periods to other MATCHUP periods, e.g. a two-week
 // playoff round, so it just says "week 4 = [4]".)
-// If the schedule has no day breakdown and the league is clearly daily, this
-// throws rather than quietly using one night as a "week".
+// If the schedule has no day breakdown, it falls back to the week lengths saved
+// in lib/week-calendar.ts; for a daily league with nothing saved it throws
+// rather than quietly using one night as a "week".
 export async function getScoringPeriodsForWeek(
   week: number,
   season?: number
@@ -188,18 +190,41 @@ export async function getScoringPeriodsForWeek(
     return { periods: Array.from(days).sort((a, b) => a - b), source: "schedule.pointsByScoringPeriod", scheduleSettingsKeys };
   }
 
-  // No day breakdown. Is this a daily league (many more scoring days than matchup weeks)?
+  // ESPN gave no day breakdown: use the week lengths the commissioner entered at /admin/week-days.
+  const cal = await getWeekCalendar(season ?? Number(SEASON));
+  const saved = cal ? periodsForWeek(cal.lengths, week) : null;
+  if (saved) return { periods: saved, source: "saved week calendar", scheduleSettingsKeys };
+
+  // Nothing saved. A weekly league (one scoring period per matchup) can safely use [week];
+  // a daily one must not, or one night would be reported as a whole week.
   const first = Number(settings?.status?.firstScoringPeriod);
   const last = Number(settings?.status?.finalScoringPeriod);
   const weeks = Number(ss?.matchupPeriodCount);
   const looksDaily = Number.isFinite(first) && Number.isFinite(last) && weeks > 0 && last - first + 1 > weeks * 1.5;
   if (looksDaily) {
     throw new Error(
-      `Couldn't tell which days make up week ${week}: ESPN's schedule has no per-day breakdown for it yet (a week with no games played, or ESPN didn't include it). Open /api/admin/period-probe and send the result to Claude if this is a week that should have games.`
+      `This league scores daily, and ESPN doesn't say which days belong to week ${week}. Open Week Days in the admin (/admin/week-days), enter how many days each week has (copy it from ESPN's schedule page) and save. It's a one-time setup per season.`
     );
   }
 
   return { periods: [week], source: "fallback (weekly league: week = scoring period)", scheduleSettingsKeys };
+}
+
+// What the Week Days admin page needs to pre-fill itself.
+export async function getCalendarFacts(season?: number) {
+  const [meta, sched] = await Promise.all([
+    fetchEspn(["mSettings", "mStatus"], season, true),
+    fetchEspn(["mMatchup", "mMatchupScore"], season, true),
+  ]);
+  let maxPeriod = 0;
+  for (const m of sched?.schedule ?? []) maxPeriod = Math.max(maxPeriod, Number(m.matchupPeriodId) || 0);
+  return {
+    connected: Boolean(meta),
+    matchupPeriodCount: Number(meta?.settings?.scheduleSettings?.matchupPeriodCount) || null,
+    maxMatchupPeriod: maxPeriod || null,
+    firstScoringPeriod: Number(meta?.status?.firstScoringPeriod) || 1,
+    finalScoringPeriod: Number(meta?.status?.finalScoringPeriod) || null,
+  };
 }
 
 // Diagnostic: what ESPN says about scoring days vs matchup weeks, so the

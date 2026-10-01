@@ -7,6 +7,7 @@ export default async function AdminDashboard() {
   const meta = await getLeagueMeta();
 
   const cards = [
+    { href: "/admin/week-days", label: "Week Days", desc: "Tell the site how many days are in each matchup week (needed for player graphics)." },
     { href: "/admin/keeper-import", label: "Import Keepers", desc: "Pull keepers from the Keeper History Google Sheet (preview first)." },
     { href: "/admin/formula-test", label: "Formula Test", desc: "Backtest the power rankings formula against every past season." },
     { href: "/admin/weekly", label: "Weekly Checklist", desc: "One page for the weekly routine: blurbs, awards, writeup, graphics, power rankings, luck chart." },
