@@ -154,26 +154,26 @@ export async function getRosters(season?: number): Promise<{ rosters: Roster[]; 
 
 // Which ESPN scoring periods (days) make up a matchup week. In fantasy hockey
 // a scoringPeriodId is ONE DAY and a matchup week spans roughly seven of
-// them, so "week 4" is NOT scoringPeriodId 4. Tried in order:
-//   1. league settings: scheduleSettings.matchupPeriods { "1": [1..7], ... }
-//   2. the schedule itself: each matchup's pointsByScoringPeriod keys are the
-//      days that matchup covered (only exists once games have been played)
-//   3. [week] -- the old behavior, used only if neither is available.
+// them, so "week 4" is NOT scoringPeriodId 4.
+//
+// The days come from the schedule itself: each matchup carries
+// pointsByScoringPeriod, keyed by the scoring days it covered.
+// (scheduleSettings.matchupPeriods in the league settings is NOT usable for
+// this -- it maps matchup periods to other MATCHUP periods, e.g. a two-week
+// playoff round, so it just says "week 4 = [4]".)
+// If the schedule has no day breakdown and the league is clearly daily, this
+// throws rather than quietly using one night as a "week".
 export async function getScoringPeriodsForWeek(
   week: number,
   season?: number
 ): Promise<{ periods: number[]; source: string; scheduleSettingsKeys: string[] }> {
-  const settings = await fetchEspn(["mSettings"], season, true);
+  const [settings, sched] = await Promise.all([
+    fetchEspn(["mSettings", "mStatus"], season, true),
+    fetchEspn(["mMatchup", "mMatchupScore"], season, true),
+  ]);
   const ss = settings?.settings?.scheduleSettings;
   const scheduleSettingsKeys = ss && typeof ss === "object" ? Object.keys(ss) : [];
 
-  const raw = ss?.matchupPeriods?.[String(week)];
-  if (Array.isArray(raw) && raw.length > 0) {
-    const periods = raw.map(Number).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
-    if (periods.length > 0) return { periods, source: "settings.matchupPeriods", scheduleSettingsKeys };
-  }
-
-  const sched = await fetchEspn(["mMatchup", "mMatchupScore"], season, true);
   const days = new Set<number>();
   for (const m of sched?.schedule ?? []) {
     if (m.matchupPeriodId !== week) continue;
@@ -188,7 +188,58 @@ export async function getScoringPeriodsForWeek(
     return { periods: Array.from(days).sort((a, b) => a - b), source: "schedule.pointsByScoringPeriod", scheduleSettingsKeys };
   }
 
-  return { periods: [week], source: "fallback (no mapping found)", scheduleSettingsKeys };
+  // No day breakdown. Is this a daily league (many more scoring days than matchup weeks)?
+  const first = Number(settings?.status?.firstScoringPeriod);
+  const last = Number(settings?.status?.finalScoringPeriod);
+  const weeks = Number(ss?.matchupPeriodCount);
+  const looksDaily = Number.isFinite(first) && Number.isFinite(last) && weeks > 0 && last - first + 1 > weeks * 1.5;
+  if (looksDaily) {
+    throw new Error(
+      `Couldn't tell which days make up week ${week}: ESPN's schedule has no per-day breakdown for it yet (a week with no games played, or ESPN didn't include it). Open /api/admin/period-probe and send the result to Claude if this is a week that should have games.`
+    );
+  }
+
+  return { periods: [week], source: "fallback (weekly league: week = scoring period)", scheduleSettingsKeys };
+}
+
+// Diagnostic: what ESPN says about scoring days vs matchup weeks, so the
+// mapping can be checked by eye. Opened at /api/admin/period-probe.
+export async function getPeriodProbe(season?: number) {
+  const [meta, sched] = await Promise.all([
+    fetchEspn(["mSettings", "mStatus"], season, true),
+    fetchEspn(["mMatchup", "mMatchupScore"], season, true),
+  ]);
+  const ss = meta?.settings?.scheduleSettings ?? {};
+  const byPeriod: Record<string, { matchups: number; daysSeen: number[] }> = {};
+  for (const m of sched?.schedule ?? []) {
+    const key = String(m.matchupPeriodId);
+    const entry = (byPeriod[key] ??= { matchups: 0, daysSeen: [] });
+    entry.matchups++;
+    for (const side of [m.home, m.away]) {
+      for (const k of Object.keys(side?.pointsByScoringPeriod ?? {})) {
+        const n = Number(k);
+        if (Number.isFinite(n) && !entry.daysSeen.includes(n)) entry.daysSeen.push(n);
+      }
+    }
+  }
+  for (const e of Object.values(byPeriod)) e.daysSeen.sort((a, b) => a - b);
+  const keys = Object.keys(byPeriod).sort((a, b) => Number(a) - Number(b));
+  return {
+    connected: Boolean(meta),
+    status: {
+      currentScoringPeriod: meta?.status?.currentScoringPeriod ?? meta?.scoringPeriodId ?? null,
+      currentMatchupPeriod: meta?.status?.currentMatchupPeriod ?? null,
+      firstScoringPeriod: meta?.status?.firstScoringPeriod ?? null,
+      finalScoringPeriod: meta?.status?.finalScoringPeriod ?? null,
+    },
+    scheduleSettings: {
+      matchupPeriodCount: ss.matchupPeriodCount ?? null,
+      matchupPeriodLength: ss.matchupPeriodLength ?? null,
+      periodTypeId: ss.periodTypeId ?? null,
+      matchupPeriodsFirstFive: Object.fromEntries(Object.entries(ss.matchupPeriods ?? {}).slice(0, 5)),
+    },
+    scheduleFirstFiveMatchupPeriods: Object.fromEntries(keys.slice(0, 5).map((k) => [k, byPeriod[k]])),
+  };
 }
 
 // ESPN lineup slots that don't score for the fantasy team (per the

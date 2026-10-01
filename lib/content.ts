@@ -9,6 +9,7 @@
 // the admin area should surface an error rather than silently lose an edit.
 
 import { sql, ensureSchema } from "./db";
+import { sortKeepers } from "./keeper-order";
 import { hideEspnDataForSeasons, seasonsPlayedElsewhere } from "./played-elsewhere";
 import { EMPTY_RULES, SeasonRules } from "./season-rules";
 import {
@@ -56,13 +57,15 @@ export async function getKeepers(season?: number): Promise<KeeperRecord[]> {
     const { rows } = season
       ? await sql`SELECT id, season, team_id, player_name, note FROM keepers WHERE season = ${season} ORDER BY team_id;`
       : await sql`SELECT id, season, team_id, player_name, note FROM keepers ORDER BY season DESC, team_id;`;
-    return rows.map((r) => ({
-      id: r.id as number,
-      season: r.season as number,
-      teamId: r.team_id as number,
-      playerName: r.player_name as string,
-      note: (r.note as string) ?? null,
-    }));
+    return sortKeepers(
+      rows.map((r) => ({
+        id: r.id as number,
+        season: r.season as number,
+        teamId: r.team_id as number,
+        playerName: r.player_name as string,
+        note: (r.note as string) ?? null,
+      }))
+    );
   } catch (err) {
     console.error("getKeepers failed (is Postgres connected?)", err);
     return [];

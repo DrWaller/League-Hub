@@ -378,12 +378,17 @@ nothing is stored. The admin **Formula Test** (`/admin/formula-test`) backtests
 the formula against every past season; on this league's 7 seasons nothing beat
 the current formula by more than noise, so the weights were left alone.
 
-**Weekly stats and the week -> scoring period mapping**: `getWeeklyPlayerStats`
-asks ESPN which scoring periods make up a matchup week (league settings first,
-then the schedule) and sums them, counting only days a player was in an active
-lineup slot (bench/IR skipped). This league scores weekly, so each week maps to
-one period. Empty results show diagnostics (season, days used, counts) instead
-of a bare error.
+**Weekly stats and the week -> scoring period mapping**: this league scores
+DAILY (a scoring period is one day) with weekly matchups, so "week N" is a group
+of days. `getWeeklyPlayerStats` reads which days belong to a week from the
+schedule (each matchup's `pointsByScoringPeriod`), sums every day, and counts
+only days a player was in an active lineup slot (bench/IR skipped). Don't use
+`scheduleSettings.matchupPeriods` for this: it maps matchup periods to other
+matchup periods (e.g. a two-week playoff round), not to days. If a week has no
+day breakdown yet, the graphic reports that instead of using one night as a
+week. `/api/admin/period-probe` (logged in) shows ESPN's status, schedule
+settings and the days seen per matchup week, for checking the mapping.
+Empty results show diagnostics (season, days used, counts).
 
 **Admin login**: the cookie holds a signed, expiring token, never the password.
 Optionally set `ADMIN_SESSION_SECRET` in Vercel; changing it or `ADMIN_PASSWORD`
