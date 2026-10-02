@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
 import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { renderPreview, PreviewGame, PreviewSide } from "@/lib/preview-image";
-import { isPortrait, renderPortraitPreview } from "@/lib/portrait-graphics";
+import { isPortrait, renderPortraitPreview, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { Team } from "@/lib/types";
 
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     const logos = await loadLogoData();
     return isPortrait(req.nextUrl.searchParams.get("format"))
-      ? await renderPortraitPreview({ games: previews, week, logos })
+      ? await renderPortraitPreview({ games: previews, week, logos, footer: seasonFooter(meta.name, meta.season) })
       : await renderPreview({ games: previews, week, logos });
   } catch (err) {
     console.error("Matchup preview failed", err);
