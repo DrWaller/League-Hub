@@ -257,6 +257,8 @@ export async function renderPortraitLuck(opts: {
 }
 
 // ---------------------------------------------------------------- 3 stars / top 3 (stacked cards)
+const medalText = (c: string) => (c === OG.gold ? OG.goldText : c === OG.silver ? OG.silverText : c === OG.bronze ? OG.bronzeText : c);
+
 export interface PortraitPlayer {
   id: number;
   name: string;
@@ -299,7 +301,7 @@ export async function renderPortraitPlayerList(opts: {
               border={`5px solid ${opts.colors[i]}`}
             />
             <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 8 }}>
-              <div style={{ display: "flex", fontFamily: display, fontSize: 22, fontWeight: 700, color: opts.colors[i], letterSpacing: 2 }}>{opts.labels[i]}</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 22, fontWeight: 700, color: medalText(opts.colors[i]), letterSpacing: 2 }}>{opts.labels[i]}</div>
               <div style={{ display: "flex", fontFamily: display, fontSize: 46, fontWeight: 700, color: OG.board, lineHeight: 1.1 }}>{p.name}</div>
               <TeamLine name={p.teamName} logo={logos[p.teamId]} size={32} fontSize={26} align="flex-start" />
             </div>
@@ -312,7 +314,7 @@ export async function renderPortraitPlayerList(opts: {
   });
 }
 
-// ---------------------------------------------------------------- team of the week (grouped by position)
+// ---------------------------------------------------------------- team of the week (forwards / defence / goalie rows)
 export async function renderPortraitTeamOfWeek(opts: {
   subtitle: string;
   footer?: string;
@@ -324,10 +326,8 @@ export async function renderPortraitTeamOfWeek(opts: {
   const scored = opts.lineup.map((l) => l.player?.points).filter((p): p is number => p !== undefined);
   const high = scored.length ? Math.max(...scored) : null;
 
-  const forwardOrder = ["LW", "C", "RW"];
-  const forwards = forwardOrder
-    .map((pos) => opts.lineup.find((l) => l.slot === pos))
-    .filter((l): l is { slot: string; player?: PortraitPlayer } => Boolean(l));
+  type Slot = { slot: string; player?: PortraitPlayer };
+  const forwards = ["LW", "C", "RW"].map((pos) => opts.lineup.find((l) => l.slot === pos)).filter((l): l is Slot => Boolean(l));
   const defence = opts.lineup.filter((l) => l.slot === "D");
   const goalie = opts.lineup.filter((l) => l.slot === "G");
   const known = new Set([...forwards, ...defence, ...goalie]);
@@ -341,7 +341,7 @@ export async function renderPortraitTeamOfWeek(opts: {
     bold: true,
     footer: opts.footer,
     body: ({ display }) => {
-      const card = (l: { slot: string; player?: PortraitPlayer }, i: number) => {
+      const card = (l: Slot, i: number) => {
         const p = l.player;
         const isHigh = p != null && high != null && p.points === high;
         return (
@@ -349,30 +349,28 @@ export async function renderPortraitTeamOfWeek(opts: {
             key={`${l.slot}-${i}`}
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", position: "relative",
-              width: CARD_W, padding: "40px 12px 14px 12px",
-              background: "#FFFFFF", border: `${isHigh ? 4 : 2}px solid ${isHigh ? OG.gold : OG.iceLine}`, borderRadius: 20,
+              width: CARD_W, padding: "50px 12px 16px 12px",
+              background: "#FFFFFF", border: `3px solid ${isHigh ? OG.gold : OG.iceLine}`, borderRadius: 20,
             }}
           >
-            <div
-              style={{
-                position: "absolute", top: 12, left: 12, display: "flex", padding: "2px 14px", borderRadius: 8,
-                background: isHigh ? OG.gold : OG.rink, color: isHigh ? OG.board : "#FFFFFF",
-                fontFamily: display, fontWeight: 700, fontSize: 22,
-              }}
-            >
-              {isHigh ? `${l.slot} - WEEK HIGH` : l.slot}
+            {/* position tag top-left, week-high marker top-right: both clear of the photo */}
+            <div style={{ position: "absolute", top: 12, left: 12, display: "flex", padding: "2px 14px", borderRadius: 8, background: OG.rink, color: "#FFFFFF", fontFamily: display, fontWeight: 700, fontSize: 22 }}>
+              {l.slot}
             </div>
+            {isHigh ? (
+              <div style={{ position: "absolute", top: 14, right: 14, display: "flex", fontFamily: display, fontWeight: 700, fontSize: 20, letterSpacing: 2, color: OG.goldText }}>WEEK HIGH</div>
+            ) : null}
             {p ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-                <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={96} fontFamily={display} fontSize={32} border={`5px solid ${isHigh ? OG.gold : OG.muted}`} />
+                <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={112} fontFamily={display} fontSize={34} border={`5px solid ${isHigh ? OG.gold : OG.rink}`} />
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, lineHeight: 1.1, marginTop: 10, maxWidth: CARD_W - 24, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                   {p.name}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6, maxWidth: CARD_W - 24, fontSize: 21, color: OG.muted }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6, minHeight: 26, maxWidth: CARD_W - 24, fontSize: 20, color: OG.muted }}>
                   {logos[p.teamId] ? <TeamBadge name={p.teamName} logo={logos[p.teamId]} size={22} fontFamily={display} /> : null}
                   <div style={{ display: "flex", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", maxWidth: logos[p.teamId] ? CARD_W - 70 : CARD_W - 24 }}>{p.teamName}</div>
                 </div>
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 44, color: OG.centerRed, marginTop: 4 }}>{p.points.toFixed(2)}</div>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 46, lineHeight: 1, color: OG.centerRed, marginTop: 8 }}>{p.points.toFixed(2)}</div>
               </div>
             ) : (
               <div style={{ display: "flex", color: OG.muted, fontSize: 24, height: 150, alignItems: "center" }}>No data</div>
@@ -380,22 +378,18 @@ export async function renderPortraitTeamOfWeek(opts: {
           </div>
         );
       };
-      const label = (text: string) => (
-        <div style={{ display: "flex", fontFamily: display, fontSize: 22, letterSpacing: 5, color: OG.muted, margin: "10px 4px 6px 4px" }}>{text}</div>
-      );
-      const group = (text: string, items: { slot: string; player?: PortraitPlayer }[]) =>
+      const row = (items: Slot[], key: string) =>
         items.length === 0 ? null : (
-          <div key={text} style={{ display: "flex", flexDirection: "column" }}>
-            {label(text)}
-            <div style={{ display: "flex", justifyContent: "center", gap: 20 }}>{items.map(card)}</div>
+          <div key={key} style={{ display: "flex", justifyContent: "center", gap: 20 }}>
+            {items.map(card)}
           </div>
         );
       return (
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {group("FORWARDS", forwards)}
-          {group("DEFENCE", defence)}
-          {group("GOALIE", goalie)}
-          {group("OTHER", other)}
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-around" }}>
+          {row(forwards, "f")}
+          {row(defence, "d")}
+          {row(goalie, "g")}
+          {row(other, "o")}
         </div>
       );
     },
@@ -457,16 +451,18 @@ export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: 
   const rankSize = Math.min(52, rowH - 10);
   const logoSize = Math.min(52, rowH - 10);
   const nameSize = rowH >= 70 ? 30 : rowH >= 58 ? 28 : 26;
+  // Ranks only show when every team has one (none exist before week 2), and the subtitle follows.
+  const showRank = opts.games.every((g) => g.home.rank != null && g.away.rank != null);
 
   return frame({
     title: `Week ${opts.week} matchups`,
-    subtitle: "Power rank and record going in",
+    subtitle: showRank ? "Power rank and record going in" : "Records going in",
     bold: true,
     footer: opts.footer,
     body: ({ display }) => {
       const row = (s: PreviewGame["home"]) => (
         <div style={{ display: "flex", alignItems: "center", height: rowH, padding: "0 28px", gap: 18 }}>
-          {s.rank ? (
+          {showRank && s.rank ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: rankSize, height: rankSize, borderRadius: 10, background: OG.rink, color: "#FFFFFF", fontFamily: display, fontWeight: 700, fontSize: Math.round(rankSize * 0.54) }}>
               {s.rank}
             </div>
@@ -477,7 +473,7 @@ export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: 
         </div>
       );
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: GAP }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-between", paddingBottom: 12 }}>
           {opts.games.map((g, i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", border: `2px solid ${OG.iceLine}`, borderRadius: 20 }}>
               {row(g.home)}

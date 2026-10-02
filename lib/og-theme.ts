@@ -14,6 +14,11 @@ export const OG = {
   gold: "#D9A441",
   silver: "#8A94A0",
   bronze: "#A0673D",
+  // Darker versions of the medal colors for SMALL TEXT on white (the plain
+  // ones are fine for borders and fills but too light to read as text).
+  goldText: "#9A6B12",
+  silverText: "#5B6877",
+  bronzeText: "#8A5A36",
 };
 
 export const OG_WIDTH = 1200;
