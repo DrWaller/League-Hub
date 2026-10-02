@@ -64,14 +64,21 @@ async function frame(opts: {
   const fonts = await loadGraphicFonts();
   const fam = getFontFamilies(fonts);
   const { display, body } = fam;
-  const { week, dates } = await headerExtras(opts.title, opts.subtitle);
-  const titleHasWeek = /week\s+\d+/i.test(opts.title);
+  // Past-season graphics arrive titled like "Week 1 scoreboard - 2026": too long for the
+  // header, so the year moves into the subtitle line.
+  const yearSplit = opts.title.match(/^(.*?)\s*-\s*(20\d\d\b.*)$/);
+  const headTitle = yearSplit ? yearSplit[1] : opts.title;
+  const headSubtitle = yearSplit ? `${yearSplit[2]} - ${opts.subtitle}` : opts.subtitle;
+  const { week, dates } = await headerExtras(headTitle, headSubtitle);
+  const titleHasWeek = /week\s+\d+/i.test(headTitle);
   const showBadge = week != null && !titleHasWeek;
-  const titleSize = showBadge ? 76 : 84;
+  // Shrink long titles so they stay on one line (the badge takes ~210px when shown).
+  const titleRoom = 968 - (showBadge ? 210 : 0);
+  const titleSize = Math.max(52, Math.min(showBadge ? 76 : 84, Math.floor(titleRoom / (headTitle.length * 0.52))));
   // A plain "Week N" subtitle just repeats the badge: show the week's dates there
   // instead (or nothing when no dates are saved).
-  const subtitleIsPlainWeek = showBadge && /^week\s+\d+$/i.test(opts.subtitle.trim());
-  const subtitleText = subtitleIsPlainWeek ? dates : opts.subtitle;
+  const subtitleIsPlainWeek = showBadge && /^week\s+\d+$/i.test(headSubtitle.trim());
+  const subtitleText = subtitleIsPlainWeek ? dates : headSubtitle;
   const badgeDates = subtitleIsPlainWeek ? "" : dates;
 
   return new ImageResponse(
@@ -81,8 +88,8 @@ async function frame(opts: {
             title's width inside a flex column when rendered on the server. */}
         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 56px", background: OG.rink, borderBottom: `6px solid ${OG.centerRed}` }}>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: titleSize, lineHeight: 1, color: "#FFFFFF", textTransform: "uppercase", letterSpacing: 1 }}>
-              {opts.title}
+            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: titleSize, lineHeight: 1, color: "#FFFFFF", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" }}>
+              {headTitle}
             </div>
             {subtitleText ? <div style={{ display: "flex", fontSize: 28, color: "#C9D6E6", marginTop: 14, letterSpacing: subtitleIsPlainWeek ? 2 : 0 }}>{subtitleText}</div> : null}
           </div>
@@ -418,7 +425,7 @@ export async function renderPortraitTeamOfWeek(opts: {
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, lineHeight: 1.1, marginTop: 10, maxWidth: CARD_W - 24, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                   {p.name}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6, minHeight: 30, maxWidth: CARD_W - 24, fontSize: 23, color: OG.muted }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6, minHeight: 30, maxWidth: CARD_W - 24, fontSize: p.teamName.length > 27 ? 19 : p.teamName.length > 22 ? 21 : 23, color: OG.muted }}>
                   {logos[p.teamId] ? <TeamBadge name={p.teamName} logo={logos[p.teamId]} size={22} fontFamily={display} /> : null}
                   <div style={{ display: "flex", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", maxWidth: logos[p.teamId] ? CARD_W - 74 : CARD_W - 24 }}>{p.teamName}</div>
                 </div>
