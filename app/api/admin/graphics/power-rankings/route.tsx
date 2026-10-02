@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
 import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { renderPowerRankings } from "@/lib/power-rankings-image";
-import { isPortrait, renderPortraitPowerRankings } from "@/lib/portrait-graphics";
+import { isPortrait, renderPortraitPowerRankings, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 
 export const runtime = "nodejs";
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     const logos = await loadLogoData();
     if (isPortrait(req.nextUrl.searchParams.get("format"))) {
-      return await renderPortraitPowerRankings({ rankings, teams: ranked, throughWeek, logos });
+      return await renderPortraitPowerRankings({ rankings, teams: ranked, throughWeek, logos, footer: seasonFooter(meta.name, meta.season) });
     }
     return await renderPowerRankings({ rankings, teams: ranked, throughWeek, logos });
   } catch (err) {

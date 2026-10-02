@@ -3,7 +3,7 @@ import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
 import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { getSeasonBundle } from "@/lib/season-data";
 import { renderScoreboard } from "@/lib/scoreboard-image";
-import { isPortrait, renderPortraitScoreboard } from "@/lib/portrait-graphics";
+import { isPortrait, renderPortraitScoreboard, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { Matchup } from "@/lib/types";
 
@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
       week,
       teamName,
       logos: await loadLogoData(isPast),
+      footer: seasonFooter(meta.name, seasonParam),
       title: isPast ? `Week ${week} scoreboard - ${seasonParam}` : undefined,
     };
     return isPortrait(req.nextUrl.searchParams.get("format")) ? await renderPortraitScoreboard(opts) : await renderScoreboard(opts);

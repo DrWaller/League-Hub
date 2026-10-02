@@ -7,7 +7,7 @@ import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
-import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight } from "@/lib/portrait-graphics";
+import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
 
     if (isPortrait(req.nextUrl.searchParams.get("format"))) {
       return await renderPortraitPlayerList({
+        footer: seasonFooter(meta.name, seasonParam),
         title: "3 Stars of the Week",
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
         players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points })),

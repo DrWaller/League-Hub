@@ -7,7 +7,7 @@ import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
-import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight } from "@/lib/portrait-graphics";
+import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
 import { spotlightTiles } from "@/lib/espn-stats";
 
 export const runtime = "nodejs";
@@ -97,6 +97,7 @@ export async function GET(req: NextRequest) {
 
     if (isPortrait(params.get("format"))) {
       return await renderPortraitSpotlight({
+        footer: seasonFooter(meta.name, seasonParam),
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
         positionName: POSITION_NAMES[player.position] ?? player.position,
         player: { id: player.id, name: player.name, teamId: player.teamId, teamName: team, points: player.points },
