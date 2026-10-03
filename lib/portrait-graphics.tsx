@@ -510,7 +510,7 @@ export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: 
   const logos = opts.logos ?? {};
   const n = Math.max(1, opts.games.length);
   const GAP = 14;
-  const DIV = 30;
+  const DIV = 34;
   const avail = H - CHROME;
   const cardH = Math.min(190, Math.floor((avail - (n - 1) * GAP) / n));
   const rowH = Math.floor((cardH - DIV) / 2);
@@ -548,6 +548,7 @@ export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: 
               <div style={{ display: "flex", alignItems: "center", height: DIV, padding: "0 28px" }}>
                 <div style={{ display: "flex", flex: 1, height: 2, background: OG.iceLine }} />
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 28, margin: "0 16px", padding: "0 20px", borderRadius: 14, background: OG.centerRed, color: "#FFFFFF", fontFamily: display, fontWeight: 700, fontSize: 18, letterSpacing: 2 }}>VS</div>
+                {g.series ? <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 1, color: OG.rink, marginRight: 16 }}>{g.series}</div> : null}
                 <div style={{ display: "flex", flex: 1, height: 2, background: OG.iceLine }} />
               </div>
               {row(g.away)}
@@ -562,6 +563,7 @@ export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: 
 // ---------------------------------------------------------------- standings
 export async function renderPortraitStandings(opts: {
   rows: StandingsRow[];
+  cutoff?: number; // playoff spots: a red line is drawn under this place
   title?: string;
   subtitle: string;
   footer?: string;
@@ -586,7 +588,7 @@ export async function renderPortraitStandings(opts: {
           <div style={{ display: "flex", width: 140, justifyContent: "center" }}>PA</div>
         </div>
         {opts.rows.map((r, i) => (
-          <div key={r.teamId} style={{ display: "flex", alignItems: "center", height: rowH, background: i === 0 ? "#FFF8E6" : i % 2 === 0 ? "#FFFFFF" : OG.icePanel }}>
+          <div key={r.teamId} style={{ display: "flex", alignItems: "center", height: rowH, background: i === 0 ? "#FFF8E6" : i % 2 === 0 ? "#FFFFFF" : OG.icePanel, ...(opts.cutoff && i === opts.cutoff - 1 && i < opts.rows.length - 1 ? { borderBottom: `5px solid ${OG.centerRed}` } : {}) }}>
             <div style={{ display: "flex", width: 74, justifyContent: "center", fontFamily: display, fontSize: i === 0 ? 40 : 34, fontWeight: 700, color: i === 0 ? OG.goldText : OG.rink }}>{i + 1}</div>
             <div style={{ display: "flex", flexGrow: 1, alignItems: "center", gap: 16, paddingLeft: 8 }}>
               <TeamBadge name={r.name} logo={logos[r.teamId]} size={badge} fontFamily={display} />

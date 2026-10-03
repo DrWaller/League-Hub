@@ -210,6 +210,13 @@ export async function getScoringPeriodsForWeek(
   return { periods: [week], source: "fallback (weekly league: week = scoring period)", scheduleSettingsKeys };
 }
 
+// How many teams make the playoffs (league setting); 6 if ESPN doesn't say.
+export async function getPlayoffTeamCount(season?: number): Promise<number> {
+  const data = await fetchEspn(["mSettings"], season, true);
+  const n = Number(data?.settings?.scheduleSettings?.playoffTeamCount);
+  return Number.isFinite(n) && n > 0 ? n : 6;
+}
+
 // What the Week Days admin page needs to pre-fill itself.
 export async function getCalendarFacts(season?: number) {
   const [meta, sched] = await Promise.all([

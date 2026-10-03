@@ -28,7 +28,7 @@ const COLS = [
   { label: "Streak", width: 90, align: "center" as const },
 ];
 
-export async function renderStandings(opts: { rows: StandingsRow[]; title: string; subtitle: string; logos?: Record<number, string> }) {
+export async function renderStandings(opts: { rows: StandingsRow[]; title: string; subtitle: string; cutoff?: number; logos?: Record<number, string> }) {
   const logos = opts.logos ?? {};
   const fonts = await loadGraphicFonts();
   const { display, body } = getFontFamilies(fonts);
@@ -59,7 +59,7 @@ export async function renderStandings(opts: { rows: StandingsRow[]; title: strin
             ))}
           </div>
           {cells.map(({ row, bg, diff }, i) => (
-            <div key={row.teamId} style={{ display: "flex", height: ROW_H, alignItems: "center", background: bg }}>
+            <div key={row.teamId} style={{ display: "flex", height: ROW_H, alignItems: "center", background: bg, ...(opts.cutoff && i === opts.cutoff - 1 && i < opts.rows.length - 1 ? { borderBottom: `4px solid ${OG.centerRed}` } : {}) }}>
               <div style={{ display: "flex", width: 70, justifyContent: "center", fontSize: 22, fontWeight: 700, color: i === 0 ? OG.goldText : OG.rink }}>{i + 1}</div>
               <div style={{ display: "flex", width: 440, alignItems: "center", gap: 14 }}>
                 <TeamBadge name={row.name} logo={logos[row.teamId]} size={38} fontFamily={display} />

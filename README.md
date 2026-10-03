@@ -367,6 +367,14 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   on the player graphics. Only PNG, JPEG and GIF logos can be drawn; any other
   file type (WebP, SVG) or a failed download just shows that team's initials.
   Past seasons show no logos (a past team id may belong to a different manager).
+- **Standings playoff line**: a red line is drawn under the last playoff spot, using
+  the league's playoff team count from ESPN (6 if ESPN doesn't say).
+- **Matchup Preview head-to-head**: each game shows the managers' all-time series
+  ("EVAN LEADS 5-3", "SERIES TIED 4-4"). Built in `lib/head-to-head.ts` from
+  regular-season results (the same games the Records page counts) plus this
+  season's earlier weeks, following the MANAGER so a renamed team keeps its
+  history. Needs the teams linked to managers under Link Managers; a game with an
+  unlinked team, or two managers who have never met, just shows "VS".
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

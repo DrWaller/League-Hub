@@ -4,6 +4,7 @@ import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { renderPreview, PreviewGame, PreviewSide } from "@/lib/preview-image";
 import { isPortrait, renderPortraitPreview, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
+import { loadSeriesLookup } from "@/lib/head-to-head";
 import { Team } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -52,7 +53,18 @@ export async function GET(req: NextRequest) {
         rank: rankOf.get(id),
       };
     };
-    const previews: PreviewGame[] = games.map((g) => ({ home: side(g.homeTeamId), away: side(g.awayTeamId) }));
+    // All-time series between the two managers (a failure here shouldn't sink the graphic).
+    let seriesFor: (a: number, b: number) => string | null = () => null;
+    try {
+      seriesFor = await loadSeriesLookup(meta.season, all.matchups, week);
+    } catch (err) {
+      console.warn("Head-to-head lookup failed", err);
+    }
+    const previews: PreviewGame[] = games.map((g) => ({
+      home: side(g.homeTeamId),
+      away: side(g.awayTeamId),
+      series: seriesFor(g.homeTeamId, g.awayTeamId) ?? undefined,
+    }));
 
     const logos = await loadLogoData();
     return isPortrait(req.nextUrl.searchParams.get("format"))

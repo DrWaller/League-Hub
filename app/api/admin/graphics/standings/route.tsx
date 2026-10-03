@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
+import { getMatchups, getStandings, getLeagueMeta, getPlayoffTeamCount } from "@/lib/espn";
 import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { getSeasonBundle } from "@/lib/season-data";
 import { regularSeasonFinals } from "@/lib/luck";
@@ -63,10 +63,12 @@ export async function GET(req: NextRequest) {
     }));
 
     const logos = await loadLogoData(isPast);
+    const cutoff = await getPlayoffTeamCount(isPast ? seasonParam : undefined);
+    subtitle += isPast ? ` - top ${cutoff} made the playoffs` : ` - top ${cutoff} make the playoffs`;
     const title = isPast ? `Standings - ${seasonParam}` : "Standings";
     return isPortrait(req.nextUrl.searchParams.get("format"))
-      ? await renderPortraitStandings({ rows, title, subtitle, logos, footer: seasonFooter(meta.name, seasonParam) })
-      : await renderStandings({ rows, title, subtitle, logos });
+      ? await renderPortraitStandings({ rows, title, subtitle, cutoff, logos, footer: seasonFooter(meta.name, seasonParam) })
+      : await renderStandings({ rows, title, subtitle, cutoff, logos });
   } catch (err) {
     console.error("Standings graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });
