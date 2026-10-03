@@ -7,6 +7,7 @@ import { teamsThroughWeek } from "@/lib/power-rankings";
 import { renderStandings, StandingsRow } from "@/lib/standings-image";
 import { isPortrait, renderPortraitStandings, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
+import { captionResponse, standingsCaption } from "@/lib/captions";
 
 // Same order the Standings page uses for past seasons: wins minus losses, then points for.
 const byRecord = (a: { wins: number; losses: number; pointsFor: number }, b: { wins: number; losses: number; pointsFor: number }) =>
@@ -27,6 +28,8 @@ export async function GET(req: NextRequest) {
 
     let teams: { id: number; name: string; wins: number; losses: number; ties: number; pointsFor: number; pointsAgainst: number; streak?: string }[];
     let subtitle: string;
+    // Places each team moved since the previous week, by wins-minus-losses order (current season only).
+    let changes: Map<number, number> | null = null;
 
     if (isPast) {
       const bundle = await getSeasonBundle(seasonParam);
@@ -44,12 +47,18 @@ export async function GET(req: NextRequest) {
       if (!standings.live) return new Response("ESPN isn't connected, so there are no standings to show.", { status: 400 });
       const latest = regularSeasonFinals(all.matchups).reduce((max, m) => Math.max(max, m.week), 0);
       if (latest === 0) return new Response("No completed games yet, so there are no standings to show.", { status: 400 });
-      if (weekParam && weekParam < latest) {
+      const asOf = weekParam && weekParam < latest ? weekParam : latest;
+      if (asOf === weekParam && weekParam < latest) {
         teams = teamsThroughWeek(standings.teams, all.matchups, weekParam).sort(byRecord);
-        subtitle = `Through week ${weekParam}`;
       } else {
         teams = standings.teams;
-        subtitle = `Through week ${latest}`;
+      }
+      subtitle = `Through week ${asOf}`;
+      if (asOf >= 2) {
+        const rankMap = (w: number) => new Map(teamsThroughWeek(standings.teams, all.matchups, w).sort(byRecord).map((t, i) => [t.id, i + 1] as [number, number]));
+        const now = rankMap(asOf);
+        const before = rankMap(asOf - 1);
+        changes = new Map(Array.from(now.entries()).map(([id, r]) => [id, (before.get(id) ?? r) - r] as [number, number]));
       }
     }
 
@@ -60,11 +69,16 @@ export async function GET(req: NextRequest) {
       pf: t.pointsFor,
       pa: t.pointsAgainst,
       streak: t.streak,
+      change: changes?.get(t.id),
     }));
 
     const logos = await loadLogoData(isPast);
     const cutoff = await getPlayoffTeamCount(isPast ? seasonParam : undefined);
     subtitle += isPast ? ` - top ${cutoff} made the playoffs` : ` - top ${cutoff} make the playoffs`;
+    if (req.nextUrl.searchParams.get("caption")) {
+      return captionResponse(standingsCaption(subtitle, rows, cutoff));
+    }
+
     const title = isPast ? `Standings - ${seasonParam}` : "Standings";
     return isPortrait(req.nextUrl.searchParams.get("format"))
       ? await renderPortraitStandings({ rows, title, subtitle, cutoff, logos, footer: seasonFooter(meta.name, seasonParam) })

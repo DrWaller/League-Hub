@@ -6,6 +6,7 @@ import { renderScoreboard } from "@/lib/scoreboard-image";
 import { isPortrait, renderPortraitScoreboard, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { Matchup } from "@/lib/types";
+import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,27 @@ export async function GET(req: NextRequest) {
 
     if (!matchups.some((m) => m.isFinal)) {
       return new Response(`No games are final yet for week ${week}${isPast ? ` of ${seasonParam}` : ""}.`, { status: 400 });
+    }
+
+    if (req.nextUrl.searchParams.get("caption")) {
+      const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
+      return captionResponse(
+        scoreboardCaption(
+          when,
+          matchups
+            .filter((m) => m.isFinal)
+            .map((m) => {
+              const homeWon = m.homeScore >= m.awayScore;
+              return {
+                winner: teamName(homeWon ? m.homeTeamId : m.awayTeamId),
+                winScore: homeWon ? m.homeScore : m.awayScore,
+                loser: teamName(homeWon ? m.awayTeamId : m.homeTeamId),
+                loseScore: homeWon ? m.awayScore : m.homeScore,
+                tie: m.homeScore === m.awayScore,
+              };
+            })
+        )
+      );
     }
 
     const opts = {

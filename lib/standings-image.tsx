@@ -13,6 +13,7 @@ export interface StandingsRow {
   pf: number;
   pa: number;
   streak?: string;
+  change?: number; // places moved since last week (positive = up)
 }
 
 export const fmtPts = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });

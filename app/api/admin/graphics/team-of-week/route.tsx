@@ -9,6 +9,7 @@ import { OG } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
 import { WeeklyPlayerStat } from "@/lib/types";
+import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +61,18 @@ export async function GET(req: NextRequest) {
     const availableHeadshots = await checkHeadshots(
       lineup.map((l) => l.player?.id).filter((id): id is number => id !== undefined)
     );
+
+    if (req.nextUrl.searchParams.get("caption")) {
+      const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
+      return captionResponse(
+        lineupCaption(
+          when,
+          lineup
+            .filter((l) => l.player)
+            .map((l) => ({ slot: l.slot, name: l.player!.name, team: teamName(l.player!.teamId), points: l.player!.points }))
+        )
+      );
+    }
 
     if (isPortrait(req.nextUrl.searchParams.get("format"))) {
       return await renderPortraitTeamOfWeek({

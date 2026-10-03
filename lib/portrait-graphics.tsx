@@ -85,7 +85,11 @@ async function frame(opts: {
 
   return new ImageResponse(
     (
-      <div style={{ width: W, height: H, display: "flex", flexDirection: "column", background: OG.ice, fontFamily: body }}>
+      <div style={{ width: W, height: H, display: "flex", flexDirection: "column", position: "relative", backgroundImage: "linear-gradient(180deg, #F8FCFF 0%, #E3EFF9 55%, #D3E5F4 100%)", fontFamily: body }}>
+        {/* faint rink markings behind the content: faceoff circle, center dot, center line */}
+        <div style={{ position: "absolute", left: 130, top: 470, width: 820, height: 820, borderRadius: 410, border: "8px solid rgba(196,30,58,0.13)", display: "flex" }} />
+        <div style={{ position: "absolute", left: 0, top: 876, width: 1080, height: 8, background: "rgba(196,30,58,0.13)", display: "flex" }} />
+        <div style={{ position: "absolute", left: 490, top: 850, width: 100, height: 100, borderRadius: 50, background: "rgba(18,58,97,0.09)", display: "flex" }} />
         {/* Explicit width + alignSelf + flexShrink: without them the header can collapse to the
             title's width inside a flex column when rendered on the server. */}
         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 56px", background: OG.rink, borderBottom: `6px solid ${OG.centerRed}` }}>
@@ -228,7 +232,7 @@ export async function renderPortraitScoreboard(opts: {
           const homeWin = m.isFinal && m.homeScore > m.awayScore;
           const awayWin = m.isFinal && m.awayScore > m.homeScore;
           return (
-            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", border: `1px solid ${OG.iceLine}`, borderRadius: 10 }}>
+            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", boxShadow: "0 6px 16px rgba(18,58,97,0.10)", border: `1px solid #BCD5EA`, borderRadius: 10 }}>
               {side(m.homeTeamId, m.homeScore, homeWin)}
               <div style={{ display: "flex", height: 1, background: OG.iceLine, marginLeft: 20, marginRight: 20 }} />
               {side(m.awayTeamId, m.awayScore, awayWin)}
@@ -311,6 +315,7 @@ export interface PortraitPlayer {
   teamName: string;
   teamId: number;
   points: number;
+  statLine?: string | null; // e.g. "4 G \u00b7 4 A \u00b7 10 SOG"
 }
 
 export async function renderPortraitPlayerList(opts: {
@@ -340,8 +345,8 @@ export async function renderPortraitPlayerList(opts: {
               key={p.id}
               style={{
                 display: "flex", flex: first ? 1.25 : 1, alignItems: "center", gap: 26, padding: "0 32px",
-                background: first ? "#FFF8E6" : "#FFFFFF",
-                border: first ? `4px solid ${OG.gold}` : `1px solid ${OG.iceLine}`,
+                background: first ? "#F1F8FF" : "#FFFFFF",
+                border: first ? `4px solid ${OG.gold}` : `1px solid #BCD5EA`,
                 borderRadius: 18,
               }}
             >
@@ -364,6 +369,7 @@ export async function renderPortraitPlayerList(opts: {
                   <div style={{ display: "flex", fontFamily: display, fontSize: first ? 72 : 62, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
                   <div style={{ display: "flex", fontFamily: display, fontSize: 26, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 6 }}>PTS</div>
                 </div>
+                {p.statLine ? <div style={{ display: "flex", fontSize: 27, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{p.statLine}</div> : null}
                 <TeamLine name={p.teamName} logo={logos[p.teamId]} size={34} fontSize={28} align="flex-start" />
               </div>
             </div>
@@ -411,7 +417,7 @@ export async function renderPortraitTeamOfWeek(opts: {
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", position: "relative",
               width: CARD_W, padding: "50px 12px 16px 12px",
-              background: "#FFFFFF", border: `3px solid ${isHigh ? OG.gold : OG.iceLine}`, borderRadius: 20,
+              background: "#FFFFFF", boxShadow: "0 6px 16px rgba(18,58,97,0.10)", border: `3px solid ${isHigh ? OG.gold : OG.iceLine}`, borderRadius: 20,
             }}
           >
             {/* position tag top-left, week-high marker top-right: both clear of the photo */}
@@ -478,7 +484,7 @@ export async function renderPortraitSpotlight(opts: {
         <div
           style={{
             display: "flex", flexDirection: "column", alignItems: "center", gap: 18, width: "100%", padding: "56px 40px",
-            background: "#FFFFFF", borderTop: `10px solid ${OG.gold}`, borderLeft: `1px solid ${OG.iceLine}`, borderRight: `1px solid ${OG.iceLine}`, borderBottom: `1px solid ${OG.iceLine}`, borderRadius: 14,
+            background: "#FFFFFF", boxShadow: "0 6px 16px rgba(18,58,97,0.10)", borderTop: `10px solid ${OG.gold}`, borderLeft: `1px solid #BCD5EA`, borderRight: `1px solid #BCD5EA`, borderBottom: `1px solid #BCD5EA`, borderRadius: 14,
           }}
         >
           <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.hasHeadshot} size={330} fontFamily={display} fontSize={112} border={`8px solid ${OG.gold}`} />
@@ -543,7 +549,7 @@ export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: 
       return (
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-between", paddingBottom: 12 }}>
           {opts.games.map((g, i) => (
-            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", border: `2px solid ${OG.iceLine}`, borderRadius: 20 }}>
+            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", boxShadow: "0 6px 16px rgba(18,58,97,0.10)", border: `2px solid #BCD5EA`, borderRadius: 20 }}>
               {row(g.home)}
               <div style={{ display: "flex", alignItems: "center", height: DIV, padding: "0 28px" }}>
                 <div style={{ display: "flex", flex: 1, height: 2, background: OG.iceLine }} />
@@ -581,22 +587,28 @@ export async function renderPortraitStandings(opts: {
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", height: 52, alignItems: "center", borderBottom: `2px solid ${OG.rink}`, fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.muted, textTransform: "uppercase" }}>
-          <div style={{ display: "flex", width: 74, justifyContent: "center" }}>#</div>
+          <div style={{ display: "flex", width: 112, justifyContent: "center" }}>#</div>
           <div style={{ display: "flex", flexGrow: 1, paddingLeft: 8 }}>Team</div>
-          <div style={{ display: "flex", width: 150, justifyContent: "center" }}>Record</div>
-          <div style={{ display: "flex", width: 140, justifyContent: "center" }}>PF</div>
-          <div style={{ display: "flex", width: 140, justifyContent: "center" }}>PA</div>
+          <div style={{ display: "flex", width: 140, justifyContent: "center" }}>Record</div>
+          <div style={{ display: "flex", width: 130, justifyContent: "center" }}>PF</div>
+          <div style={{ display: "flex", width: 130, justifyContent: "center" }}>PA</div>
         </div>
         {opts.rows.map((r, i) => (
-          <div key={r.teamId} style={{ display: "flex", alignItems: "center", height: rowH, background: i === 0 ? "#FFF8E6" : i % 2 === 0 ? "#FFFFFF" : OG.icePanel, ...(opts.cutoff && i === opts.cutoff - 1 && i < opts.rows.length - 1 ? { borderBottom: `5px solid ${OG.centerRed}` } : {}) }}>
-            <div style={{ display: "flex", width: 74, justifyContent: "center", fontFamily: display, fontSize: i === 0 ? 40 : 34, fontWeight: 700, color: i === 0 ? OG.goldText : OG.rink }}>{i + 1}</div>
+          <div key={r.teamId} style={{ display: "flex", alignItems: "center", height: rowH, background: i === 0 ? "#F1F8FF" : i % 2 === 0 ? "#FFFFFF" : OG.icePanel, ...(opts.cutoff && i === opts.cutoff - 1 && i < opts.rows.length - 1 ? { borderBottom: `5px solid ${OG.centerRed}` } : {}) }}>
+            <div style={{ display: "flex", width: 112, alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <div style={{ display: "flex", fontFamily: display, fontSize: i === 0 ? 40 : 34, fontWeight: 700, color: i === 0 ? OG.goldText : OG.rink }}>{i + 1}</div>
+              {r.change ? <div style={{ display: "flex", fontFamily: display, fontSize: 22, fontWeight: 700, color: r.change > 0 ? "#1F7A4D" : OG.centerRed }}>{`${r.change > 0 ? "\u25B2" : "\u25BC"}${Math.abs(r.change)}`}</div> : null}
+            </div>
             <div style={{ display: "flex", flexGrow: 1, alignItems: "center", gap: 16, paddingLeft: 8 }}>
               <TeamBadge name={r.name} logo={logos[r.teamId]} size={badge} fontFamily={display} />
-              <div style={{ display: "flex", fontSize: 28, fontWeight: 600, color: OG.board, maxWidth: 400, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{r.name}</div>
+              <div style={{ display: "flex", fontSize: r.name.length > 27 ? 24 : r.name.length > 22 ? 26 : 28, fontWeight: 600, color: OG.board, maxWidth: 390, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{r.name}</div>
             </div>
-            <div style={{ display: "flex", width: 150, justifyContent: "center", fontFamily: display, fontSize: 32, fontWeight: 700, color: OG.rink }}>{r.record}</div>
-            <div style={{ display: "flex", width: 140, justifyContent: "center", fontSize: 26, color: OG.board }}>{fmtPts(r.pf)}</div>
-            <div style={{ display: "flex", width: 140, justifyContent: "center", fontSize: 26, color: OG.muted }}>{fmtPts(r.pa)}</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 140 }}>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 32, fontWeight: 700, lineHeight: 1.1, color: OG.rink }}>{r.record}</div>
+              {r.streak && /^[WL]\d+$/.test(r.streak) ? <div style={{ display: "flex", fontFamily: display, fontSize: 20, fontWeight: 700, color: r.streak[0] === "W" ? "#1F7A4D" : OG.centerRed }}>{r.streak}</div> : null}
+            </div>
+            <div style={{ display: "flex", width: 130, justifyContent: "center", fontSize: 26, color: OG.board }}>{fmtPts(r.pf)}</div>
+            <div style={{ display: "flex", width: 130, justifyContent: "center", fontSize: 26, color: OG.muted }}>{fmtPts(r.pa)}</div>
           </div>
         ))}
       </div>

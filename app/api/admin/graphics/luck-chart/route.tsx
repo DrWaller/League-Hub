@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
-import { computeLuck, regularSeasonFinals } from "@/lib/luck";
+import { computeLuck, regularSeasonFinals, luckExtremes } from "@/lib/luck";
 import { renderLuckChart } from "@/lib/luck-image";
 import { isPortrait, renderPortraitLuck, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { getSeasonBundle } from "@/lib/season-data";
+import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,13 @@ export async function GET(req: NextRequest) {
     const week = Math.min(Number(req.nextUrl.searchParams.get("week")) || latest, latest);
     const { rows, leagueMedian } = computeLuck(matchups, week);
     if (rows.length === 0) return new Response(`No final matchups through week ${week} yet.`, { status: 400 });
+
+    if (req.nextUrl.searchParams.get("caption")) {
+      const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
+      const { luckiest, unluckiest } = luckExtremes(rows);
+      const fmt = (r: { teamId: number; diff: number }) => `${teamName(r.teamId)} (${r.diff > 0 ? "+" : ""}${Math.round(r.diff * 100)}%)`;
+      return captionResponse(luckCaption(`${when} - through week ${week}`, luckiest ? fmt(luckiest) : null, unluckiest ? fmt(unluckiest) : null));
+    }
 
     const title = isPast && week === latest ? `Luck chart - ${seasonParam} final` : undefined;
     const opts = { rows, leagueMedian, week, teamName, title, logos: await loadLogoData(isPast), footer: seasonFooter(meta.name, seasonParam) };

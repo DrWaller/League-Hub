@@ -8,6 +8,8 @@ import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
+import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
+import { statLine } from "@/lib/espn-stats";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,12 +71,19 @@ export async function GET(req: NextRequest) {
     const medalColors = [OG.gold, OG.silver, OG.bronze];
     const rankLabels = ["1ST", "2ND", "3RD"];
 
+    if (req.nextUrl.searchParams.get("caption")) {
+      const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
+      return captionResponse(
+        playersCaption(`Top 3 ${POSITION_LABELS[position]}`, when, top3.map((p) => ({ name: p.name, team: teamName(p.teamId), points: p.points, line: statLine(p.position, p.stats) })))
+      );
+    }
+
     if (isPortrait(req.nextUrl.searchParams.get("format"))) {
       return await renderPortraitPlayerList({
         footer: seasonFooter(meta.name, seasonParam),
         title: `Top 3 ${POSITION_LABELS[position]}`,
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
-        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points })),
+        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: statLine(p.position, p.stats) })),
         labels: rankLabels,
         colors: medalColors,
         emptyMessage: "No stats posted for this position/week yet.",

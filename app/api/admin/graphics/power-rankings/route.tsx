@@ -4,6 +4,7 @@ import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { renderPowerRankings } from "@/lib/power-rankings-image";
 import { isPortrait, renderPortraitPowerRankings, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
+import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +26,16 @@ export async function GET(req: NextRequest) {
     const week = Number(req.nextUrl.searchParams.get("week")) || undefined;
     const { rankings, teams: ranked, throughWeek } = calculatePowerRankingsWithMovement(teams, m.matchups, week);
     if (throughWeek === 0) return new Response("No completed regular-season games yet, so there's nothing to rank.", { status: 400 });
+
+    if (req.nextUrl.searchParams.get("caption")) {
+      const when = weekLine(meta.season, meta.season, throughWeek, await weekDatesText(meta.season, meta.season, throughWeek));
+      return captionResponse(
+        rankingsCaption(
+          when,
+          rankings.map((r) => ({ rank: r.rank, name: ranked.find((t) => t.id === r.teamId)?.name ?? `Team ${r.teamId}`, change: r.previousRank != null ? r.previousRank - r.rank : null }))
+        )
+      );
+    }
 
     const logos = await loadLogoData();
     if (isPortrait(req.nextUrl.searchParams.get("format"))) {

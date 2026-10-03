@@ -59,3 +59,18 @@ export function spotlightTiles(position: string, stats?: Record<string, number>)
     { label: "SHOTS", value: String(num(stats, STAT_ID.shotsOnGoal)) },
   ];
 }
+
+// One-line stat summary for the 3 Stars / Top 3 lists: "4 G · 4 A · 10 SOG" for
+// skaters, "32 SV · .941 · 2 GA" for goalies. Null when ESPN gave no breakdown.
+export function statLine(position: string, stats?: Record<string, number>): string | null {
+  if (!stats) return null;
+  const known = Object.values(STAT_ID).some((id) => stats[id] !== undefined);
+  if (!known) return null;
+  if (position === "G") {
+    const saves = num(stats, STAT_ID.saves);
+    const against = num(stats, STAT_ID.shotsAgainst);
+    const svPct = against > 0 ? (saves / against).toFixed(3).replace(/^0/, "") : null;
+    return [`${saves} SV`, svPct, `${num(stats, STAT_ID.goalsAgainst)} GA`].filter(Boolean).join(" \u00b7 ");
+  }
+  return `${num(stats, STAT_ID.goals)} G \u00b7 ${num(stats, STAT_ID.assists)} A \u00b7 ${num(stats, STAT_ID.shotsOnGoal)} SOG`;
+}

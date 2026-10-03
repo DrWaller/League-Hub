@@ -6,6 +6,7 @@ import { isPortrait, renderPortraitPreview, seasonFooter } from "@/lib/portrait-
 import { loadLogoData } from "@/lib/og-team-logo";
 import { loadSeriesLookup } from "@/lib/head-to-head";
 import { Team } from "@/lib/types";
+import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,6 +66,11 @@ export async function GET(req: NextRequest) {
       away: side(g.awayTeamId),
       series: seriesFor(g.homeTeamId, g.awayTeamId) ?? undefined,
     }));
+
+    if (req.nextUrl.searchParams.get("caption")) {
+      const when = weekLine(meta.season, meta.season, week, await weekDatesText(meta.season, meta.season, week));
+      return captionResponse(previewCaption(when, previews.map((p) => ({ a: p.home.name, b: p.away.name, series: p.series }))));
+    }
 
     const logos = await loadLogoData();
     return isPortrait(req.nextUrl.searchParams.get("format"))

@@ -375,6 +375,18 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   season's earlier weeks, following the MANAGER so a renamed team keeps its
   history. Needs the teams linked to managers under Link Managers; a game with an
   unlinked team, or two managers who have never met, just shows "VS".
+- **Ice theme (hybrid)**: the portrait graphics keep the navy header and sit on a
+  pale icy gradient with faint rink markings (faceoff circle, center dot and line)
+  behind the cards. All in `lib/portrait-graphics.tsx` (`frame()`).
+- **Stat lines** on 3 Stars / Top 3 (portrait): "4 G \u00b7 4 A \u00b7 10 SOG" for skaters,
+  "32 SV \u00b7 .941 \u00b7 2 GA" for goalies (`statLine` in `lib/espn-stats.ts`; same stat ids
+  as Player Spotlight, so a wrong tile there means a wrong line here).
+- **Standings movement and streaks** (portrait): a small arrow beside the rank shows
+  places moved since last week (by wins minus losses) and a green/red tag under the
+  record shows the streak.
+- **Copy caption**: every graphic card on the Graphics page has a Copy caption
+  button. Each graphic route returns ready-to-post text when called with `&caption=1`
+  (`lib/captions.ts`), including the week's dates when the Week Days calendar is saved.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

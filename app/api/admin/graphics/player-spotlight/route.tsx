@@ -9,6 +9,8 @@ import { OG } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
 import { spotlightTiles } from "@/lib/espn-stats";
+import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
+import { statLine } from "@/lib/espn-stats";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +96,13 @@ export async function GET(req: NextRequest) {
     const team = teamsResult.find((t) => t.id === player.teamId)?.name ?? "";
     const tiles = spotlightTiles(player.position, player.stats);
     const availableHeadshots = await checkHeadshots([player.id]);
+
+    if (params.get("caption")) {
+      const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
+      return captionResponse(
+        playersCaption("Player Spotlight", when, [{ name: player.name, team, points: player.points, line: statLine(player.position, player.stats) }], false)
+      );
+    }
 
     if (isPortrait(params.get("format"))) {
       return await renderPortraitSpotlight({

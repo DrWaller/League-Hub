@@ -19,6 +19,20 @@ type State =
 // instead of a blank broken-image icon.
 function GraphicCard({ title, url, portrait }: { title: string; url: string; portrait?: boolean }) {
   const [state, setState] = useState<State>({ status: "loading" });
+  const [copied, setCopied] = useState<"idle" | "ok" | "error">("idle");
+
+  async function copyCaption() {
+    try {
+      const res = await fetch(`${url}&caption=1`);
+      const text = await res.text();
+      if (!res.ok) throw new Error(text);
+      await navigator.clipboard.writeText(text);
+      setCopied("ok");
+    } catch {
+      setCopied("error");
+    }
+    setTimeout(() => setCopied("idle"), 2500);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -59,9 +73,14 @@ function GraphicCard({ title, url, portrait }: { title: string; url: string; por
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-display text-lg">{title}</h2>
         {state.status === "ok" && (
-          <a href={url} download className="text-sm text-rink hover:underline">
-            Download
-          </a>
+          <div className="flex items-center gap-4 text-sm">
+            <button onClick={copyCaption} className="text-rink hover:underline">
+              {copied === "ok" ? "Copied!" : copied === "error" ? "Couldn't copy" : "Copy caption"}
+            </button>
+            <a href={url} download className="text-rink hover:underline">
+              Download
+            </a>
+          </div>
         )}
       </div>
       {state.status === "loading" && <p className="text-sm text-muted border border-ice-line p-4">Generating…</p>}
