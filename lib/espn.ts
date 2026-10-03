@@ -8,6 +8,7 @@
 
 import { Team, Matchup, Roster, LeagueMeta, WeeklyPlayerStat } from "./types";
 import { getWeekCalendar, periodsForWeek } from "./week-calendar";
+import type { PoolPlayer, Group } from "./radar";
 import {
   MOCK_TEAMS,
   MOCK_MATCHUPS,
@@ -649,4 +650,90 @@ export async function getPastSeasons(currentSeason: number): Promise<number[]> {
   const seasons = answers.filter((y): y is number => y !== null).sort((a, b) => b - a);
   seasonProbe = { current: currentSeason, at: Date.now(), seasons };
   return seasons;
+}
+
+
+// ---------------------------------------------------------------- NHL player pool (Player Radar)
+// ESPN's player-pool view lists every NHL player (owned or not) with season stats.
+// It's filtered by a JSON header; see the filters below.
+
+async function fetchPool(filter: object, season?: number) {
+  if (!liveDataConfigured()) return null;
+  try {
+    const res = await fetch(`${buildBase(season)}?view=kona_player_info`, {
+      headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}`, "x-fantasy-filter": JSON.stringify(filter) },
+      next: { revalidate: season ? 86400 : 1800 },
+    });
+    if (!res.ok) {
+      console.error("ESPN player pool fetch failed", res.status, (await res.text()).slice(0, 300));
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error("ESPN player pool fetch error", err);
+    return null;
+  }
+}
+
+export function toPoolPlayer(entry: any, seasonId: number): PoolPlayer | null {
+  const pl = entry?.player ?? entry?.playerPoolEntry?.player;
+  if (!pl || pl.id == null) return null;
+  const stats: any[] = pl.stats ?? [];
+  // The season-to-date line: actual (not projected) stats, whole-season split.
+  const total =
+    stats.find((x) => x.statSourceId === 0 && x.statSplitTypeId === 0 && (String(x.id) === `00${seasonId}` || x.seasonId === seasonId)) ??
+    stats.find((x) => x.statSourceId === 0 && x.statSplitTypeId === 0);
+  if (!total) return null;
+  const st: Record<string, number> = total.stats && typeof total.stats === "object" ? total.stats : {};
+  const gp = Number(st["34"]) || Number(st["0"]) || 0; // games played, or games started for goalies
+  return {
+    id: pl.id,
+    name: pl.fullName ?? "Unknown Player",
+    positionId: pl.defaultPositionId ?? 0,
+    proTeamId: pl.proTeamId ?? 0,
+    gp,
+    stats: st,
+    appliedTotal: Number(total.appliedTotal) || 0,
+  };
+}
+
+const POOL_FILTER_BASE = (seasonId: number) => ({
+  filterStatus: { value: ["FREEAGENT", "WAIVERS", "ONTEAM"] },
+  filterStatsForTopScoringPeriodIds: { value: 5, additionalValue: [`00${seasonId}`] },
+});
+
+// The fantasy-relevant NHL players of one position group: the most-owned first.
+export async function getPlayerPool(group: Group, season?: number): Promise<PoolPlayer[]> {
+  const seasonId = season ?? Number(SEASON);
+  const slots = group === "F" ? [0, 1, 2] : group === "D" ? [4] : [5];
+  const limit = group === "F" ? 700 : group === "D" ? 350 : 160;
+  const data = await fetchPool(
+    { players: { ...POOL_FILTER_BASE(seasonId), filterSlotIds: { value: slots }, limit, sortPercOwned: { sortPriority: 1, sortAsc: false } } },
+    season
+  );
+  return ((data?.players ?? []) as any[]).map((e) => toPoolPlayer(e, seasonId)).filter((x): x is PoolPlayer => x !== null);
+}
+
+export async function getPlayersById(ids: number[], season?: number): Promise<PoolPlayer[]> {
+  const seasonId = season ?? Number(SEASON);
+  const data = await fetchPool({ players: { ...POOL_FILTER_BASE(seasonId), filterIds: { value: ids }, limit: ids.length } }, season);
+  return ((data?.players ?? []) as any[]).map((e) => toPoolPlayer(e, seasonId)).filter((x): x is PoolPlayer => x !== null);
+}
+
+// Name search for the picker (most-owned matches first).
+export async function searchPlayers(query: string, season?: number): Promise<PoolPlayer[]> {
+  const seasonId = season ?? Number(SEASON);
+  const data = await fetchPool(
+    { players: { ...POOL_FILTER_BASE(seasonId), filterName: { value: query }, limit: 8, sortPercOwned: { sortPriority: 1, sortAsc: false } } },
+    season
+  );
+  return ((data?.players ?? []) as any[]).map((e) => toPoolPlayer(e, seasonId)).filter((x): x is PoolPlayer => x !== null);
+}
+
+// The league's scoring categories: [{ statId, points }]. Negative points = lower is better.
+export async function getScoringItems(season?: number): Promise<{ statId: number; points: number }[]> {
+  const data = await fetchEspn(["mSettings"], season, true);
+  const items = data?.settings?.scoringSettings?.scoringItems;
+  if (!Array.isArray(items)) return [];
+  return items.map((i: any) => ({ statId: Number(i.statId), points: Number(i.points) || 0 })).filter((i) => Number.isFinite(i.statId));
 }

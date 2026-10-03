@@ -1,0 +1,110 @@
+// Percentile logic for the Player Radar card. Pure functions (no network) so
+// they can be tested. A player's per-game rate in each of the league's scoring
+// categories is ranked against every NHL player in the same position group
+// (forwards / defensemen / goalies) who has played at least `minGP` games.
+
+import { STAT_META } from "./espn-stats";
+
+export type Group = "F" | "D" | "G";
+
+// ESPN's defaultPositionId: 1 C, 2 LW, 3 RW, 4 D, 5 G
+export const groupOfPositionId = (id: number): Group => (id === 5 ? "G" : id === 4 ? "D" : "F");
+export const GROUP_NAME: Record<Group, string> = { F: "forwards", D: "defensemen", G: "goalies" };
+export const POSITION_LABEL: Record<number, string> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
+
+export interface PoolPlayer {
+  id: number;
+  name: string;
+  positionId: number;
+  proTeamId: number;
+  gp: number;
+  stats: Record<string, number>; // season totals keyed by ESPN stat id
+  appliedTotal: number; // fantasy points this league's scoring gives the season so far
+}
+
+export interface Category {
+  statId: string;
+  label: string;
+  higherIsBetter: boolean; // false for categories the league scores NEGATIVELY (goals against, PIM...)
+  rate: boolean; // already a rate/average, so not divided by games played
+}
+
+export interface RadarAxis {
+  statId: string;
+  label: string;
+  value: number; // the player's per-game value
+  pct: number; // 0-100, always "bigger is better" (inverted for negatively scored stats)
+  higherIsBetter: boolean;
+  rate: boolean;
+}
+
+// The league's scoring items that apply to this position group, labelled.
+export function categoriesFor(group: Group, items: { statId: number; points: number }[]): Category[] {
+  const out: Category[] = [];
+  const seen = new Set<string>();
+  for (const it of items) {
+    const id = String(it.statId);
+    if (!it.points || id === "34" || seen.has(id)) continue; // 34 = games played
+    const meta = STAT_META[id];
+    const isGoalieStat = Boolean(meta?.goalie);
+    if (isGoalieStat !== (group === "G")) continue;
+    seen.add(id);
+    out.push({ statId: id, label: meta?.label ?? `Stat ${id}`, higherIsBetter: it.points > 0, rate: Boolean(meta?.rate) });
+  }
+  return out.sort((a, b) => axisRank(a.statId) - axisRank(b.statId));
+}
+
+// Axis order on the chart: related categories sit next to each other (scoring,
+// then possession/physical, then penalties) so the shape tells a story.
+const AXIS_ORDER = [
+  "13", "14", "37", "38", "18", "19", "29", "22", "28", "15", "35", "36", "20", "21", "39", "31", "32", "33", "23", "24", "27", "17", // skaters
+  "1", "6", "11", "10", "7", "4", "3", "0", "2", "9", "8", // goalies
+];
+const axisRank = (statId: string) => {
+  const i = AXIS_ORDER.indexOf(statId);
+  return i === -1 ? 999 : i;
+};
+
+export function perGame(p: PoolPlayer, c: Category): number {
+  const raw = Number(p.stats[c.statId]);
+  const v = Number.isFinite(raw) ? raw : 0;
+  if (c.rate) return v;
+  return p.gp > 0 ? v / p.gp : 0;
+}
+
+// Early in the season nobody has played much, so the cutoff scales with the
+// games leaders have played (half of it, between 1 and 15 games) unless set.
+export function minGamesFor(pool: PoolPlayer[], override?: number): number {
+  if (override && override > 0) return Math.floor(override);
+  const lead = pool.reduce((m, p) => Math.max(m, p.gp), 0);
+  return Math.max(1, Math.min(15, Math.floor(lead * 0.5)));
+}
+
+// Share of the pool this value beats (ties count half). A value of nothing
+// (zero) in a "more is better" count stat is always 0 -- doing nothing earns no
+// percentile just because most players did nothing too. Lower-is-better stats
+// are flipped so a bigger number on the chart is always better.
+export function percentileOf(value: number, values: number[], higherIsBetter: boolean, zeroIsNothing: boolean): number {
+  const n = values.length;
+  if (n === 0) return 0;
+  if (higherIsBetter && zeroIsNothing && value <= 0) return 0;
+  let below = 0;
+  let equal = 0;
+  for (const x of values) {
+    if (x < value) below++;
+    else if (x === value) equal++;
+  }
+  const pct = ((below + 0.5 * equal) / n) * 100;
+  return higherIsBetter ? pct : 100 - pct;
+}
+
+export function buildRadar(me: PoolPlayer, pool: PoolPlayer[], cats: Category[], minGP: number): { axes: RadarAxis[]; eligible: number } {
+  const eligible = pool.filter((p) => p.gp >= minGP);
+  const axes = cats.map((c) => {
+    const value = perGame(me, c);
+    const values = eligible.map((p) => perGame(p, c));
+    const zeroIsNothing = !c.rate && c.statId !== "15"; // plus/minus can legitimately be zero
+    return { statId: c.statId, label: c.label, value, pct: percentileOf(value, values, c.higherIsBetter, zeroIsNothing), higherIsBetter: c.higherIsBetter, rate: c.rate };
+  });
+  return { axes, eligible: eligible.length };
+}

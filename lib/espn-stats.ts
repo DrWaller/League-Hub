@@ -74,3 +74,42 @@ export function statLine(position: string, stats?: Record<string, number>): stri
   }
   return `${num(stats, STAT_ID.goals)} G \u00b7 ${num(stats, STAT_ID.assists)} A \u00b7 ${num(stats, STAT_ID.shotsOnGoal)} SOG`;
 }
+
+// Names for ESPN's hockey stat ids (the community espn-api project's STATS_MAP),
+// used by the Player Radar to label the league's scoring categories.
+//   goalie: only goalies have it; rate: already a rate/average (not divided by games played).
+export const STAT_META: Record<string, { label: string; goalie?: boolean; rate?: boolean }> = {
+  "0": { label: "GS", goalie: true },
+  "1": { label: "W", goalie: true },
+  "2": { label: "L", goalie: true },
+  "3": { label: "SA", goalie: true },
+  "4": { label: "GA", goalie: true },
+  "6": { label: "SV", goalie: true },
+  "7": { label: "SO", goalie: true },
+  "8": { label: "MIN", goalie: true },
+  "9": { label: "OTL", goalie: true },
+  "10": { label: "GAA", goalie: true, rate: true },
+  "11": { label: "SV%", goalie: true, rate: true },
+  "13": { label: "G" },
+  "14": { label: "A" },
+  "15": { label: "+/-" },
+  "17": { label: "PIM" },
+  "18": { label: "PPG" },
+  "19": { label: "PPA" },
+  "20": { label: "SHG" },
+  "21": { label: "SHA" },
+  "22": { label: "GWG" },
+  "23": { label: "FOW" },
+  "24": { label: "FOL" },
+  "27": { label: "ATOI", rate: true },
+  "28": { label: "HAT" },
+  "29": { label: "SOG" },
+  "31": { label: "HIT" },
+  "32": { label: "BLK" },
+  "33": { label: "DEF" },
+  "35": { label: "STPG" },
+  "36": { label: "STPA" },
+  "37": { label: "STP" },
+  "38": { label: "PPP" },
+  "39": { label: "SHP" },
+};

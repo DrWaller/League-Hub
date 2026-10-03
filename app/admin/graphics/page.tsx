@@ -100,6 +100,26 @@ export default function AdminGraphicsPage() {
   const [weekSeason, setWeekSeason] = useState<string>("");
   const [luckSeason, setLuckSeason] = useState<string>("");
   const [spotlightPosition, setSpotlightPosition] = useState<string>("any");
+
+  // Player Radar picker: search ESPN's player list by name; with nobody picked the
+  // radar uses the week's top scorer.
+  const [radarPlayer, setRadarPlayer] = useState<{ id: number; name: string } | null>(null);
+  const [radarQuery, setRadarQuery] = useState("");
+  const [radarResults, setRadarResults] = useState<{ id: number; name: string; position: string }[]>([]);
+  useEffect(() => {
+    const q = radarQuery.trim();
+    if (q.length < 2) {
+      setRadarResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`/api/admin/players/search?q=${encodeURIComponent(q)}`)
+        .then((r) => r.json())
+        .then((d) => setRadarResults(d.players ?? []))
+        .catch(() => setRadarResults([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [radarQuery]);
   const [format, setFormat] = useState<"landscape" | "portrait">("portrait");
 
   // Open with the week chosen on the Weekly Checklist (?week=N).
@@ -112,7 +132,12 @@ export default function AdminGraphicsPage() {
 
   const fmtQS = `&format=${format}`;
 
-  const rawCards = [
+  const rawCards: { title: string; url: string; alwaysPortrait?: boolean }[] = [
+    {
+      title: radarPlayer ? `Player Radar - ${radarPlayer.name}` : "Player Radar (week's top scorer)",
+      url: `/api/admin/graphics/player-radar?week=${week}${radarPlayer ? `&playerId=${radarPlayer.id}` : ""}`,
+      alwaysPortrait: true,
+    },
     { title: "Standings", url: `/api/admin/graphics/standings?week=${week}${seasonQS}` },
     { title: "Matchup Preview (upcoming week)", url: `/api/admin/graphics/matchup-preview?week=${week}` },
     { title: "Weekly Scoreboard", url: `/api/admin/graphics/scoreboard?week=${week}${seasonQS}` },
@@ -176,6 +201,42 @@ export default function AdminGraphicsPage() {
           </div>
         </label>
 
+        <div className="text-sm inline-block relative">
+          <div className="text-muted mb-1">Player Radar player</div>
+          {radarPlayer ? (
+            <div className="flex items-center gap-2 border border-ice-line px-3 py-2 w-64 bg-white">
+              <span className="truncate">{radarPlayer.name}</span>
+              <button onClick={() => setRadarPlayer(null)} className="ml-auto text-rink hover:underline">
+                Clear
+              </button>
+            </div>
+          ) : (
+            <input
+              value={radarQuery}
+              onChange={(e) => setRadarQuery(e.target.value)}
+              placeholder="Search by name (blank = top scorer)"
+              className="border border-ice-line px-3 py-2 w-64 bg-white"
+            />
+          )}
+          {!radarPlayer && radarResults.length > 0 && (
+            <div className="absolute z-10 mt-1 w-64 border border-ice-line bg-white shadow">
+              {radarResults.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => {
+                    setRadarPlayer({ id: r.id, name: r.name });
+                    setRadarQuery("");
+                    setRadarResults([]);
+                  }}
+                  className="block w-full text-left px-3 py-2 hover:bg-ice-panel"
+                >
+                  {r.name} <span className="text-muted">({r.position})</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <label className="text-sm inline-block">
           <div className="text-muted mb-1">Shape</div>
           <select
@@ -219,7 +280,7 @@ export default function AdminGraphicsPage() {
 
       <div className="space-y-10">
         {cards.map((c) => (
-          <GraphicCard key={c.title} title={c.title} url={c.url} portrait={format === "portrait"} />
+          <GraphicCard key={c.title} title={c.title} url={c.url} portrait={format === "portrait" || Boolean(c.alwaysPortrait)} />
         ))}
       </div>
     </div>

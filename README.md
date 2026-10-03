@@ -387,6 +387,25 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
 - **Copy caption**: every graphic card on the Graphics page has a Copy caption
   button. Each graphic route returns ready-to-post text when called with `&caption=1`
   (`lib/captions.ts`), including the week's dates when the Week Days calendar is saved.
+- **Player Radar** (`/api/admin/graphics/player-radar`, portrait only): a percentile
+  radar for one player, current season. Each axis is one of the league's scoring
+  categories (read from ESPN's scoring settings and labelled in `STAT_META`,
+  `lib/espn-stats.ts`; skaters and goalies get their own sets). The value is the
+  player's PER-GAME rate (rate stats like GAA/SV% are used as-is), ranked against
+  every NHL player at the same position group (forwards / defensemen / goalies,
+  from ESPN's player list, most-owned first) who has played the minimum games. The
+  minimum is half of what the leaders have played (1-15 games) unless `&minGames=N`
+  is given, so early-season percentiles are noisy -- a small-sample note appears
+  when the player is under it. A stat the league scores negatively (goals against,
+  PIM...) is flipped so a bigger point is always better, and doing nothing in a
+  count stat always scores 0. Pick a player with `&playerId=N` (the Graphics page has
+  a name search); without it the week's top scorer (`&week=N`) is used. `&debug=1`
+  returns the categories, pool size and every percentile as JSON -- the first thing to
+  check if an axis looks wrong. Logic in `lib/radar.ts`, drawing in `lib/radar-image.tsx`.
+  Card design: big headshot and name, then the radar on a navy panel with a GOLD shape (never red/green, which
+  are reserved for good/bad numbers). Related categories sit next to each other
+  (`AXIS_ORDER` in `lib/radar.ts`); the dashed ring is labelled AVG. It skips the
+  rink-marking background (`plain` option of `frame()`).
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

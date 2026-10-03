@@ -56,11 +56,12 @@ async function headerExtras(title: string, subtitle: string): Promise<{ week: nu
   return { week, dates };
 }
 
-async function frame(opts: {
+export async function frame(opts: {
   title: string;
   subtitle: string;
   footer?: string;
   bold?: boolean; // kept for compatibility; every portrait graphic now uses this one style
+  plain?: boolean; // no rink markings behind the content (Player Radar draws its own chart)
   body: (f: { display: string; body: string }) => ReactNode;
 }) {
   const fonts = await loadGraphicFonts();
@@ -87,9 +88,9 @@ async function frame(opts: {
     (
       <div style={{ width: W, height: H, display: "flex", flexDirection: "column", position: "relative", backgroundImage: "linear-gradient(180deg, #F8FCFF 0%, #E3EFF9 55%, #D3E5F4 100%)", fontFamily: body }}>
         {/* faint rink markings behind the content: faceoff circle, center dot, center line */}
-        <div style={{ position: "absolute", left: 130, top: 470, width: 820, height: 820, borderRadius: 410, border: "8px solid rgba(196,30,58,0.13)", display: "flex" }} />
-        <div style={{ position: "absolute", left: 0, top: 876, width: 1080, height: 8, background: "rgba(196,30,58,0.13)", display: "flex" }} />
-        <div style={{ position: "absolute", left: 490, top: 850, width: 100, height: 100, borderRadius: 50, background: "rgba(18,58,97,0.09)", display: "flex" }} />
+        {opts.plain ? null : <div style={{ position: "absolute", left: 130, top: 470, width: 820, height: 820, borderRadius: 410, border: "8px solid rgba(196,30,58,0.13)", display: "flex" }} />}
+        {opts.plain ? null : <div style={{ position: "absolute", left: 0, top: 876, width: 1080, height: 8, background: "rgba(196,30,58,0.13)", display: "flex" }} />}
+        {opts.plain ? null : <div style={{ position: "absolute", left: 490, top: 850, width: 100, height: 100, borderRadius: 50, background: "rgba(18,58,97,0.09)", display: "flex" }} />}
         {/* Explicit width + alignSelf + flexShrink: without them the header can collapse to the
             title's width inside a flex column when rendered on the server. */}
         <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 56px", background: OG.rink, borderBottom: `6px solid ${OG.centerRed}` }}>
