@@ -49,9 +49,10 @@ export async function renderPortraitRadar(opts: {
   playerId: number;
   name: string;
   position: string;
-  teamName: string;
+  teamName?: string;
   hasHeadshot: boolean;
   axes: RadarAxis[];
+  counts?: { label: string; value: string }[]; // rare stats shown as season totals instead of percentiles
   chips: { label: string; value: string }[];
   note: string; // e.g. "Ranked vs 312 NHL forwards - per game - min 3 GP"
   smallSample?: string; // e.g. "SMALL SAMPLE - 2 GP"
@@ -71,7 +72,7 @@ export async function renderPortraitRadar(opts: {
           <PlayerAvatar name={opts.name} src={headshotUrl(opts.playerId)} hasHeadshot={opts.hasHeadshot} size={196} fontFamily={display} fontSize={68} border={`7px solid ${GOLD}`} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
             <div style={{ display: "flex", fontFamily: display, fontSize: 62, fontWeight: 700, lineHeight: 1.04, color: OG.board, maxWidth: 740, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.name}</div>
-            <div style={{ display: "flex", fontSize: 30, color: OG.muted, maxWidth: 740, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{`${opts.position} \u00b7 ${opts.teamName}`}</div>
+            <div style={{ display: "flex", fontSize: 30, color: OG.muted, maxWidth: 740, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.teamName ? `${opts.position} \u00b7 ${opts.teamName}` : opts.position}</div>
             <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
               {opts.chips.map((c) => (
                 <div key={c.label} style={{ display: "flex", alignItems: "baseline", gap: 8, background: OG.rink, borderRadius: 10, padding: "6px 16px" }}>
@@ -102,6 +103,16 @@ export async function renderPortraitRadar(opts: {
               return <circle key={i} cx={p.x} cy={p.y} r={8} fill={GOLD} stroke="#FFFFFF" strokeWidth={3} />;
             })}
           </svg>
+          {opts.counts && opts.counts.length > 0 ? (
+            <div style={{ position: "absolute", left: 18, top: 18, display: "flex", flexDirection: "column", gap: 8 }}>
+              {opts.counts.slice(0, 3).map((c) => (
+                <div key={c.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 96, padding: "6px 0", borderRadius: 10, background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.22)" }}>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 36, fontWeight: 700, lineHeight: 1.05, color: "#FFFFFF" }}>{c.value}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 18, fontWeight: 700, letterSpacing: 2, color: "#C9D6E6" }}>{c.label}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
           {/* the dashed ring is labelled on the chart itself */}
           <div style={{ position: "absolute", left: CX + 10, top: CY - R * 0.5 - 4, display: "flex", fontFamily: display, fontSize: 16, fontWeight: 700, letterSpacing: 2, color: "rgba(255,255,255,0.7)" }}>AVG</div>
           {axes.map((a, i) => {

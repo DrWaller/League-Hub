@@ -17,6 +17,16 @@ export default function PlayerCardsPage() {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [week, setWeek] = useState<number>(1);
 
+  // Previous seasons ESPN still has player data for.
+  const [pastSeasons, setPastSeasons] = useState<number[]>([]);
+  const [pastSeason, setPastSeason] = useState<number | "">("");
+  useEffect(() => {
+    fetch("/api/admin/players/seasons")
+      .then((r) => r.json())
+      .then((d) => setPastSeasons(d.past ?? []))
+      .catch(() => setPastSeasons([]));
+  }, []);
+
   // Search any NHL player by name (includes free agents).
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: number; name: string; position: string }[]>([]);
@@ -62,6 +72,8 @@ export default function PlayerCardsPage() {
     ? [
         { title: `Player Radar - ${picked.name}`, url: `/api/admin/graphics/player-radar?playerId=${picked.id}&format=portrait` },
         { title: `Player Spotlight - ${picked.name} (week ${week})`, url: `/api/admin/graphics/player-spotlight?week=${week}&playerId=${picked.id}&position=any&format=portrait` },
+        // A previous season's final radar, as its own card (same layout, labelled with the season).
+        ...(pastSeason ? [{ title: `Player Radar - ${picked.name} (${pastSeason})`, url: `/api/admin/graphics/player-radar?playerId=${picked.id}&season=${pastSeason}&format=portrait` }] : []),
       ]
     : [];
 
@@ -120,6 +132,18 @@ export default function PlayerCardsPage() {
           </div>
           {!live && <div className="text-xs text-muted mt-1">ESPN isn&apos;t connected, so team rosters aren&apos;t available.</div>}
         </div>
+
+        <label className="text-sm">
+          <div className="text-muted mb-1">Add a previous season</div>
+          <select value={pastSeason} onChange={(e) => setPastSeason(e.target.value === "" ? "" : Number(e.target.value))} className="border border-ice-line px-3 py-2 w-40 bg-white">
+            <option value="">None</option>
+            {pastSeasons.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <label className="text-sm">
           <div className="text-muted mb-1">Week (for the weekly card)</div>

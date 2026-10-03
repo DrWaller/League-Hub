@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import {
   fetchPoolRaw,
   getLeagueMeta,
+  getPastSeasonTeams,
   getPlayerPool,
   getPlayerByIdDiag,
   getRosters,
@@ -10,7 +11,8 @@ import {
   getWeeklyPlayerStats,
 } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
-import { buildRadar, categoriesFor, groupOfPositionId, GROUP_NAME, minGamesFor, POSITION_LABEL, type Group, type PoolPlayer } from "@/lib/radar";
+import { buildRadar, categoriesFor, groupOfPositionId, GROUP_NAME, minGamesFor, POSITION_LABEL, seasonCount, splitRare, type Group, type PoolPlayer } from "@/lib/radar";
+import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { renderPortraitRadar } from "@/lib/radar-image";
 import { seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse } from "@/lib/captions";
@@ -26,13 +28,18 @@ export async function GET(req: NextRequest) {
   try {
     const params = req.nextUrl.searchParams;
     const meta = await getLeagueMeta();
-    if (params.get("season") && Number(params.get("season")) !== meta.season) {
-      return new Response("Player Radar uses current-season data only.", { status: 400 });
+    // ?season=YYYY gives a previous season's final numbers (the player must be picked).
+    const seasonParam = Number(params.get("season")) || meta.season;
+    const isPast = seasonParam !== meta.season;
+    const season = isPast ? seasonParam : undefined; // undefined = the current season in the ESPN helpers
+    if (isPast && (await getPlayedElsewhereSeasons()).has(seasonParam)) {
+      return new Response(`${seasonParam} was played on Fantrax, so ESPN has no player data for it.`, { status: 400 });
     }
 
     // 1. Which player?
     let playerId = Number(params.get("playerId")) || 0;
     if (!playerId) {
+      if (isPast) return new Response("Pick a player for a previous season.", { status: 400 });
       const week = Number(params.get("week"));
       if (!week) return new Response("Pick a player, or give a week to use that week's top scorer.", { status: 400 });
       const { players, live } = await getWeeklyPlayerStats(week);
@@ -41,13 +48,13 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. His season line, and the pool of NHL players at his position to rank him against.
-    const { player, attempts } = await getPlayerByIdDiag(playerId);
+    const { player, attempts } = await getPlayerByIdDiag(playerId, season);
     let me: PoolPlayer | null = player;
     let pool: PoolPlayer[] | null = null;
     if (!me) {
       // Last resort: find him inside the position lists themselves.
       for (const g of ["F", "D", "G"] as Group[]) {
-        const list = await getPlayerPool(g);
+        const list = await getPlayerPool(g, season);
         const hit = list.find((x) => x.id === playerId);
         if (hit) {
           me = hit;
@@ -64,9 +71,9 @@ export async function GET(req: NextRequest) {
       );
     }
     const group = groupOfPositionId(me.positionId);
-    if (!pool || pool.length === 0) pool = await getPlayerPool(group);
+    if (!pool || pool.length === 0) pool = await getPlayerPool(group, season);
     if (pool.length === 0) {
-      const probe = await fetchPoolRaw({ players: { filterSlotIds: { value: group === "F" ? [0, 1, 2] : group === "D" ? [4] : [5] }, limit: 5 } });
+      const probe = await fetchPoolRaw({ players: { filterSlotIds: { value: group === "F" ? [0, 1, 2] : group === "D" ? [4] : [5] }, limit: 5 } }, season);
       return new Response(
         `Couldn't load the NHL player list from ESPN. Test request: HTTP ${probe.status ?? "no response"}${probe.snippet ? ` - ${probe.snippet}` : ""}${probe.data ? ` - ${(probe.data.players ?? []).length} players returned` : ""}`,
         { status: 400 }
@@ -74,8 +81,9 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. The league's scoring categories for his position group.
-    const items = await getScoringItems();
-    const cats = categoriesFor(group, items);
+    const items = await getScoringItems(season);
+    const allCats = categoriesFor(group, items);
+    const { axes: cats, counts: countCats } = splitRare(allCats);
     if (cats.length < 3) {
       return new Response(
         `Found only ${cats.length} scoring categories for ${GROUP_NAME[group]} (a radar needs at least 3). Scoring items from ESPN: ${JSON.stringify(items)}`,
@@ -84,7 +92,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 4. Percentiles.
-    const minGP = minGamesFor(pool, Number(params.get("minGames")) || undefined);
+    const minGP = minGamesFor(pool, Number(params.get("minGames")) || undefined, isPast ? 20 : 15);
     const { axes, eligible } = buildRadar(me, pool, cats, minGP);
     if (eligible === 0) return new Response(`Nobody has played ${minGP} games yet, so there is nothing to rank against. Try &minGames=1.`, { status: 400 });
 
@@ -95,36 +103,64 @@ export async function GET(req: NextRequest) {
         poolSize: pool.length,
         minGP,
         eligible,
+        season: seasonParam,
         categories: cats,
+        rareAsCounts: countCats.map((c) => ({ label: c.label, total: seasonCount(me!, c) })),
         scoringItems: items,
         axes,
         rawStats: me.stats,
       });
     }
 
-    const [{ rosters }, { teams }, headshots] = await Promise.all([getRosters(), getStandings(), checkHeadshots([me.id])]);
-    const teamId = rosters.find((r) => r.players.some((p) => p.id === me.id))?.teamId;
-    const teamName = teams.find((t) => t.id === teamId)?.name ?? "Free agent";
+    const headshots = await checkHeadshots([me.id]);
+    let teamName: string | undefined;
+    if (!isPast) {
+      const [{ rosters }, { teams }] = await Promise.all([getRosters(), getStandings()]);
+      const teamId = rosters.find((r) => r.players.some((p) => p.id === me!.id))?.teamId;
+      teamName = teams.find((t) => t.id === teamId)?.name ?? "Free agent";
+    } else {
+      // A previous season: show the fantasy team he was on that year, if ESPN still lists it.
+      try {
+        const [{ rosters }, pastTeams] = await Promise.all([getRosters(seasonParam), getPastSeasonTeams(seasonParam)]);
+        const teamId = rosters.find((r) => r.players.some((p) => p.id === me!.id))?.teamId;
+        teamName = pastTeams?.find((t) => t.id === teamId)?.name;
+      } catch {
+        teamName = undefined;
+      }
+    }
     const position = POSITION_LABEL[me.positionId] ?? "?";
     const groupName = GROUP_NAME[group];
 
     if (params.get("caption")) {
       const lines = axes.map((a) => `${a.label} ${Math.round(a.pct)}`).join(" | ");
+      const counts = countCats.map((c) => `${c.label} ${seasonCount(me!, c)}`).join(" | ");
       return captionResponse(
-        [`PLAYER RADAR`, `${me.name} (${position}, ${teamName})`, "", `Percentile vs NHL ${groupName}, per game (min ${minGP} GP):`, lines, "", `${me.gp} GP, ${me.appliedTotal.toFixed(1)} fantasy pts`, "", "#FantasyHockey"].join("\n")
+        [
+          isPast ? `PLAYER RADAR - ${seasonParam}` : "PLAYER RADAR",
+          `${me.name} (${position}${teamName ? `, ${teamName}` : ""})`,
+          "",
+          `Percentile vs NHL ${groupName}, per game (min ${minGP} GP):`,
+          lines,
+          ...(counts ? ["", `Season totals: ${counts}`] : []),
+          "",
+          `${me.gp} GP, ${me.appliedTotal.toFixed(1)} fantasy pts`,
+          "",
+          "#FantasyHockey",
+        ].join("\n")
       );
     }
 
     const small = me.gp < minGP;
     return await renderPortraitRadar({
-      footer: seasonFooter(meta.name, meta.season),
-      subtitle: "Season to date",
+      footer: seasonFooter(meta.name, seasonParam),
+      subtitle: isPast ? `${seasonParam} season \u00b7 final` : "Season to date",
       playerId: me.id,
       name: me.name,
       position,
       teamName,
       hasHeadshot: headshots.has(me.id),
       axes,
+      counts: countCats.map((c) => ({ label: c.label, value: String(seasonCount(me!, c)) })),
       chips: [
         { label: "GP", value: String(me.gp) },
         { label: "FANTASY PTS", value: me.appliedTotal.toFixed(1) },

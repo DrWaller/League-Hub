@@ -45,6 +45,7 @@ export function categoriesFor(group: Group, items: { statId: number; points: num
   for (const it of items) {
     const id = String(it.statId);
     if (!it.points || id === "34" || seen.has(id)) continue; // 34 = games played
+    if (group === "F" && id === "33") continue; // DEF (defensemen points) means nothing for a forward
     const meta = STAT_META[id];
     const isGoalieStat = Boolean(meta?.goalie);
     if (isGoalieStat !== (group === "G")) continue;
@@ -65,6 +66,23 @@ const axisRank = (statId: string) => {
   return i === -1 ? 999 : i;
 };
 
+// Stats so rare that most players have none all season (shutouts, OT losses, short-handed
+// goals/assists, hat tricks). A percentile on these just collapses the chart to the middle,
+// so they are shown as plain season counts beside the chart instead.
+export const RARE_STATS = new Set(["7", "9", "20", "21", "28"]);
+
+export function splitRare(cats: Category[]): { axes: Category[]; counts: Category[] } {
+  const axes = cats.filter((c) => !RARE_STATS.has(c.statId));
+  // A radar needs at least 3 axes; if taking the rare ones out leaves fewer, keep them all as axes.
+  if (axes.length < 3) return { axes: cats, counts: [] };
+  return { axes, counts: cats.filter((c) => RARE_STATS.has(c.statId)) };
+}
+
+export function seasonCount(p: PoolPlayer, c: Category): number {
+  const raw = Number(p.stats[c.statId]);
+  return Number.isFinite(raw) ? raw : 0;
+}
+
 export function perGame(p: PoolPlayer, c: Category): number {
   const raw = Number(p.stats[c.statId]);
   const v = Number.isFinite(raw) ? raw : 0;
@@ -74,10 +92,10 @@ export function perGame(p: PoolPlayer, c: Category): number {
 
 // Early in the season nobody has played much, so the cutoff scales with the
 // games leaders have played (half of it, between 1 and 15 games) unless set.
-export function minGamesFor(pool: PoolPlayer[], override?: number): number {
+export function minGamesFor(pool: PoolPlayer[], override?: number, cap = 15): number {
   if (override && override > 0) return Math.floor(override);
   const lead = pool.reduce((m, p) => Math.max(m, p.gp), 0);
-  return Math.max(1, Math.min(15, Math.floor(lead * 0.5)));
+  return Math.max(1, Math.min(cap, Math.floor(lead * 0.5)));
 }
 
 // Share of the pool this value beats (ties count half). A value of nothing

@@ -406,6 +406,13 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   are reserved for good/bad numbers). Related categories sit next to each other
   (`AXIS_ORDER` in `lib/radar.ts`); the dashed ring is labelled AVG. It skips the
   rink-marking background (`plain` option of `frame()`).
+  Rare stats (shutouts, OT losses, short-handed goals/assists, hat tricks: `RARE_STATS` in
+  `lib/radar.ts`) aren't plotted, because most players have none and the chart would
+  collapse; they show as season-count tiles in the panel's top-left corner (if that would
+  leave fewer than 3 axes they stay on the chart). DEF is dropped for forwards. A previous
+  season: add `&season=YYYY` (needs `&playerId=`): uses that season's ESPN player list and
+  scoring settings, minimum games capped at 20, labelled with the season. The Player Cards
+  page has an "Add a previous season" picker (`/api/admin/players/seasons`).
 - **Player Cards** (`/admin/player-cards`): pick one player (search any NHL player by
   name, or choose a fantasy team and then a player from its roster) and every card for
   that player is generated: Player Radar and the weekly Player Spotlight (week box
