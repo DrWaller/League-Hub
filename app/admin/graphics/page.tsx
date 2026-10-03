@@ -81,7 +81,7 @@ export default function AdminGraphicsPage() {
   const [weekSeason, setWeekSeason] = useState<string>("");
   const [luckSeason, setLuckSeason] = useState<string>("");
   const [spotlightPosition, setSpotlightPosition] = useState<string>("any");
-  const [format, setFormat] = useState<"landscape" | "portrait">("landscape");
+  const [format, setFormat] = useState<"landscape" | "portrait">("portrait");
 
   // Open with the week chosen on the Weekly Checklist (?week=N).
   useEffect(() => {
@@ -91,9 +91,10 @@ export default function AdminGraphicsPage() {
 
   const seasonQS = weekSeason ? `&season=${encodeURIComponent(weekSeason)}` : "";
 
-  const fmtQS = format === "portrait" ? "&format=portrait" : "";
+  const fmtQS = `&format=${format}`;
 
   const rawCards = [
+    { title: "Standings", url: `/api/admin/graphics/standings?week=${week}${seasonQS}` },
     { title: "Matchup Preview (upcoming week)", url: `/api/admin/graphics/matchup-preview?week=${week}` },
     { title: "Weekly Scoreboard", url: `/api/admin/graphics/scoreboard?week=${week}${seasonQS}` },
     { title: "Power Rankings", url: `/api/admin/graphics/power-rankings?week=${week}` },
@@ -163,8 +164,8 @@ export default function AdminGraphicsPage() {
             onChange={(e) => setFormat(e.target.value as "landscape" | "portrait")}
             className="border border-ice-line px-3 py-2 w-44 bg-white"
           >
-            <option value="landscape">Landscape (wide)</option>
             <option value="portrait">Portrait (phone / Instagram)</option>
+            <option value="landscape">Landscape (wide)</option>
           </select>
         </label>
 

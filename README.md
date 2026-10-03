@@ -367,9 +367,15 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   on the player graphics. Only PNG, JPEG and GIF logos can be drawn; any other
   file type (WebP, SVG) or a failed download just shows that team's initials.
   Past seasons show no logos (a past team id may belong to a different manager).
-- **Portrait shape**: the Shape dropdown switches every graphic to a 1080 x 1350
-  (4:5) layout for phones and Instagram; add `&format=portrait` to any graphic's
-  address to get it directly. Layouts are in `lib/portrait-graphics.tsx`.
+- **Standings** -- the full table (record, points for/against; the landscape one
+  also shows diff and streak). Current season uses ESPN's own order (same as the
+  Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past
+  season's final table.
+- **Portrait is the primary shape**: every graphic defaults to a 1080 x 1350 (4:5)
+  layout for phones and Instagram; the Shape dropdown on the Graphics page (or
+  `&format=landscape` on any graphic's address) gives the wide version. Portrait
+  layouts are in `lib/portrait-graphics.tsx`, landscape ones in the `lib/*-image.tsx`
+  files.
 
 **Power rankings** blend win %, point differential and streak (see
 `lib/power-rankings.ts`), built only from completed regular-season games. Movement

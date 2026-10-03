@@ -11,6 +11,7 @@ import { getLeagueMeta } from "./espn";
 import { getWeekCalendar } from "./week-calendar";
 import { dateRanges } from "./week-calendar-utils";
 import { PreviewGame, sideLine } from "./preview-image";
+import { StandingsRow, fmtPts } from "./standings-image";
 
 // Portrait (1080 x 1350, 4:5) versions of every weekly graphic, for phones and
 // social posts. Selected with ?format=portrait on each graphics route.
@@ -25,7 +26,8 @@ const BOLD_HEADER_H = 206; // header band + red rule
 const FOOTER_H = 64;
 const CHROME = BOLD_HEADER_H + FOOTER_H + 40; // header + footer + body padding: what rows can't use
 
-export const isPortrait = (v: string | null | undefined) => (v ?? "").toLowerCase() === "portrait";
+// Portrait is the primary shape: only an explicit ?format=landscape gives the wide version.
+export const isPortrait = (v: string | null | undefined) => (v ?? "").toLowerCase() !== "landscape";
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const signed = (n: number, digits = 0) => `${n > 0 ? "+" : ""}${n.toFixed(digits)}`;
@@ -554,5 +556,48 @@ export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: 
         </div>
       );
     },
+  });
+}
+
+// ---------------------------------------------------------------- standings
+export async function renderPortraitStandings(opts: {
+  rows: StandingsRow[];
+  title?: string;
+  subtitle: string;
+  footer?: string;
+  logos?: Record<number, string>;
+}) {
+  const logos = opts.logos ?? {};
+  const avail = H - CHROME - 52 - 12;
+  const rowH = Math.min(100, Math.floor(avail / Math.max(1, opts.rows.length)));
+  const badge = Math.min(60, rowH - 14);
+
+  return frame({
+    footer: opts.footer,
+    title: opts.title ?? "Standings",
+    subtitle: opts.subtitle,
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", height: 52, alignItems: "center", borderBottom: `2px solid ${OG.rink}`, fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.muted, textTransform: "uppercase" }}>
+          <div style={{ display: "flex", width: 74, justifyContent: "center" }}>#</div>
+          <div style={{ display: "flex", flexGrow: 1, paddingLeft: 8 }}>Team</div>
+          <div style={{ display: "flex", width: 150, justifyContent: "center" }}>Record</div>
+          <div style={{ display: "flex", width: 140, justifyContent: "center" }}>PF</div>
+          <div style={{ display: "flex", width: 140, justifyContent: "center" }}>PA</div>
+        </div>
+        {opts.rows.map((r, i) => (
+          <div key={r.teamId} style={{ display: "flex", alignItems: "center", height: rowH, background: i === 0 ? "#FFF8E6" : i % 2 === 0 ? "#FFFFFF" : OG.icePanel }}>
+            <div style={{ display: "flex", width: 74, justifyContent: "center", fontFamily: display, fontSize: i === 0 ? 40 : 34, fontWeight: 700, color: i === 0 ? OG.goldText : OG.rink }}>{i + 1}</div>
+            <div style={{ display: "flex", flexGrow: 1, alignItems: "center", gap: 16, paddingLeft: 8 }}>
+              <TeamBadge name={r.name} logo={logos[r.teamId]} size={badge} fontFamily={display} />
+              <div style={{ display: "flex", fontSize: 28, fontWeight: 600, color: OG.board, maxWidth: 400, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{r.name}</div>
+            </div>
+            <div style={{ display: "flex", width: 150, justifyContent: "center", fontFamily: display, fontSize: 32, fontWeight: 700, color: OG.rink }}>{r.record}</div>
+            <div style={{ display: "flex", width: 140, justifyContent: "center", fontSize: 26, color: OG.board }}>{fmtPts(r.pf)}</div>
+            <div style={{ display: "flex", width: 140, justifyContent: "center", fontSize: 26, color: OG.muted }}>{fmtPts(r.pa)}</div>
+          </div>
+        ))}
+      </div>
+    ),
   });
 }
