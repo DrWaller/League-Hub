@@ -406,6 +406,12 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   are reserved for good/bad numbers). Related categories sit next to each other
   (`AXIS_ORDER` in `lib/radar.ts`); the dashed ring is labelled AVG. It skips the
   rink-marking background (`plain` option of `frame()`).
+- **Player Cards** (`/admin/player-cards`): pick one player (search any NHL player by
+  name, or choose a fantasy team and then a player from its roster) and every card for
+  that player is generated: Player Radar and the weekly Player Spotlight (week box
+  defaults to the latest completed week). The card list is the `cards` array in the page,
+  so a new player card type is one more entry. Uses the shared `components/GraphicCard.tsx`
+  (also used by the Graphics page) and `/api/admin/players/rosters` for the team dropdowns.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

@@ -1,15 +1,16 @@
 import { NextRequest } from "next/server";
 import {
+  fetchPoolRaw,
   getLeagueMeta,
   getPlayerPool,
-  getPlayersById,
+  getPlayerByIdDiag,
   getRosters,
   getScoringItems,
   getStandings,
   getWeeklyPlayerStats,
 } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
-import { buildRadar, categoriesFor, groupOfPositionId, GROUP_NAME, minGamesFor, POSITION_LABEL } from "@/lib/radar";
+import { buildRadar, categoriesFor, groupOfPositionId, GROUP_NAME, minGamesFor, POSITION_LABEL, type Group, type PoolPlayer } from "@/lib/radar";
 import { renderPortraitRadar } from "@/lib/radar-image";
 import { seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse } from "@/lib/captions";
@@ -40,12 +41,37 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. His season line, and the pool of NHL players at his position to rank him against.
-    const found = await getPlayersById([playerId]);
-    const me = found[0];
-    if (!me) return new Response("Couldn't find that player's season stats on ESPN.", { status: 400 });
+    const { player, attempts } = await getPlayerByIdDiag(playerId);
+    let me: PoolPlayer | null = player;
+    let pool: PoolPlayer[] | null = null;
+    if (!me) {
+      // Last resort: find him inside the position lists themselves.
+      for (const g of ["F", "D", "G"] as Group[]) {
+        const list = await getPlayerPool(g);
+        const hit = list.find((x) => x.id === playerId);
+        if (hit) {
+          me = hit;
+          pool = list;
+          break;
+        }
+      }
+    }
+    if (!me) {
+      return new Response(
+        `Couldn't load player ${playerId}'s season stats from ESPN. What each attempt returned:\n` +
+          attempts.map((a) => `- ${a.filter}: HTTP ${a.status ?? "no response"}, ${a.entries} returned, ${a.usable} usable${a.note ? ` (${a.note})` : ""}`).join("\n"),
+        { status: 400 }
+      );
+    }
     const group = groupOfPositionId(me.positionId);
-    const pool = await getPlayerPool(group);
-    if (pool.length === 0) return new Response("Couldn't load the NHL player list from ESPN (is it connected?).", { status: 400 });
+    if (!pool || pool.length === 0) pool = await getPlayerPool(group);
+    if (pool.length === 0) {
+      const probe = await fetchPoolRaw({ players: { filterSlotIds: { value: group === "F" ? [0, 1, 2] : group === "D" ? [4] : [5] }, limit: 5 } });
+      return new Response(
+        `Couldn't load the NHL player list from ESPN. Test request: HTTP ${probe.status ?? "no response"}${probe.snippet ? ` - ${probe.snippet}` : ""}${probe.data ? ` - ${(probe.data.players ?? []).length} players returned` : ""}`,
+        { status: 400 }
+      );
+    }
 
     // 3. The league's scoring categories for his position group.
     const items = await getScoringItems();

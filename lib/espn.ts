@@ -675,6 +675,60 @@ async function fetchPool(filter: object, season?: number) {
   }
 }
 
+export async function fetchPoolRaw(filter: object, season?: number): Promise<{ status: number | null; data: any | null; snippet: string }> {
+  if (!liveDataConfigured()) return { status: null, data: null, snippet: "ESPN login cookies are not configured" };
+  try {
+    const res = await fetch(`${buildBase(season)}?view=kona_player_info`, {
+      headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}`, "x-fantasy-filter": JSON.stringify(filter) },
+      cache: "no-store",
+    });
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      /* not JSON */
+    }
+    return { status: res.status, data: res.ok ? data : null, snippet: res.ok ? "" : text.slice(0, 200) };
+  } catch (err) {
+    return { status: null, data: null, snippet: String(err).slice(0, 200) };
+  }
+}
+
+export interface PoolAttempt {
+  filter: string;
+  status: number | null;
+  entries: number;
+  usable: number;
+  note: string;
+}
+
+// One player by id. Tries a few filter shapes (ESPN is picky about which combinations
+// it accepts) and reports what each returned, so a failure explains itself.
+export async function getPlayerByIdDiag(id: number, season?: number): Promise<{ player: PoolPlayer | null; attempts: PoolAttempt[] }> {
+  const seasonId = season ?? Number(SEASON);
+  const stats = { filterStatsForTopScoringPeriodIds: { value: 5, additionalValue: [`00${seasonId}`] } };
+  const shapes: { name: string; filter: object }[] = [
+    { name: "ids + season stats", filter: { players: { filterIds: { value: [id] }, ...stats, limit: 5 } } },
+    { name: "ids + all statuses + season stats", filter: { players: { filterIds: { value: [id] }, filterStatus: { value: ["FREEAGENT", "WAIVERS", "ONTEAM"] }, ...stats, limit: 5 } } },
+    { name: "ids only", filter: { players: { filterIds: { value: [id] }, limit: 5 } } },
+  ];
+  const attempts: PoolAttempt[] = [];
+  for (const sh of shapes) {
+    const r = await fetchPoolRaw(sh.filter, season);
+    const raw: any[] = Array.isArray(r.data?.players) ? r.data.players : [];
+    const mapped = raw.map((e) => toPoolPlayer(e, seasonId)).filter((x): x is PoolPlayer => x !== null);
+    let note = r.snippet;
+    if (raw.length > 0 && mapped.length === 0) {
+      const seen = ((raw[0]?.player?.stats ?? []) as any[]).map((x) => `${x.id}(src${x.statSourceId},split${x.statSplitTypeId})`).slice(0, 8);
+      note = `player found but no season-to-date stats entry. Stat entries seen: ${seen.join(", ") || "none"}`;
+    }
+    attempts.push({ filter: sh.name, status: r.status, entries: raw.length, usable: mapped.length, note });
+    if (mapped.length > 0) return { player: mapped.find((p) => p.id === id) ?? mapped[0], attempts };
+  }
+  return { player: null, attempts };
+}
+
 export function toPoolPlayer(entry: any, seasonId: number): PoolPlayer | null {
   const pl = entry?.player ?? entry?.playerPoolEntry?.player;
   if (!pl || pl.id == null) return null;
@@ -682,7 +736,8 @@ export function toPoolPlayer(entry: any, seasonId: number): PoolPlayer | null {
   // The season-to-date line: actual (not projected) stats, whole-season split.
   const total =
     stats.find((x) => x.statSourceId === 0 && x.statSplitTypeId === 0 && (String(x.id) === `00${seasonId}` || x.seasonId === seasonId)) ??
-    stats.find((x) => x.statSourceId === 0 && x.statSplitTypeId === 0);
+    stats.find((x) => x.statSourceId === 0 && x.statSplitTypeId === 0) ??
+    stats.find((x) => String(x.id) === `00${seasonId}`);
   if (!total) return null;
   const st: Record<string, number> = total.stats && typeof total.stats === "object" ? total.stats : {};
   const gp = Number(st["34"]) || Number(st["0"]) || 0; // games played, or games started for goalies
