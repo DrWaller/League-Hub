@@ -95,23 +95,47 @@ function seasonStatsOf(pl: any, season: number) {
   return res;
 }
 
-// Keeper-adjusted expected pick. ADP counts the 40 kept players, who never
-// reach the draft, so a player's real expected pick is his ADP minus the
-// number of keepers who rank ahead of him.
-export function applyExpectedPicks(rows: DraftRow[]) {
-  const keeperAdps = rows.filter((r) => r.is_keeper && r.adp != null).map((r) => r.adp as number);
+// Expected pick = where a player ranks by ADP among the players this league
+// actually drafted (keepers excluded). Raw ADP is on a different scale: it
+// covers players nobody drafted here, and the league's scoring differs from
+// ESPN's default, so "ADP minus keepers ahead" made nearly every pick a
+// reach. Ranking within the drafted class keeps the scale honest and nets to
+// zero across the draft. value = actual pick - expected pick, so positive
+// means the player lasted longer than consensus (steal), negative means taken
+// earlier (reach).
+export function applyExpectedPicks<T extends { is_keeper: boolean; adp: number | null; overall_pick: number; expected_pick: number | null; value: number | null }>(rows: T[]) {
+  const pool = rows.filter((r) => !r.is_keeper && r.adp != null).sort((a, b) => (a.adp as number) - (b.adp as number));
+  const rank = new Map<T, number>();
+  pool.forEach((r, i) => rank.set(r, i + 1));
   for (const r of rows) {
-    if (r.is_keeper || r.adp == null) {
-      r.expected_pick = null;
-      r.value = null;
-      continue;
-    }
-    const ahead = keeperAdps.filter((a) => a < (r.adp as number)).length;
-    const expected = Math.max(1, (r.adp as number) - ahead);
-    r.expected_pick = Math.round(expected * 100) / 100;
-    r.value = Math.round((r.overall_pick - expected) * 100) / 100;
+    const e = rank.get(r);
+    r.expected_pick = e ?? null;
+    r.value = e != null ? r.overall_pick - e : null;
   }
   return rows;
+}
+
+// Recompute expected_pick/value from the ADP already stored (the draft-time
+// snapshot), without calling ESPN.
+export async function recomputeStored(season: number, source = "espn") {
+  await ensureDraftSchema();
+  const { rows } = await sql`
+    SELECT overall_pick, is_keeper, adp::float AS adp, player_name, position, manager, is_rookie, injury_status
+    FROM draft_picks WHERE season = ${season} AND source = ${source} ORDER BY overall_pick;
+  `;
+  const list = (rows as any[]).map((r) => ({ ...r, expected_pick: null as number | null, value: null as number | null }));
+  applyExpectedPicks(list);
+  for (let i = 0; i < list.length; i += 20) {
+    await Promise.all(
+      list.slice(i, i + 20).map(
+        (r) => sql`
+          UPDATE draft_picks SET expected_pick = ${r.expected_pick}, value = ${r.value}
+          WHERE season = ${season} AND source = ${source} AND overall_pick = ${r.overall_pick};
+        `
+      )
+    );
+  }
+  return list;
 }
 
 export async function buildDraftRows(season: number): Promise<DraftRow[]> {

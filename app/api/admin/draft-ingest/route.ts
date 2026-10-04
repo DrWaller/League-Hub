@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildDraftRows, countStored, storeRows } from "@/lib/draft";
+import { buildDraftRows, countStored, storeRows, recomputeStored } from "@/lib/draft";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -8,6 +8,7 @@ export const maxDuration = 60;
 //   /api/admin/draft-ingest              preview only, nothing is written
 //   /api/admin/draft-ingest?run=1        store the draft (refuses if already stored)
 //   /api/admin/draft-ingest?run=1&replace=1   wipe and re-store (ADP snapshot changes)
+//   /api/admin/draft-ingest?recompute=1  recalculate steal/reach values from the stored ADP snapshot
 // Optional: &season=2027
 // The first stored run is the ADP snapshot; later runs never overwrite it
 // unless you pass replace=1.
@@ -22,6 +23,21 @@ export async function GET(req: NextRequest) {
   const replace = q.get("replace") === "1";
 
   try {
+    if (q.get("recompute") === "1") {
+      const list = await recomputeStored(season);
+      const reg = list.filter((r) => !r.is_keeper && r.value != null);
+      const f = (r: (typeof list)[number]) => ({ pick: r.overall_pick, player: r.player_name, pos: r.position, manager: r.manager, adp: r.adp, expectedPick: r.expected_pick, value: r.value, rookie: r.is_rookie, injury: r.injury_status });
+      const flag = reg.filter((r) => Math.abs(r.value as number) >= BIG_SWING);
+      return NextResponse.json({
+        mode: "recomputed from stored ADP snapshot",
+        season,
+        regularPicks: reg.length,
+        netValue: reg.reduce((t, r) => t + (r.value as number), 0),
+        flaggedCount: { steals: flag.filter((r) => (r.value as number) > 0).length, reaches: flag.filter((r) => (r.value as number) < 0).length, threshold: BIG_SWING },
+        bigStealsTop10: flag.filter((r) => (r.value as number) > 0).sort((a, b) => (b.value as number) - (a.value as number)).slice(0, 10).map(f),
+        bigReachesTop10: flag.filter((r) => (r.value as number) < 0).sort((a, b) => (a.value as number) - (b.value as number)).slice(0, 10).map(f),
+      });
+    }
     const rows = await buildDraftRows(season);
     const regular = rows.filter((r) => !r.is_keeper);
 
