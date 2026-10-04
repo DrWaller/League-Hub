@@ -202,9 +202,9 @@ export async function renderPortraitScoreboard(opts: {
     }
     if (m.homeScore !== m.awayScore && (!close || Math.abs(m.homeScore - m.awayScore) < Math.abs(close.homeScore - close.awayScore))) close = m;
   }
-  const highText = highScore >= 0 ? `High score: ${highTeam} (${highScore.toFixed(1)})` : "";
+  const highText = highScore >= 0 ? `High score: ${highTeam} (${highScore.toFixed(2)})` : "";
   const closeText = close
-    ? `Closest game: ${teamName(close.homeScore > close.awayScore ? close.homeTeamId : close.awayTeamId)} by ${Math.abs(close.homeScore - close.awayScore).toFixed(1)}`
+    ? `Closest game: ${teamName(close.homeScore > close.awayScore ? close.homeTeamId : close.awayTeamId)} by ${Math.abs(close.homeScore - close.awayScore).toFixed(2)}`
     : "";
 
   const GAP = 16;
@@ -232,7 +232,7 @@ export async function renderPortraitScoreboard(opts: {
                   ...(m.isFinal && win ? { background: GREEN_TINT, borderRadius: 6 } : {}),
                 }}
               >
-                {score.toFixed(1)}
+                {score.toFixed(2)}
               </div>
             </div>
           );
@@ -306,7 +306,7 @@ export async function renderPortraitLuck(opts: {
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 18, fontSize: 24, fontWeight: 600 }}>
           <div style={{ display: "flex", color: luckColor(1) }}>{luckiest ? `Luckiest: ${teamName(luckiest.teamId)} (${signed(Math.round(luckiest.diff * 100))}%)` : ""}</div>
           <div style={{ display: "flex", color: luckColor(-1) }}>{unluckiest ? `Unluckiest: ${teamName(unluckiest.teamId)} (${signed(Math.round(unluckiest.diff * 100))}%)` : ""}</div>
-          <div style={{ display: "flex", color: OG.muted, fontWeight: 400 }}>{`League median = ${leagueMedian.toFixed(1)}`}</div>
+          <div style={{ display: "flex", color: OG.muted, fontWeight: 400 }}>{`League median = ${leagueMedian.toFixed(2)}`}</div>
         </div>
       </div>
     ),

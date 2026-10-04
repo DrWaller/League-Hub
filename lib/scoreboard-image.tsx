@@ -34,9 +34,9 @@ export async function renderScoreboard(opts: {
     }
     if (m.homeScore !== m.awayScore && (!close || Math.abs(m.homeScore - m.awayScore) < Math.abs(close.homeScore - close.awayScore))) close = m;
   }
-  const highText = highScore >= 0 ? `High score: ${highTeam} (${highScore.toFixed(1)})` : "";
+  const highText = highScore >= 0 ? `High score: ${highTeam} (${highScore.toFixed(2)})` : "";
   const closeText = close
-    ? `Closest game: ${teamName(close.homeScore > close.awayScore ? close.homeTeamId : close.awayTeamId)} by ${Math.abs(close.homeScore - close.awayScore).toFixed(1)}`
+    ? `Closest game: ${teamName(close.homeScore > close.awayScore ? close.homeTeamId : close.awayTeamId)} by ${Math.abs(close.homeScore - close.awayScore).toFixed(2)}`
     : "";
 
   const ROW_H = 72;
@@ -81,7 +81,7 @@ export async function renderScoreboard(opts: {
         ...(final && win ? { background: GREEN_TINT, borderRadius: 6 } : {}),
       }}
     >
-      {n.toFixed(1)}
+      {n.toFixed(2)}
     </div>
   );
 

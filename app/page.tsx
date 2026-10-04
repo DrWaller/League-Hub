@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
 import { getTeamLogos } from "@/lib/content";
 import TeamLogo from "@/components/TeamLogo";
+import { pts, ptsComma } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,7 @@ export default async function HomePage() {
                         {teamById(side.id)?.name}
                       </div>
                       <div className="font-display text-4xl">
-                        {marquee.isFinal || marquee.homeScore + marquee.awayScore > 0 ? side.score : "–"}
+                        {marquee.isFinal || marquee.homeScore + marquee.awayScore > 0 ? pts(side.score) : "–"}
                       </div>
                     </div>
                   )

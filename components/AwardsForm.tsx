@@ -83,7 +83,7 @@ export default function AwardsForm({
             next[cat] = {
               playerName: s.playerName,
               teamId: s.teamId ?? "",
-              note: `${s.points.toFixed(1)} pts`,
+              note: `${s.points.toFixed(2)} pts`,
             };
           }
         }

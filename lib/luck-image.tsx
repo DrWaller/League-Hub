@@ -57,7 +57,7 @@ export async function renderLuckChart(opts: {
         { text: pct(r.actWinPct), color: OG.board, weight: 400 as const, bg: undefined },
         // The luck cell: green when lucky, red when unlucky, shaded by size.
         { text: `${signed(diffPts)}%`, color: luckColor(r.diff), weight: 600 as const, bg: luckTint(r.diff) },
-        { text: r.medPts.toFixed(1), color: OG.muted, weight: 400 as const, bg: undefined },
+        { text: r.medPts.toFixed(2), color: OG.muted, weight: 400 as const, bg: undefined },
         { text: signed(r.medVsLeague, 1), color: OG.board, weight: 600 as const, bg: undefined },
       ],
     };
@@ -120,7 +120,7 @@ export async function renderLuckChart(opts: {
               <div style={{ display: "flex", color: luckColor(1), fontWeight: 600 }}>{luckyText}</div>
               <div style={{ display: "flex", color: luckColor(-1), fontWeight: 600 }}>{unluckyText}</div>
             </div>
-            <div style={{ display: "flex", color: OG.muted }}>{`League median = ${leagueMedian.toFixed(1)}`}</div>
+            <div style={{ display: "flex", color: OG.muted }}>{`League median = ${leagueMedian.toFixed(2)}`}</div>
           </div>
         </div>
       </div>

@@ -16,7 +16,7 @@ export interface StandingsRow {
   change?: number; // places moved since last week (positive = up)
 }
 
-export const fmtPts = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+export const fmtPts = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const fmtDiff = (n: number) => `${n > 0 ? "+" : ""}${fmtPts(n)}`;
 
 const COLS = [

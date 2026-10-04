@@ -5,6 +5,7 @@ import { getAvailableSeasons } from "@/lib/seasons";
 import { getSeasonBundle, byRecord } from "@/lib/season-data";
 import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import TeamLogo from "@/components/TeamLogo";
+import { pts, ptsComma } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -115,8 +116,8 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                   <td className="py-3 pr-4 text-right">{t.wins}</td>
                   <td className="py-3 pr-4 text-right">{t.losses}</td>
                   <td className="py-3 pr-4 text-right">{t.ties}</td>
-                  <td className="py-3 pr-4 text-right">{Math.round(t.pointsFor)}</td>
-                  <td className="py-3 pr-4 text-right">{Math.round(t.pointsAgainst)}</td>
+                  <td className="py-3 pr-4 text-right">{ptsComma(t.pointsFor)}</td>
+                  <td className="py-3 pr-4 text-right">{ptsComma(t.pointsAgainst)}</td>
                   {!isPast && <td className="py-3 pr-4 text-right">{t.streak ?? "—"}</td>}
                 </tr>
               ))}

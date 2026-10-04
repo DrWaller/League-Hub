@@ -304,7 +304,7 @@ export function profileCaption(p: Profile, title: string, teamName?: string): st
     lines,
     ...(counts ? ["", `Season totals: ${counts}`] : []),
     "",
-    `${p.me.gp} GP${p.qualified ? "" : " (not yet qualified)"} | ${pts.total.value.toFixed(1)} fantasy pts (#${pts.total.all.rank} of all players, #${pts.total.position.rank} of ${p.groupName}) | ${pts.avg.value.toFixed(2)} per game (#${pts.avg.all.rank} of all, #${pts.avg.position.rank} of ${p.groupName})`,
+    `${p.me.gp} GP${p.qualified ? "" : " (not yet qualified)"} | ${pts.total.value.toFixed(2)} fantasy pts (#${pts.total.all.rank} of all players, #${pts.total.position.rank} of ${p.groupName}) | ${pts.avg.value.toFixed(2)} per game (#${pts.avg.all.rank} of all, #${pts.avg.position.rank} of ${p.groupName})`,
     "",
     "#FantasyHockey",
   ].join("\n");

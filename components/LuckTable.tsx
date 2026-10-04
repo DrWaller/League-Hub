@@ -89,7 +89,7 @@ export default function LuckTable({
                   >
                     {signed(diffPts)}%
                   </td>
-                  <td className="hidden sm:table-cell py-3 px-3 text-center text-muted">{r.medPts.toFixed(1)}</td>
+                  <td className="hidden sm:table-cell py-3 px-3 text-center text-muted">{r.medPts.toFixed(2)}</td>
                   <td className="hidden sm:table-cell py-3 px-3 text-center font-semibold">{signed(r.medVsLeague, 1)}</td>
                 </tr>
               );
@@ -97,7 +97,7 @@ export default function LuckTable({
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted mt-3 text-right">League median = {leagueMedian.toFixed(1)}</p>
+      <p className="text-xs text-muted mt-3 text-right">League median = {leagueMedian.toFixed(2)}</p>
     </div>
   );
 }

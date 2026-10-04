@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   const lowerIsBetter = cat ? !cat.higherIsBetter : false;
   entries.sort((a, b) => (lowerIsBetter ? a.value - b.value : b.value - a.value));
 
-  const label = (v: number) => (cat ? (cat.rate ? v.toFixed(v < 1 ? 3 : 2) : `${v.toFixed(2)}/gm`) : by === "avg" ? `${v.toFixed(2)}/gm` : `${v.toFixed(1)} pts`);
+  const label = (v: number) => (cat ? (cat.rate ? v.toFixed(v < 1 ? 3 : 2) : `${v.toFixed(2)}/gm`) : by === "avg" ? `${v.toFixed(2)}/gm` : `${v.toFixed(2)} pts`);
   const page = entries.slice(start - 1, start - 1 + limit).map((e, i) => ({
     rank: start + i,
     id: e.p.id,
@@ -96,7 +96,7 @@ function rankImported(imp: ImportedSeason, groupParam: string, by: string, start
   const lowerIsBetter = cat ? !cat.higherIsBetter : false;
   entries.sort((a, b) => (lowerIsBetter ? a.value - b.value : b.value - a.value));
 
-  const label = (v: number) => (cat ? (cat.rate ? v.toFixed(v < 1 ? 3 : 2) : `${v.toFixed(2)}/gm`) : by === "avg" ? `${v.toFixed(2)}/gm` : `${v.toFixed(1)} pts`);
+  const label = (v: number) => (cat ? (cat.rate ? v.toFixed(v < 1 ? 3 : 2) : `${v.toFixed(2)}/gm`) : by === "avg" ? `${v.toFixed(2)}/gm` : `${v.toFixed(2)} pts`);
   const page = entries.slice(start - 1, start - 1 + limit).map((e, i) => {
     const ip = pools.playerById.get(e.p.id);
     return {

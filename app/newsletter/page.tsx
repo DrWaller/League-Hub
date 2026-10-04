@@ -16,6 +16,7 @@ import PowerRankingsList from "@/components/PowerRankingsList";
 import LuckTable from "@/components/LuckTable";
 import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
+import { pts, ptsComma } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +104,7 @@ export default async function NewsletterPage({
                     </span>
                     <span className="font-tabular text-muted">
                       {t.wins}-{t.losses}
-                      {t.ties ? `-${t.ties}` : ""} · {t.pointsFor} pts
+                      {t.ties ? `-${t.ties}` : ""} · {pts(t.pointsFor)} pts
                     </span>
                   </li>
                 ))}
@@ -199,14 +200,14 @@ export default async function NewsletterPage({
                       <TeamLogo url={logos[m.homeTeamId]} name={teamName(m.homeTeamId)} size={18} />
                       {teamName(m.homeTeamId)}
                     </span>
-                    <span className="font-tabular">{m.homeScore}</span>
+                    <span className="font-tabular">{pts(m.homeScore)}</span>
                   </div>
                   <div className="flex justify-between mt-1">
                     <span className="flex items-center gap-2">
                       <TeamLogo url={logos[m.awayTeamId]} name={teamName(m.awayTeamId)} size={18} />
                       {teamName(m.awayTeamId)}
                     </span>
-                    <span className="font-tabular">{m.awayScore}</span>
+                    <span className="font-tabular">{pts(m.awayScore)}</span>
                   </div>
                   {blurb?.summary && <p className="text-muted mt-2 pt-2 border-t border-ice-line">{blurb.summary}</p>}
                 </div>

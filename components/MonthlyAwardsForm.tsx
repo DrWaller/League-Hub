@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { AWARD_CATEGORIES, AWARD_LABELS, AwardCategory, MonthlyPeriod } from "@/lib/types";
+import { pts, ptsComma } from "@/lib/format";
 
 type TeamOption = { id: number; name: string };
 type EntryState = Record<AwardCategory, { playerName: string; teamId: number | ""; note: string }>;
@@ -105,7 +106,7 @@ export default function MonthlyAwardsForm({
         const next = { ...prev };
         for (const cat of AWARD_CATEGORIES) {
           const s = data.suggestions[cat];
-          if (s) next[cat] = { playerName: s.playerName, teamId: s.teamId ?? "", note: `${s.points.toFixed(1)} pts` };
+          if (s) next[cat] = { playerName: s.playerName, teamId: s.teamId ?? "", note: `${s.points.toFixed(2)} pts` };
         }
         return next;
       });
@@ -206,7 +207,7 @@ export default function MonthlyAwardsForm({
                   </span>
                   <span className="font-tabular text-muted">
                     {t.wins}-{t.losses}
-                    {t.ties ? `-${t.ties}` : ""} · {t.pointsFor} pts
+                    {t.ties ? `-${t.ties}` : ""} · {pts(t.pointsFor)} pts
                   </span>
                 </li>
               ))}

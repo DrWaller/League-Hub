@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       .filter((p) => p.teamId === teamId)
       .sort((a, b) => b.points - a.points)
       .slice(0, 3)
-      .map((p) => `${p.name} (${p.points.toFixed(1)} pts)`)
+      .map((p) => `${p.name} (${p.points.toFixed(2)} pts)`)
       .join(", ") || "no stats posted yet";
 
   const facts =

@@ -4,6 +4,7 @@ import { getTeamLogos, getPlayedElsewhereSeasons } from "@/lib/content";
 import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
+import { pts, ptsComma } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -124,7 +125,7 @@ export default async function RostersPage({
               <td className="py-3 pr-4 font-body">{p.name}</td>
               <td className="py-3 pr-4">{p.position}</td>
               <td className="py-3 pr-4">{p.proTeam}</td>
-              <td className="py-3 pr-4 text-right">{p.points}</td>
+              <td className="py-3 pr-4 text-right">{pts(p.points)}</td>
             </tr>
           ))}
           {(!roster || roster.players.length === 0) && (

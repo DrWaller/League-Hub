@@ -54,7 +54,8 @@ export function PointsTable({ points, positionLabel, display, mode }: { points: 
               <div style={{ display: "flex", flex: 1, fontFamily: display, fontSize: 16, fontWeight: 700, letterSpacing: 2, color: OG.muted }}>{`${positionLabel ?? "POSITION"} \u00b7 ${modeName}`}</div>
             </div>
             {[
-              { name: "TOTAL", line: points.total, fmt: (v: number) => v.toFixed(1) },
+              // Always two decimals (193.85, 41.50).
+      { name: "TOTAL", line: points.total, fmt: (v: number) => v.toFixed(2) },
               { name: "AVG / GAME", line: points.avg, fmt: (v: number) => v.toFixed(2) },
             ].map((r, i) => (
               <div key={r.name} style={{ display: "flex", alignItems: "center", height: 60, padding: "0 20px", borderTop: i === 0 ? "none" : "1px solid #E1ECF6" }}>

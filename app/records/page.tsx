@@ -2,6 +2,7 @@ import { getLeagueMeta } from "@/lib/espn";
 import { loadRecords } from "@/lib/records-data";
 import { luckColor } from "@/lib/luck";
 import { GameRecord, SeasonRow } from "@/lib/records";
+import { pts, ptsComma } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ function SeasonTable({ title, rows, showPoints }: { title: string; rows: SeasonR
                 </div>
               </td>
               <td className="py-2 text-right whitespace-nowrap">
-                {showPoints ? `${Math.round(r.pointsFor)} pts` : `${rec(r.wins, r.losses, r.ties)} · ${pct(r.winPct)}`}
+                {showPoints ? `${ptsComma(r.pointsFor)} pts` : `${rec(r.wins, r.losses, r.ties)} · ${pct(r.winPct)}`}
               </td>
             </tr>
           ))}
@@ -52,9 +53,9 @@ function GameList({ title, rows, kind }: { title: string; rows: GameRecord[]; ki
               </td>
               <td className="py-2 text-right whitespace-nowrap">
                 {kind === "score"
-                  ? g.score.toFixed(1)
-                  : `${g.score.toFixed(1)}–${g.oppScore.toFixed(1)}`}
-                {kind === "margin" && <div className="text-xs text-muted">by {g.margin.toFixed(1)}</div>}
+                  ? g.score.toFixed(2)
+                  : `${g.score.toFixed(2)}–${g.oppScore.toFixed(2)}`}
+                {kind === "margin" && <div className="text-xs text-muted">by {g.margin.toFixed(2)}</div>}
               </td>
             </tr>
           ))}
@@ -130,8 +131,8 @@ export default async function RecordsPage() {
                       <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{c.seasons}</td>
                       <td className="py-3 pr-3 text-right">{rec(c.wins, c.losses, c.ties)}</td>
                       <td className="py-3 pr-3 text-right">{pct(c.winPct)}</td>
-                      <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{Math.round(c.pointsFor).toLocaleString()}</td>
-                      <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{Math.round(c.pointsAgainst).toLocaleString()}</td>
+                      <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{ptsComma(c.pointsFor)}</td>
+                      <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{ptsComma(c.pointsAgainst)}</td>
                       <td className="py-3 pr-3 text-right font-semibold">{c.titles}</td>
                       <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{c.runnerUps}</td>
                       <td className="hidden sm:table-cell py-3 text-right text-muted">{c.firstPlace}</td>

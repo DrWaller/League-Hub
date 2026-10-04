@@ -3,6 +3,7 @@ import { getStandings, getLeagueMeta, getManagerMonthSummary } from "@/lib/espn"
 import { getWeeklyAwards, getTeamLogos, getMonthlyPeriods, getMonthlyAwards, getManagers, getManagerSeasons } from "@/lib/content";
 import { AwardCategory, AWARD_LABELS } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
+import { pts, ptsComma } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -172,7 +173,7 @@ export default async function AwardsPage({
                         </span>
                         <span className="font-tabular text-muted">
                           {t.wins}-{t.losses}
-                          {t.ties ? `-${t.ties}` : ""} · {t.pointsFor} pts
+                          {t.ties ? `-${t.ties}` : ""} · {pts(t.pointsFor)} pts
                         </span>
                       </li>
                     );

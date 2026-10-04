@@ -62,7 +62,7 @@ export function rankingsCaption(when: string, rows: { rank: number; name: string
 }
 
 export function scoreboardCaption(when: string, games: { winner: string; winScore: number; loser: string; loseScore: number; tie: boolean }[]): string {
-  const lines = games.map((g) => (g.tie ? `${g.winner} ${g.winScore.toFixed(1)}, ${g.loser} ${g.loseScore.toFixed(1)} (tie)` : `${g.winner} ${g.winScore.toFixed(1)} def. ${g.loser} ${g.loseScore.toFixed(1)}`));
+  const lines = games.map((g) => (g.tie ? `${g.winner} ${g.winScore.toFixed(2)}, ${g.loser} ${g.loseScore.toFixed(2)} (tie)` : `${g.winner} ${g.winScore.toFixed(2)} def. ${g.loser} ${g.loseScore.toFixed(2)}`));
   return ["SCOREBOARD", when, "", ...lines, "", TAG].join("\n");
 }
 

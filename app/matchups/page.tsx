@@ -5,6 +5,7 @@ import { getSeasonBundle } from "@/lib/season-data";
 import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
+import { pts, ptsComma } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -115,7 +116,7 @@ export default async function MatchupsPage({
                   <TeamLogo url={logos[m.homeTeamId]} name={home?.name ?? String(m.homeTeamId)} size={22} />
                   {home?.name ?? m.homeTeamId}
                 </span>
-                <span className="font-display text-xl">{m.homeScore}</span>
+                <span className="font-display text-xl">{pts(m.homeScore)}</span>
               </div>
               <div className="rule-center my-3 opacity-40" />
               <div className="flex items-center justify-between font-tabular">
@@ -123,7 +124,7 @@ export default async function MatchupsPage({
                   <TeamLogo url={logos[m.awayTeamId]} name={away?.name ?? String(m.awayTeamId)} size={22} />
                   {away?.name ?? m.awayTeamId}
                 </span>
-                <span className="font-display text-xl">{m.awayScore}</span>
+                <span className="font-display text-xl">{pts(m.awayScore)}</span>
               </div>
               <p className="text-xs text-muted mt-3">
                 {m.isExcluded ? "Final · doesn't count toward records" : m.isPlayoff ? "Final · playoff game" : m.isFinal ? "Final" : "In progress"}

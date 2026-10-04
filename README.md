@@ -476,6 +476,9 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   NHL data lacks appear in fantasy-points rankings but have no category cards. Photos: ESPN's if the player is also on the
   current ESPN list, else the NHL's headshot for that season, else initials. Shootout goals, short-handed goals and a
   goalie's own goals/assists are shown as season-count tiles (ids 900 / 20 / 913 / 914).
+- **Two decimals, always**: every fantasy-points value (player points, team scores, PF/PA, medians, margins, in the
+  graphics, captions, admin forms and public pages) is shown with two decimals (62.60, 1,851.05). Use `pts()` / `ptsComma()`
+  from `lib/format.ts` for new screens instead of rounding by hand. Percentages and per-game stat rates are not points.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past
