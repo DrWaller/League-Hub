@@ -13,7 +13,7 @@ import {
   getStandings,
   getWeeklyPlayerStats,
 } from "./espn";
-import { checkHeadshots } from "./headshots";
+import { checkHeadshots, headshotUrl, urlExists } from "./headshots";
 import {
   buildRadar,
   categoriesFor,
@@ -31,6 +31,8 @@ import {
   type RadarAxis,
 } from "./radar";
 import { getPlayedElsewhereSeasons } from "./content";
+import { getImportedSeason, importedItemsFor, importedPools, type ImportedSeason } from "./imported-seasons";
+import { nhlSeasonId, normName } from "./season-import";
 import type { LeagueMeta } from "./types";
 
 export interface Profile {
@@ -51,6 +53,8 @@ export interface Profile {
   minGP: number;
   items: { statId: number; points: number }[];
   qualified: boolean; // has he played at least the minimum games?
+  // Set when the season is an imported one (the 2025 Fantrax season) rather than an ESPN season.
+  imported?: { fid: string; nhlId: number | null; team: string; owner: string };
 }
 
 export async function loadProfile(params: URLSearchParams): Promise<{ response: Response } | { profile: Profile }> {
@@ -59,6 +63,18 @@ export async function loadProfile(params: URLSearchParams): Promise<{ response: 
   const seasonParam = Number(params.get("season")) || meta.season;
   const isPast = seasonParam !== meta.season;
   const season = isPast ? seasonParam : undefined; // undefined = the current season in the ESPN helpers
+
+  // A season that was imported (played on Fantrax) comes from the saved import, not from ESPN.
+  if (isPast) {
+    const imp = await getImportedSeason(seasonParam);
+    if (imp) {
+      const espnGroupOf = async (espnId: number): Promise<Group | null> => {
+        const found = (await getPlayerByIdDiag(espnId)).player;
+        return found ? groupOfPositionId(found.positionId) : null;
+      };
+      return buildImportedProfile(params, meta, seasonParam, imp, espnGroupOf);
+    }
+  }
   if (isPast && (await getPlayedElsewhereSeasons()).has(seasonParam)) {
     return fail(`${seasonParam} was played on Fantrax, so ESPN has no player data for it.`);
   }
@@ -149,8 +165,97 @@ export async function loadProfile(params: URLSearchParams): Promise<{ response: 
   };
 }
 
+// A profile for an imported season. The player is found by Fantrax id (?fid=), or by name (?name=, with the
+// ESPN player id used only to tell apart two players of the same name).
+export async function buildImportedProfile(
+  params: URLSearchParams,
+  meta: LeagueMeta,
+  seasonParam: number,
+  imp: ImportedSeason,
+  espnGroupOf?: (espnId: number) => Promise<Group | null>
+): Promise<{ response: Response } | { profile: Profile }> {
+  const fail = (text: string) => ({ response: new Response(text, { status: 400 }) });
+  const pools = importedPools(imp);
+
+  // 1. Which player?
+  const fid = params.get("fid");
+  const name = params.get("name");
+  let found = fid ? imp.players.find((x) => x.fid === fid) : undefined;
+  if (!found && name) {
+    let cands = imp.players.filter((x) => normName(x.name) === normName(name));
+    if (cands.length > 1) {
+      const espnId = Number(params.get("playerId")) || 0;
+      const g = espnId && espnGroupOf ? await espnGroupOf(espnId) : null;
+      const byGroup = g ? cands.filter((x) => (x.positionId === 5 ? "G" : x.positionId === 4 ? "D" : "F") === g) : [];
+      cands = byGroup.length > 0 ? byGroup : cands;
+      cands = [...cands].sort((a, b) => b.gp - a.gp);
+    }
+    found = cands[0];
+  }
+  if (!fid && !name) return fail("Pick a player for a previous season.");
+  if (!found) return fail(`${name ?? "That player"} isn't in the ${seasonParam} season list (he may not have played in ${seasonParam - 1}-${String(seasonParam).slice(2)}).`);
+  if (found.nhlId === null) {
+    return fail(`${found.name} is in the ${seasonParam} fantasy points list but wasn't found in the NHL's stats, so there are no category numbers to chart for him.`);
+  }
+  const mine = pools.byGroup.F.withStats.concat(pools.byGroup.D.withStats, pools.byGroup.G.withStats).find((x) => x.id === found!.nhlId);
+  if (!mine) return fail("Couldn't build that player's stats.");
+
+  const group: Group = mine.positionId === 5 ? "G" : mine.positionId === 4 ? "D" : "F";
+  const items = importedItemsFor(imp, group);
+  const { axes: cats, counts: countCats } = splitRare(categoriesFor(group, items));
+  if (cats.length < 3) return fail(`The saved ${seasonParam} scoring has only ${cats.length} usable categories for ${GROUP_NAME[group]} (a chart needs at least 3).`);
+
+  // 2. Percentiles against everyone in his group who was found in the NHL data, and points against all players.
+  const overrideGP = Number(params.get("minGames")) || undefined;
+  const statPool = pools.byGroup[group].withStats;
+  const minGP = minGamesFor(statPool, overrideGP, 20);
+  const { axes, eligible } = buildRadar(mine, statPool, cats, minGP);
+  const points = pointsComparison(
+    mine,
+    group,
+    (["F", "D", "G"] as Group[]).map((g) => ({ group: g, pool: pools.byGroup[g].all, minGP: minGamesFor(pools.byGroup[g].all, overrideGP, 20) }))
+  );
+  if (eligible === 0) return fail(`Nobody has played ${minGP} games, so there is nothing to rank against. Try &minGames=1.`);
+
+  return {
+    profile: {
+      meta,
+      seasonParam,
+      isPast: true,
+      me: mine,
+      group,
+      groupName: GROUP_NAME[group],
+      position: POSITION_LABEL[mine.positionId] ?? "?",
+      poolSize: statPool.length,
+      axes,
+      cats,
+      countCats,
+      counts: countCats.map((c) => ({ label: c.label, value: String(seasonCount(mine, c)) })),
+      points,
+      eligible,
+      minGP,
+      items,
+      qualified: mine.gp >= minGP,
+      imported: { fid: found.fid, nhlId: found.nhlId, team: found.team, owner: found.owner },
+    },
+  };
+}
+
 // The pieces that need extra ESPN calls (the debug view skips these).
-export async function loadExtras(p: Profile): Promise<{ teamName?: string; hasHeadshot: boolean }> {
+export async function loadExtras(p: Profile, espnId?: number): Promise<{ teamName?: string; hasHeadshot: boolean; photoUrl?: string }> {
+  if (p.imported) {
+    // Imported season: the "team" is the Fantrax owner, and the photo is ESPN's if we know his ESPN id,
+    // otherwise the NHL's own headshot for that season.
+    const owner = p.imported.owner;
+    const teamName = owner && owner !== "FA" ? `Owned by ${owner}` : "Free agent";
+    if (espnId && espnId > 0 && (await checkHeadshots([espnId])).has(espnId)) return { teamName, hasHeadshot: true, photoUrl: headshotUrl(espnId) };
+    const teamAbbrev = p.imported.team.split(",").pop()?.trim();
+    if (teamAbbrev && p.imported.nhlId) {
+      const url = `https://assets.nhle.com/mugs/nhl/${nhlSeasonId(p.seasonParam)}/${teamAbbrev}/${p.imported.nhlId}.png`;
+      if (await urlExists(url)) return { teamName, hasHeadshot: true, photoUrl: url };
+    }
+    return { teamName, hasHeadshot: false };
+  }
   const headshots = await checkHeadshots([p.me.id]);
   let teamName: string | undefined;
   if (!p.isPast) {

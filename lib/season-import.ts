@@ -210,7 +210,10 @@ export function matchPlayers(fx: FantraxRow[], nhl: NhlPlayer[]) {
   const variants: { fantrax: string; nhl: string }[] = [];
   const still: FantraxRow[] = [];
   for (const row of unmatched) {
-    const pool = nhl.filter((p) => !used.has(p.nhlId) && p.group === row.group && lastOf(p.name) === lastOf(row.name) && compatible(firstOf(p.name), firstOf(row.name)) && Math.abs(p.gp - row.gp) <= 3);
+    const sameLast = nhl.filter((p) => !used.has(p.nhlId) && p.group === row.group && lastOf(p.name) === lastOf(row.name));
+    let pool = sameLast.filter((p) => compatible(firstOf(p.name), firstOf(row.name)) && Math.abs(p.gp - row.gp) <= 3);
+    // Looser still (Mikey/Michael, John/Jack, Maxim/Maksim): the same last name and first letter, and games played within 1.
+    if (pool.length === 0) pool = sameLast.filter((p) => firstOf(p.name)[0] === firstOf(row.name)[0] && Math.abs(p.gp - row.gp) <= 1);
     if (pool.length === 1) {
       used.add(pool[0].nhlId);
       matched.push({ fx: row, nhl: pool[0] });

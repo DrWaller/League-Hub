@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     if (params.get("debug")) return Response.json(debugJson(p));
 
-    const { teamName, hasHeadshot } = await loadExtras(p);
+    const { teamName, hasHeadshot, photoUrl } = await loadExtras(p, Number(params.get("playerId")) || undefined);
     if (params.get("caption")) return captionResponse(profileCaption(p, "PLAYER RADAR", teamName));
 
     return await renderPortraitRadar({
@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
       position: p.position,
       teamName,
       hasHeadshot,
+      photoUrl,
       axes: p.axes,
       counts: p.counts,
       gp: p.me.gp,

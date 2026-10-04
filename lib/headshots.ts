@@ -19,7 +19,7 @@ export function headshotUrl(espnPlayerId: number): string {
 
 const TIMEOUT_MS = 2500;
 
-async function exists(url: string): Promise<boolean> {
+export async function urlExists(url: string): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -37,7 +37,7 @@ async function exists(url: string): Promise<boolean> {
 // real photo on file. Safe to call with duplicate ids (checked once each).
 export async function checkHeadshots(espnPlayerIds: number[]): Promise<Set<number>> {
   const unique = Array.from(new Set(espnPlayerIds));
-  const results = await Promise.all(unique.map((id) => exists(headshotUrl(id))));
+  const results = await Promise.all(unique.map((id) => urlExists(headshotUrl(id))));
   const available = new Set<number>();
   results.forEach((ok, i) => {
     if (ok) available.add(unique[i]);

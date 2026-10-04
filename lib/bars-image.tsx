@@ -37,6 +37,7 @@ export async function renderPortraitBars(opts: {
   position: string;
   teamName?: string;
   hasHeadshot: boolean;
+  photoUrl?: string;
   group: Group;
   axes: RadarAxis[];
   counts?: { label: string; value: string }[];
@@ -74,7 +75,7 @@ export async function renderPortraitBars(opts: {
     subtitle: "",
     plain: true,
     headerContent: ({ display }) => (
-      <PlayerHeader display={display} playerId={opts.playerId} name={opts.name} position={opts.position} teamName={opts.teamName} hasHeadshot={opts.hasHeadshot} subtitle={opts.subtitle ?? "Season to date"} gp={opts.gp} notQualified={opts.smallSample} />
+      <PlayerHeader display={display} playerId={opts.playerId} name={opts.name} position={opts.position} teamName={opts.teamName} hasHeadshot={opts.hasHeadshot} photoUrl={opts.photoUrl} subtitle={opts.subtitle ?? "Season to date"} gp={opts.gp} notQualified={opts.smallSample} />
     ),
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16, justifyContent: "center" }}>

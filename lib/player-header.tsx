@@ -14,6 +14,7 @@ export function PlayerHeader(p: {
   position: string;
   teamName?: string;
   hasHeadshot: boolean;
+  photoUrl?: string; // defaults to the ESPN headshot for playerId
   subtitle: string; // e.g. "Season to date - your league's categories"
   gp: number;
   notQualified?: string; // e.g. "NOT QUALIFIED - 2 of 3 GP"
@@ -23,7 +24,7 @@ export function PlayerHeader(p: {
   return (
     <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 26, minWidth: 0 }}>
-        <PlayerAvatar name={p.name} src={headshotUrl(p.playerId)} hasHeadshot={p.hasHeadshot} size={150} fontFamily={p.display} fontSize={54} border={`6px solid ${GOLD}`} />
+        <PlayerAvatar name={p.name} src={p.photoUrl ?? headshotUrl(p.playerId)} hasHeadshot={p.hasHeadshot} size={150} fontFamily={p.display} fontSize={54} border={`6px solid ${GOLD}`} />
         <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
           <div style={{ display: "flex", fontFamily: p.display, fontWeight: 700, fontSize: nameSize, lineHeight: 1, color: "#FFFFFF", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap", maxWidth: 640, overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
           <div style={{ display: "flex", fontSize: 30, color: "#C9D6E6", maxWidth: 640, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.teamName ? `${p.position} \u00b7 ${p.teamName}` : p.position}</div>

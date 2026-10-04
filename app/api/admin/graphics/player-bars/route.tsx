@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
     if (params.get("debug")) return Response.json(debugJson(p));
 
-    const { teamName, hasHeadshot } = await loadExtras(p);
+    const { teamName, hasHeadshot, photoUrl } = await loadExtras(p, Number(params.get("playerId")) || undefined);
     if (params.get("caption")) return captionResponse(profileCaption(p, "PLAYER BARS", teamName));
 
     return await renderPortraitBars({
@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       position: p.position,
       teamName,
       hasHeadshot,
+      photoUrl,
       group: p.group,
       axes: p.axes,
       counts: p.counts,

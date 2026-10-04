@@ -467,8 +467,15 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   SV 0.1, GA -0.45, OT+shootout losses 0.5, and their OWN goals 2, assists 1, short-handed points 1 (defensemen appear to score G 2.2 / A 1.2 via a position override).
   The import models exactly those categories (`SKATER_KEYS` / `GOALIE_KEYS`); shootout goals come from the NHL `skater/shootout` report, goalie goals/assists from
   the goalie summary. Forwards, defensemen and goalies are fitted SEPARATELY (the 2025 league paid defensemen more per goal and assist). Leftover names are
-  matched by last name + a first name that starts the same way (Sam/Samuel) + games played within 3. STAGE 1 (this): import, match, fit, save. STAGE 2 (not built yet): feed saved seasons into
-  the previous-season picker, the rank browser and the Radar/Bars cards.
+  matched by last name + a first name that starts the same way (Sam/Samuel) + games played within 3. Names that differ more (Mikey/Michael, John/Jack, Maxim/Maksim) are matched by last name + first letter + games played within 1.
+  After you press Save, the season is used everywhere a previous season is: the season picker (marked "Fantrax"), the rank
+  browser, and the Radar and Bars cards. Those cards use Fantrax's REAL fantasy points (not a recomputation) for the points
+  table, the NHL raw stats for the category percentiles, and the recovered scoring (per position group) to decide which
+  categories are shown and which direction is good. The "team" line shows the Fantrax owner ("Owned by OAP"). A player is
+  found by Fantrax id (`fid`) or by name (the ESPN id only separates two players of the same name); the 5 or so players the
+  NHL data lacks appear in fantasy-points rankings but have no category cards. Photos: ESPN's if the player is also on the
+  current ESPN list, else the NHL's headshot for that season, else initials. Shootout goals, short-handed goals and a
+  goalie's own goals/assists are shown as season-count tiles (ids 900 / 20 / 913 / 914).
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

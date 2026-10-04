@@ -4,9 +4,14 @@ import { useEffect, useState } from "react";
 import GraphicCard from "@/components/GraphicCard";
 
 interface Picked {
-  id: number;
+  id: number; // ESPN player id; 0 = not on the current ESPN list (e.g. picked from an imported season's ranking)
   name: string;
+  fid?: string; // Fantrax id, set when picked from an imported season
 }
+
+// Names compared without accents or punctuation.
+const norm = (s: string) => s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const groupOfLabel = (pos: string) => (pos === "G" ? "G" : pos === "D" ? "D" : "F");
 interface TeamRoster {
   id: number;
   name: string;
@@ -19,11 +24,15 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
 
   // Previous seasons ESPN still has player data for.
   const [pastSeasons, setPastSeasons] = useState<number[]>([]);
+  const [importedSeasons, setImportedSeasons] = useState<number[]>([]);
   const [pastSeason, setPastSeason] = useState<number | "">("");
   useEffect(() => {
     fetch(`${playersBase}/seasons`)
       .then((r) => r.json())
-      .then((d) => setPastSeasons(d.past ?? []))
+      .then((d) => {
+        setPastSeasons(d.past ?? []);
+        setImportedSeasons(d.imported ?? []);
+      })
       .catch(() => setPastSeasons([]));
   }, []);
 
@@ -68,7 +77,7 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
   const [rankStart, setRankStart] = useState(1);
   const [rankSeason, setRankSeason] = useState<number | "">("");
   const [rankError, setRankError] = useState("");
-  const [rankList, setRankList] = useState<{ rank: number; id: number; name: string; position: string; gp: number; valueLabel: string }[]>([]);
+  const [rankList, setRankList] = useState<{ rank: number; id: number; fid?: string; name: string; position: string; gp: number; valueLabel: string; imported?: boolean }[]>([]);
   const [rankCats, setRankCats] = useState<{ id: string; label: string }[]>([]);
   const [rankTotal, setRankTotal] = useState(0);
   const [rankBusy, setRankBusy] = useState(false);
@@ -97,17 +106,36 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
     setResults([]);
   };
 
+  // The query for a previous season's card. An imported season finds the player by name / Fantrax id;
+  // an ESPN season needs his ESPN id.
+  const pastQuery = (year: number, who: Picked) => {
+    const q = new URLSearchParams();
+    if (who.id > 0) q.set("playerId", String(who.id));
+    if (importedSeasons.includes(year)) {
+      q.set("name", who.name);
+      if (who.fid) q.set("fid", who.fid);
+    }
+    q.set("season", String(year));
+    q.set("format", "portrait");
+    return q.toString();
+  };
+  const pastUsable = (year: number, who: Picked) => importedSeasons.includes(year) || who.id > 0;
+
   // To add another card type later, add it here -- it will show for any picked player.
   const cards = picked
     ? [
-        { title: `Player Radar - ${picked.name}`, url: `${graphicsBase}/player-radar?playerId=${picked.id}&format=portrait` },
-        { title: `Player Bars - ${picked.name}`, url: `${graphicsBase}/player-bars?playerId=${picked.id}&format=portrait` },
-        { title: `Player Spotlight - ${picked.name} (week ${week})`, url: `${graphicsBase}/player-spotlight?week=${week}&playerId=${picked.id}&position=any&format=portrait` },
-        // A previous season's final radar, as its own card (same layout, labelled with the season).
-        ...(pastSeason
+        ...(picked.id > 0
           ? [
-              { title: `Player Radar - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-radar?playerId=${picked.id}&season=${pastSeason}&format=portrait` },
-              { title: `Player Bars - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-bars?playerId=${picked.id}&season=${pastSeason}&format=portrait` },
+              { title: `Player Radar - ${picked.name}`, url: `${graphicsBase}/player-radar?playerId=${picked.id}&format=portrait` },
+              { title: `Player Bars - ${picked.name}`, url: `${graphicsBase}/player-bars?playerId=${picked.id}&format=portrait` },
+              { title: `Player Spotlight - ${picked.name} (week ${week})`, url: `${graphicsBase}/player-spotlight?week=${week}&playerId=${picked.id}&position=any&format=portrait` },
+            ]
+          : []),
+        // A previous season's final cards (the imported 2025 Fantrax season included), each its own card.
+        ...(pastSeason && pastUsable(pastSeason, picked)
+          ? [
+              { title: `Player Radar - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-radar?${pastQuery(pastSeason, picked)}` },
+              { title: `Player Bars - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-bars?${pastQuery(pastSeason, picked)}` },
             ]
           : []),
       ]
@@ -172,7 +200,7 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
             <option value="">None</option>
             {pastSeasons.map((y) => (
               <option key={y} value={y}>
-                {y}
+                {y}{importedSeasons.includes(y) ? " (Fantrax)" : ""}
               </option>
             ))}
           </select>
@@ -210,7 +238,7 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
                   <option value="">Current season</option>
                   {pastSeasons.map((y) => (
                     <option key={y} value={y}>
-                      {y} (final)
+                      {y} {importedSeasons.includes(y) ? "(Fantrax, final)" : "(final)"}
                     </option>
                   ))}
                 </select>
@@ -253,9 +281,22 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
               {rankList.map((r) => (
                 <button
                   key={r.id}
-                  onClick={() => {
-                    choose({ id: r.id, name: r.name });
-                    if (rankSeason) setPastSeason(rankSeason); // browsing 2026 -> show his 2026 cards too
+                  onClick={async () => {
+                    let espnId = r.id;
+                    if (r.imported) {
+                      // An imported season's ranking has no ESPN ids: find him on the current ESPN list by name,
+                      // so his current cards work too (a retired player simply has none).
+                      espnId = 0;
+                      try {
+                        const d = await (await fetch(`${playersBase}/search?q=${encodeURIComponent(r.name)}`)).json();
+                        const hit = (d.players ?? []).find((x: { id: number; name: string; position: string }) => norm(x.name) === norm(r.name) && groupOfLabel(x.position) === groupOfLabel(r.position));
+                        if (hit) espnId = hit.id;
+                      } catch {
+                        /* leave 0 */
+                      }
+                    }
+                    choose({ id: espnId, name: r.name, fid: r.fid });
+                    if (rankSeason) setPastSeason(rankSeason); // browsing 2026 / 2025 -> show his cards from that season too
                   }}
                   className="flex items-center w-full text-left px-2 py-2 border-t border-ice-line hover:bg-ice-panel">
                   <span className="w-10 font-tabular text-muted">#{r.rank}</span>

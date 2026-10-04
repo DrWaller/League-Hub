@@ -90,6 +90,7 @@ export async function renderPortraitRadar(opts: {
   position: string;
   teamName?: string;
   hasHeadshot: boolean;
+  photoUrl?: string;
   axes: RadarAxis[];
   counts?: { label: string; value: string }[]; // rare stats shown as season totals instead of percentiles
   gp: number;
@@ -111,7 +112,7 @@ export async function renderPortraitRadar(opts: {
     subtitle: "",
     plain: true,
     headerContent: ({ display }) => (
-      <PlayerHeader display={display} playerId={opts.playerId} name={opts.name} position={opts.position} teamName={opts.teamName} hasHeadshot={opts.hasHeadshot} subtitle={opts.subtitle ?? "Season to date"} gp={opts.gp} notQualified={opts.smallSample} />
+      <PlayerHeader display={display} playerId={opts.playerId} name={opts.name} position={opts.position} teamName={opts.teamName} hasHeadshot={opts.hasHeadshot} photoUrl={opts.photoUrl} subtitle={opts.subtitle ?? "Season to date"} gp={opts.gp} notQualified={opts.smallSample} />
     ),
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16 }}>
@@ -135,7 +136,7 @@ export async function renderPortraitRadar(opts: {
           </svg>
           {opts.counts && opts.counts.length > 0 ? (
             <div style={{ position: "absolute", left: 18, top: 18, display: "flex", flexDirection: "column", gap: 8 }}>
-              {opts.counts.slice(0, 3).map((c) => (
+              {opts.counts.slice(0, 4).map((c) => (
                 <div key={c.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 96, padding: "6px 0", borderRadius: 10, background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.22)" }}>
                   <div style={{ display: "flex", fontFamily: display, fontSize: 36, fontWeight: 700, lineHeight: 1.05, color: "#FFFFFF" }}>{c.value}</div>
                   <div style={{ display: "flex", fontFamily: display, fontSize: 18, fontWeight: 700, letterSpacing: 2, color: "#C9D6E6" }}>{c.label}</div>
