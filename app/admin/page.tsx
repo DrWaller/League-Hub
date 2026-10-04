@@ -7,6 +7,7 @@ export default async function AdminDashboard() {
   const meta = await getLeagueMeta();
 
   const cards = [
+    { href: "/admin/import-season", label: "Import a Season", desc: "Bring in a season not played on ESPN (your 2025 Fantrax season): Fantrax CSV + NHL stats." },
     { href: "/admin/player-cards", label: "Player Cards", desc: "Pick a player (search or from a team) and generate all of their cards." },
     { href: "/admin/week-days", label: "Week Days", desc: "Tell the site how many days are in each matchup week (needed for player graphics)." },
     { href: "/admin/keeper-import", label: "Import Keepers", desc: "Pull keepers from the Keeper History Google Sheet (preview first)." },

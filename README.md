@@ -456,6 +456,15 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   drift apart. Because anyone can open them: answers are cached on Vercel's CDN for 15 minutes, `debug`
   is refused, errors aren't cached, and setting the environment variable `PUBLIC_PLAYER_CARDS=off`
   switches the public cards off (404) without touching the admin ones.
+- **Import a Season** (`/admin/import-season`, `lib/season-import.ts`, `lib/imported-seasons.ts`): for the 2025
+  season played on Fantrax. Upload the Fantrax player CSV (it has each player's real fantasy points and points per
+  game, from which games played is recovered, but NO category stats); the site fetches that season's raw stats from the
+  NHL's public stats API (`api.nhle.com/stats/rest/en`, skater summary + realtime, goalie summary), matches the lists
+  by name + position (games played breaks ties for repeated names like the two Elias Pettersons), and recovers the
+  league's scoring rules by least-squares fitting the NHL stats to the real Fantrax points. The report shows the fit
+  (share of players within 0.05 points, R2) so it can be checked BEFORE saving. Saving stores one JSON document per
+  season in `imported_seasons`. STAGE 1 (this): import, match, fit, save. STAGE 2 (not built yet): feed saved seasons into
+  the previous-season picker, the rank browser and the Radar/Bars cards.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past
