@@ -27,15 +27,16 @@ export async function GET(req: NextRequest) {
       const list = await recomputeStored(season);
       const reg = list.filter((r) => !r.is_keeper && r.value != null);
       const isGamble = (r: (typeof list)[number]) => r.is_rookie || r.injury_status !== "ACTIVE";
-      const f = (r: (typeof list)[number]) => ({ pick: r.overall_pick, player: r.player_name, pos: r.position, manager: r.manager, adpRank: r.adp_rank, pointsRank: r.points_rank, expectedPick: r.expected_pick, value: r.value, rookie: r.is_rookie, injury: r.injury_status });
+      const f = (r: (typeof list)[number]) => ({ pick: r.overall_pick, player: r.player_name, pos: r.position, manager: r.manager, adpRank: r.adp_rank, pointsRank: r.points_rank, ppg: r.weighted_ppg, expectedPick: r.expected_pick, value: r.value, rookie: r.is_rookie, injury: r.injury_status });
       const flag = reg.filter((r) => Math.abs(r.value as number) >= BIG_SWING);
       const clean = flag.filter((r) => !isGamble(r));
       const byPos = (arr: typeof flag) => arr.reduce((m: Record<string, number>, r) => ((m[r.position] = (m[r.position] ?? 0) + 1), m), {});
       return NextResponse.json({
-        mode: "recomputed (within-position ADP + points blend)",
+        mode: "recomputed (within-position ADP + weighted PPG blend)",
         season,
         regularPicks: reg.length,
         netValue: reg.reduce((t, r) => t + (r.value as number), 0),
+        seasonsOfHistory: list.filter((r) => !r.is_keeper).reduce((m: Record<string, number>, r) => ((m[String(r.seasons_count)] = (m[String(r.seasons_count)] ?? 0) + 1), m), {}),
         flaggedCount: { steals: clean.filter((r) => (r.value as number) > 0).length, reaches: clean.filter((r) => (r.value as number) < 0).length, gamblesExcluded: flag.length - clean.length, threshold: BIG_SWING },
         flaggedByPosition: { steals: byPos(clean.filter((r) => (r.value as number) > 0)), reaches: byPos(clean.filter((r) => (r.value as number) < 0)) },
         bigStealsTop10: clean.filter((r) => (r.value as number) > 0).sort((a, b) => (b.value as number) - (a.value as number)).slice(0, 10).map(f),

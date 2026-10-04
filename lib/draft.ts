@@ -44,8 +44,9 @@ export interface DraftRow {
   auto_draft_type: number;
   adp: number | null;
   std_rank: number | null;
-  adp_rank: number | null; // rank by ADP among the drafted (non-keeper) players
-  points_rank: number | null; // rank by last-season points among the same players
+  adp_rank: number | null; // rank by ADP among drafted (non-keeper) players at his position
+  points_rank: number | null; // rank by weighted points-per-game among the same group
+  weighted_ppg: number | null; // 50/30/20 points per game over the last three seasons (renormalized if fewer)
   expected_pick: number | null;
   value: number | null; // actual pick - expected pick; positive = steal, negative = reach
   last_season_points: number | null;
@@ -97,6 +98,24 @@ function seasonStatsOf(pl: any, season: number) {
   return res;
 }
 
+// Points per game, weighted 50/30/20 (newest first) over the last three
+// seasons; if a player has fewer seasons the weights are renormalized.
+// Per-game (not season totals) so a star who missed time last year isn't
+// penalized for it.
+const PPG_WEIGHTS = [0.5, 0.3, 0.2];
+export function weightedPpg(ss: DraftRow["season_stats"] | null | undefined, season: number): number | null {
+  let num = 0;
+  let den = 0;
+  [season - 1, season - 2, season - 3].forEach((y, i) => {
+    const s = ss?.[String(y)];
+    if (s && Number.isFinite(s.avg) && (s.avg !== 0 || s.points !== 0)) {
+      num += PPG_WEIGHTS[i] * s.avg;
+      den += PPG_WEIGHTS[i];
+    }
+  });
+  return den > 0 ? Math.round((num / den) * 1000) / 1000 : null;
+}
+
 // Steals and reaches are graded WITHIN each position. Ranking everyone on one
 // list called nearly half the goalies reaches, because a league that must
 // start 2 goalies per team drafts them earlier than any all-position
@@ -106,8 +125,8 @@ function seasonStatsOf(pl: any, season: number) {
 // For each position, among the players this league drafted (keepers
 // excluded), we blend two ranks:
 //   - ADP rank (ESPN consensus), and
-//   - last-season fantasy-points rank under THIS league's scoring.
-// Players with no last-season line (rookies) use ADP alone. The best-scoring
+//   - weighted points-per-game rank under THIS league's scoring.
+// Players with no stat history (rookies) use ADP alone. The best-scoring
 // player at a position is expected to go in the earliest slot that position
 // was actually drafted in, the next-best in the next slot, and so on, so each
 // position nets to zero. adp_rank / points_rank are stored as ranks within
@@ -120,8 +139,7 @@ type Rankable = {
   position: string;
   adp: number | null;
   overall_pick: number;
-  has_last_season: boolean;
-  last_season_points: number | null;
+  weighted_ppg: number | null;
   adp_rank: number | null;
   points_rank: number | null;
   expected_pick: number | null;
@@ -145,8 +163,8 @@ export function applyExpectedPicks<T extends Rankable>(rows: T[]) {
   for (const g of Array.from(groups.values())) {
     [...g].sort((a, b) => (a.adp as number) - (b.adp as number)).forEach((r, i) => (r.adp_rank = i + 1));
     [...g]
-      .filter((r) => r.has_last_season && r.last_season_points != null)
-      .sort((a, b) => (b.last_season_points as number) - (a.last_season_points as number) || (a.adp_rank as number) - (b.adp_rank as number))
+      .filter((r) => r.weighted_ppg != null)
+      .sort((a, b) => (b.weighted_ppg as number) - (a.weighted_ppg as number) || (a.adp_rank as number) - (b.adp_rank as number))
       .forEach((r, i) => (r.points_rank = i + 1));
     const score = (r: T) => (r.points_rank != null ? ADP_WEIGHT * (r.adp_rank as number) + (1 - ADP_WEIGHT) * r.points_rank : (r.adp_rank as number));
     const slots = g.map((r) => r.overall_pick).sort((a, b) => a - b);
@@ -165,17 +183,29 @@ export function applyExpectedPicks<T extends Rankable>(rows: T[]) {
 export async function recomputeStored(season: number, source = "espn") {
   await ensureDraftSchema();
   const { rows } = await sql`
-    SELECT overall_pick, is_keeper, adp::float AS adp, player_name, position, manager, is_rookie, injury_status,
-           has_last_season, last_season_points::float AS last_season_points
+    SELECT overall_pick, is_keeper, adp::float AS adp, player_name, position, manager, is_rookie, injury_status, season_stats
     FROM draft_picks WHERE season = ${season} AND source = ${source} ORDER BY overall_pick;
   `;
-  const list = (rows as any[]).map((r) => ({ ...r, adp_rank: null as number | null, points_rank: null as number | null, expected_pick: null as number | null, value: null as number | null }));
+  const list = (rows as any[]).map((r) => {
+    const ss = typeof r.season_stats === "string" ? JSON.parse(r.season_stats) : r.season_stats ?? {};
+    return {
+      ...r,
+      season_stats: undefined,
+      seasons_count: Object.keys(ss).length,
+      weighted_ppg: weightedPpg(ss, season),
+      adp_rank: null as number | null,
+      points_rank: null as number | null,
+      expected_pick: null as number | null,
+      value: null as number | null,
+    };
+  });
   applyExpectedPicks(list);
   for (let i = 0; i < list.length; i += 20) {
     await Promise.all(
       list.slice(i, i + 20).map(
         (r) => sql`
-          UPDATE draft_picks SET adp_rank = ${r.adp_rank}, points_rank = ${r.points_rank}, expected_pick = ${r.expected_pick}, value = ${r.value}
+          UPDATE draft_picks SET adp_rank = ${r.adp_rank}, points_rank = ${r.points_rank}, weighted_ppg = ${r.weighted_ppg},
+                 expected_pick = ${r.expected_pick}, value = ${r.value}
           WHERE season = ${season} AND source = ${source} AND overall_pick = ${r.overall_pick};
         `
       )
@@ -222,6 +252,7 @@ export async function buildDraftRows(season: number): Promise<DraftRow[]> {
         std_rank: pl?.draftRanksByRankType?.STANDARD?.rank ?? null,
         adp_rank: null,
         points_rank: null,
+        weighted_ppg: weightedPpg(ss, season),
         expected_pick: null,
         value: null,
         last_season_points: last ? last.points : null,
@@ -267,6 +298,7 @@ export async function ensureDraftSchema() {
   `;
   await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS adp_rank INT;`;
   await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS points_rank INT;`;
+  await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS weighted_ppg NUMERIC;`;
 }
 
 export async function countStored(season: number, source = "espn"): Promise<number> {
@@ -287,12 +319,12 @@ export async function storeRows(rows: DraftRow[], replace: boolean) {
           INSERT INTO draft_picks (
             season, source, overall_pick, round, round_pick, team_id, team_name, manager,
             player_id, player_name, position, pro_team_id, is_keeper, auto_draft_type,
-            adp, std_rank, adp_rank, points_rank, expected_pick, value, last_season_points, has_last_season,
+            adp, std_rank, adp_rank, points_rank, weighted_ppg, expected_pick, value, last_season_points, has_last_season,
             is_rookie, injury_status, season_stats
           ) VALUES (
             ${r.season}, ${r.source}, ${r.overall_pick}, ${r.round}, ${r.round_pick}, ${r.team_id}, ${r.team_name}, ${r.manager},
             ${r.player_id}, ${r.player_name}, ${r.position}, ${r.pro_team_id}, ${r.is_keeper}, ${r.auto_draft_type},
-            ${r.adp}, ${r.std_rank}, ${r.adp_rank}, ${r.points_rank}, ${r.expected_pick}, ${r.value}, ${r.last_season_points}, ${r.has_last_season},
+            ${r.adp}, ${r.std_rank}, ${r.adp_rank}, ${r.points_rank}, ${r.weighted_ppg}, ${r.expected_pick}, ${r.value}, ${r.last_season_points}, ${r.has_last_season},
             ${r.is_rookie}, ${r.injury_status}, ${JSON.stringify(r.season_stats)}::jsonb
           )
           ON CONFLICT (season, source, overall_pick) DO NOTHING;
