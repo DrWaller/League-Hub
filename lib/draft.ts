@@ -44,6 +44,8 @@ export interface DraftRow {
   auto_draft_type: number;
   adp: number | null;
   std_rank: number | null;
+  adp_rank: number | null; // rank by ADP among the drafted (non-keeper) players
+  points_rank: number | null; // rank by last-season points among the same players
   expected_pick: number | null;
   value: number | null; // actual pick - expected pick; positive = steal, negative = reach
   last_season_points: number | null;
@@ -95,41 +97,68 @@ function seasonStatsOf(pl: any, season: number) {
   return res;
 }
 
-// Expected pick = where a player ranks by ADP among the players this league
-// actually drafted (keepers excluded). Raw ADP is on a different scale: it
-// covers players nobody drafted here, and the league's scoring differs from
-// ESPN's default, so "ADP minus keepers ahead" made nearly every pick a
-// reach. Ranking within the drafted class keeps the scale honest and nets to
-// zero across the draft. value = actual pick - expected pick, so positive
-// means the player lasted longer than consensus (steal), negative means taken
-// earlier (reach).
-export function applyExpectedPicks<T extends { is_keeper: boolean; adp: number | null; overall_pick: number; expected_pick: number | null; value: number | null }>(rows: T[]) {
-  const pool = rows.filter((r) => !r.is_keeper && r.adp != null).sort((a, b) => (a.adp as number) - (b.adp as number));
-  const rank = new Map<T, number>();
-  pool.forEach((r, i) => rank.set(r, i + 1));
+// Expected pick = a blend of two ranks, both taken among the players this
+// league actually drafted (keepers excluded):
+//   - ADP rank (ESPN consensus), and
+//   - last-season fantasy-points rank under THIS league's scoring.
+// Raw ADP alone is on the wrong scale (it covers players nobody drafted here)
+// and ignores your scoring: goalies and defensemen were systematically off.
+// Players with no last-season line (rookies) fall back to ADP alone. The
+// blended scores are re-ranked 1..N so the draft nets to zero.
+// value = actual pick - expected pick: positive = steal, negative = reach.
+export const ADP_WEIGHT = 0.5;
+
+type Rankable = {
+  is_keeper: boolean;
+  adp: number | null;
+  overall_pick: number;
+  has_last_season: boolean;
+  last_season_points: number | null;
+  adp_rank: number | null;
+  points_rank: number | null;
+  expected_pick: number | null;
+  value: number | null;
+};
+
+export function applyExpectedPicks<T extends Rankable>(rows: T[]) {
   for (const r of rows) {
-    const e = rank.get(r);
-    r.expected_pick = e ?? null;
-    r.value = e != null ? r.overall_pick - e : null;
+    r.adp_rank = null;
+    r.points_rank = null;
+    r.expected_pick = null;
+    r.value = null;
   }
+  const pool = rows.filter((r) => !r.is_keeper && r.adp != null);
+  [...pool].sort((a, b) => (a.adp as number) - (b.adp as number)).forEach((r, i) => (r.adp_rank = i + 1));
+  const withPts = pool.filter((r) => r.has_last_season && r.last_season_points != null);
+  [...withPts]
+    .sort((a, b) => (b.last_season_points as number) - (a.last_season_points as number) || (a.adp_rank as number) - (b.adp_rank as number))
+    .forEach((r, i) => (r.points_rank = i + 1));
+  const score = (r: T) => (r.points_rank != null ? ADP_WEIGHT * (r.adp_rank as number) + (1 - ADP_WEIGHT) * r.points_rank : (r.adp_rank as number));
+  [...pool]
+    .sort((a, b) => score(a) - score(b) || (a.adp_rank as number) - (b.adp_rank as number))
+    .forEach((r, i) => {
+      r.expected_pick = i + 1;
+      r.value = r.overall_pick - (i + 1);
+    });
   return rows;
 }
 
-// Recompute expected_pick/value from the ADP already stored (the draft-time
-// snapshot), without calling ESPN.
+// Recompute ranks/values from the data already stored (the draft-time ADP
+// snapshot and last-season points), without calling ESPN.
 export async function recomputeStored(season: number, source = "espn") {
   await ensureDraftSchema();
   const { rows } = await sql`
-    SELECT overall_pick, is_keeper, adp::float AS adp, player_name, position, manager, is_rookie, injury_status
+    SELECT overall_pick, is_keeper, adp::float AS adp, player_name, position, manager, is_rookie, injury_status,
+           has_last_season, last_season_points::float AS last_season_points
     FROM draft_picks WHERE season = ${season} AND source = ${source} ORDER BY overall_pick;
   `;
-  const list = (rows as any[]).map((r) => ({ ...r, expected_pick: null as number | null, value: null as number | null }));
+  const list = (rows as any[]).map((r) => ({ ...r, adp_rank: null as number | null, points_rank: null as number | null, expected_pick: null as number | null, value: null as number | null }));
   applyExpectedPicks(list);
   for (let i = 0; i < list.length; i += 20) {
     await Promise.all(
       list.slice(i, i + 20).map(
         (r) => sql`
-          UPDATE draft_picks SET expected_pick = ${r.expected_pick}, value = ${r.value}
+          UPDATE draft_picks SET adp_rank = ${r.adp_rank}, points_rank = ${r.points_rank}, expected_pick = ${r.expected_pick}, value = ${r.value}
           WHERE season = ${season} AND source = ${source} AND overall_pick = ${r.overall_pick};
         `
       )
@@ -174,6 +203,8 @@ export async function buildDraftRows(season: number): Promise<DraftRow[]> {
         auto_draft_type: p.autoDraftTypeId ?? 0,
         adp: typeof pl?.ownership?.averageDraftPosition === "number" ? pl.ownership.averageDraftPosition : null,
         std_rank: pl?.draftRanksByRankType?.STANDARD?.rank ?? null,
+        adp_rank: null,
+        points_rank: null,
         expected_pick: null,
         value: null,
         last_season_points: last ? last.points : null,
@@ -217,6 +248,8 @@ export async function ensureDraftSchema() {
       PRIMARY KEY (season, source, overall_pick)
     );
   `;
+  await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS adp_rank INT;`;
+  await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS points_rank INT;`;
 }
 
 export async function countStored(season: number, source = "espn"): Promise<number> {
@@ -237,12 +270,12 @@ export async function storeRows(rows: DraftRow[], replace: boolean) {
           INSERT INTO draft_picks (
             season, source, overall_pick, round, round_pick, team_id, team_name, manager,
             player_id, player_name, position, pro_team_id, is_keeper, auto_draft_type,
-            adp, std_rank, expected_pick, value, last_season_points, has_last_season,
+            adp, std_rank, adp_rank, points_rank, expected_pick, value, last_season_points, has_last_season,
             is_rookie, injury_status, season_stats
           ) VALUES (
             ${r.season}, ${r.source}, ${r.overall_pick}, ${r.round}, ${r.round_pick}, ${r.team_id}, ${r.team_name}, ${r.manager},
             ${r.player_id}, ${r.player_name}, ${r.position}, ${r.pro_team_id}, ${r.is_keeper}, ${r.auto_draft_type},
-            ${r.adp}, ${r.std_rank}, ${r.expected_pick}, ${r.value}, ${r.last_season_points}, ${r.has_last_season},
+            ${r.adp}, ${r.std_rank}, ${r.adp_rank}, ${r.points_rank}, ${r.expected_pick}, ${r.value}, ${r.last_season_points}, ${r.has_last_season},
             ${r.is_rookie}, ${r.injury_status}, ${JSON.stringify(r.season_stats)}::jsonb
           )
           ON CONFLICT (season, source, overall_pick) DO NOTHING;
