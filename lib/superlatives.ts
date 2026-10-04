@@ -2,11 +2,12 @@
 // Pure formulas + templated text, no AI step. Needs lib/draft.ts to have
 // stored the draft first (/api/admin/draft-ingest?run=1).
 //
-// Awards that need data we don't have yet (The Homer needs NHL team names,
-// Old Man Roster / Youth Movement need ages, Most Hits & Blocks needs the
-// ESPN stat ids) are not in here.
+// The Homer, Old Man Roster, Youth Movement and Most Hits & Blocks come from
+// the projections spreadsheet (lib/player-sheet.ts) and appear only after
+// /api/admin/draft-sheet-import?run=1 has been run.
 
 import { sql } from "@/lib/db";
+import { SheetMap, pickSheet } from "@/lib/player-sheet";
 
 export interface PickRow {
   overall_pick: number;
@@ -39,7 +40,7 @@ export async function loadPicks(season: number, source = "espn"): Promise<PickRo
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const ord = (n: number) => `pick #${n}`;
 
-export function computeSuperlatives(all: PickRow[]) {
+export function computeSuperlatives(all: PickRow[], sheet?: SheetMap) {
   const teamIds = Array.from(new Set(all.map((p) => p.team_id))).sort((a, b) => a - b);
 
   const teams = teamIds.map((id) => {
@@ -55,8 +56,28 @@ export function computeSuperlatives(all: PickRow[]) {
     const autoByType: Record<string, number> = {};
     for (const p of regular) if (p.auto_draft_type) autoByType[String(p.auto_draft_type)] = (autoByType[String(p.auto_draft_type)] ?? 0) + 1;
     const manualValues = manual.map((p) => p.value).filter((v): v is number => v != null);
+    // Whole 18-man roster (keepers included) matched to the projections sheet.
+    const roster = mine.map((p) => ({ p, s: sheet && sheet.size ? pickSheet(sheet, p.player_name, p.position) : null }));
+    const aged = roster.filter((x) => x.s?.age != null);
+    const avgAge = aged.length >= 14 ? r2(aged.reduce((t, x) => t + (x.s!.age as number), 0) / aged.length) : null;
+    const byAge = [...aged].sort((a, b) => (a.s!.age as number) - (b.s!.age as number));
+    const byNhl = new Map<string, string[]>();
+    for (const x of roster) {
+      const t = x.s?.nhl_team;
+      if (!t) continue;
+      byNhl.set(t, [...(byNhl.get(t) ?? []), x.p.player_name]);
+    }
+    const homerTop = Array.from(byNhl.entries()).sort((a, b) => b[1].length - a[1].length)[0];
+    const hbPlayers = roster.filter((x) => x.p.position !== "G" && x.s && (x.s.proj.HIT != null || x.s.proj.BLK != null));
+    const hitsBlocks = hbPlayers.length >= 12 ? Math.round(hbPlayers.reduce((t, x) => t + (x.s!.proj.HIT ?? 0) + (x.s!.proj.BLK ?? 0), 0)) : null;
     return {
       teamId: id,
+      sheetMatched: roster.filter((x) => x.s).length,
+      avgAge,
+      oldest: byAge.length ? byAge[byAge.length - 1] : null,
+      youngest: byAge.length ? byAge[0] : null,
+      homer: homerTop ? { team: homerTop[0], n: homerTop[1].length, players: homerTop[1] } : null,
+      hitsBlocks,
       manager: mine[0]?.manager ?? `Team ${id}`,
       teamName: mine[0]?.team_name ?? "",
       regularPicks: regular.length,
@@ -149,6 +170,28 @@ export function computeSuperlatives(all: PickRow[]) {
           : `${t.manager} had ${t.autoPicks} of ${t.regularPicks} picks made by auto-draft.`,
     }));
 
+  // Sheet-based awards (only when the projections sheet has been imported).
+  const sheetReady = !!sheet && sheet.size > 0;
+  const homerTeams = eligible.filter((t) => t.homer).sort((a, b) => (b.homer!.n - a.homer!.n));
+  const hm = homerTeams[0];
+  const theHomer = sheetReady && hm && hm.homer!.n >= 3
+    ? { manager: hm.manager, nhlTeam: hm.homer!.team, count: hm.homer!.n, players: hm.homer!.players,
+        headline: `${hm.manager} is The Homer: ${hm.homer!.n} of ${hm.sheetMatched} players are from ${hm.homer!.team} (${hm.homer!.players.slice(0, 5).join(", ")}).` }
+    : null;
+  const byAgeTeams = eligible.filter((t) => t.avgAge != null).sort((a, b) => (b.avgAge as number) - (a.avgAge as number));
+  const oldT = byAgeTeams[0];
+  const youngT = byAgeTeams[byAgeTeams.length - 1];
+  const oldManRoster = sheetReady && oldT
+    ? { manager: oldT.manager, avgAge: oldT.avgAge, headline: `${oldT.manager} runs the Old Man Roster, averaging ${oldT.avgAge} years old${oldT.oldest ? `, led by ${oldT.oldest.p.player_name} (${oldT.oldest.s!.age})` : ""}.` }
+    : null;
+  const youthMovement = sheetReady && youngT && youngT !== oldT
+    ? { manager: youngT.manager, avgAge: youngT.avgAge, headline: `${youngT.manager} leads the Youth Movement, averaging just ${youngT.avgAge} years old${youngT.youngest ? `, with ${youngT.youngest.p.player_name} (${youngT.youngest.s!.age}) the youngest` : ""}.` }
+    : null;
+  const hbTeams = eligible.filter((t) => t.hitsBlocks != null).sort((a, b) => (b.hitsBlocks as number) - (a.hitsBlocks as number));
+  const mostHitsBlocks = sheetReady && hbTeams[0]
+    ? { manager: hbTeams[0].manager, total: hbTeams[0].hitsBlocks, headline: `${hbTeams[0].manager}'s roster is projected for ${hbTeams[0].hitsBlocks} hits and blocks, the most in the league.` }
+    : null;
+
   return {
     note: "Awards only count teams with at least " + MIN_MANUAL_PICKS + " hand-made picks. Auto-draft type meanings (2 and 3) are unconfirmed.",
     goaliePanic,
@@ -157,6 +200,11 @@ export function computeSuperlatives(all: PickRow[]) {
     balanced,
     contrarian,
     consensusFollower: follower,
+    theHomer,
+    oldManRoster,
+    youthMovement,
+    mostHitsBlocks,
+    sheetImported: sheetReady,
     autoDraft,
     teams: teams.map((t) => ({
       manager: t.manager,
@@ -170,6 +218,10 @@ export function computeSuperlatives(all: PickRow[]) {
       adpSpread: t.adpSpread,
       avgAbsValue: t.avgAbsValue,
       avgValue: t.avgValue,
+      sheetMatched: t.sheetMatched,
+      avgAge: t.avgAge,
+      nhlTeamMost: t.homer ? `${t.homer.team} x${t.homer.n}` : null,
+      projHitsBlocks: t.hitsBlocks,
     })),
   };
 }
