@@ -59,7 +59,8 @@ export function categoriesFor(group: Group, items: { statId: number; points: num
 // then possession/physical, then penalties) so the shape tells a story.
 const AXIS_ORDER = [
   "13", "14", "37", "38", "18", "19", "29", "22", "28", "15", "35", "36", "20", "21", "39", "31", "32", "33", "23", "24", "27", "17", // skaters
-  "1", "6", "11", "10", "7", "4", "3", "0", "2", "9", "8", // goalies
+  "900", // skaters: shootout goals
+  "1", "6", "11", "10", "7", "4", "3", "0", "2", "9", "8", "913", "914", // goalies
 ];
 const axisRank = (statId: string) => {
   const i = AXIS_ORDER.indexOf(statId);
@@ -69,7 +70,7 @@ const axisRank = (statId: string) => {
 // Stats so rare that most players have none all season (shutouts, OT losses, short-handed
 // goals/assists, hat tricks). A percentile on these just collapses the chart to the middle,
 // so they are shown as plain season counts beside the chart instead.
-export const RARE_STATS = new Set(["7", "9", "20", "21", "28"]);
+export const RARE_STATS = new Set(["7", "9", "20", "21", "28", "900", "913", "914"]);
 
 export function splitRare(cats: Category[]): { axes: Category[]; counts: Category[] } {
   const axes = cats.filter((c) => !RARE_STATS.has(c.statId));

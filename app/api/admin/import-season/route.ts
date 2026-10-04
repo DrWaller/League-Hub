@@ -35,20 +35,19 @@ export async function POST(req: NextRequest) {
 
   const m = matchPlayers(csv.rows, [...nhl.skaters, ...nhl.goalies]);
   const gpMismatch = m.matched.filter((x) => Math.abs(x.nhl.gp - x.fx.gp) > 3);
-  const skaterMatches = m.matched.filter((x) => x.nhl.group !== "G");
+  const forwardMatches = m.matched.filter((x) => x.nhl.group === "F");
+  const defenseMatches = m.matched.filter((x) => x.nhl.group === "D");
   const goalieMatches = m.matched.filter((x) => x.nhl.group === "G");
 
-  const skaterFit = fitScoring(skaterMatches, SKATER_KEYS);
+  // Forwards, defensemen and goalies are fitted separately: a league can score them differently.
+  const forwardFit = fitScoring(forwardMatches, SKATER_KEYS);
+  const defenseFit = fitScoring(defenseMatches, SKATER_KEYS);
   const goalieFit = fitScoring(goalieMatches, GOALIE_KEYS);
-  // If forwards and defensemen score differently the combined fit is poor: show them separately too.
-  const splitFits =
-    skaterFit && skaterFit.meanAbsError > 0.05
-      ? { forwards: fitScoring(skaterMatches.filter((x) => x.nhl.group === "F"), SKATER_KEYS), defensemen: fitScoring(skaterMatches.filter((x) => x.nhl.group === "D"), SKATER_KEYS) }
-      : null;
 
   const scoring = {
-    skater: skaterFit ? toScoringItems(skaterFit.weights, "skater") : [],
-    goalie: goalieFit ? toScoringItems(goalieFit.weights, "goalie") : [],
+    forwards: forwardFit ? toScoringItems(forwardFit.weights, "skater") : [],
+    defensemen: defenseFit ? toScoringItems(defenseFit.weights, "skater") : [],
+    goalies: goalieFit ? toScoringItems(goalieFit.weights, "goalie") : [],
   };
 
   let saved = false;
@@ -88,7 +87,7 @@ export async function POST(req: NextRequest) {
       season: seasonNum,
       importedAt: new Date().toISOString(),
       scoringItems: scoring,
-      fit: { skaterR2: skaterFit?.r2 ?? null, goalieR2: goalieFit?.r2 ?? null },
+      fit: { forwardsR2: forwardFit?.r2 ?? null, defensemenR2: defenseFit?.r2 ?? null, goaliesR2: goalieFit?.r2 ?? null },
       players,
     });
     saved = true;
@@ -104,11 +103,12 @@ export async function POST(req: NextRequest) {
       matched: m.matched.length,
       unmatched: m.unmatched.length,
       ambiguous: m.ambiguous.length,
+      nameVariants: m.variants.map((v) => `${v.fantrax} = ${v.nhl}`),
       gamesPlayedDisagree: gpMismatch.length,
       unmatchedTop: m.unmatched.sort((a, b) => b.fpts - a.fpts).slice(0, 12).map(brief),
       disagreeTop: gpMismatch.slice(0, 8).map((x) => `${x.fx.name}: Fantrax ${x.fx.gp} GP vs NHL ${x.nhl.gp} GP`),
     },
-    fit: { skaters: skaterFit, goalies: goalieFit, split: splitFits },
+    fit: { forwards: forwardFit, defensemen: defenseFit, goalies: goalieFit },
     scoring,
   });
 }

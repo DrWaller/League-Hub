@@ -96,7 +96,7 @@ export function nhlSeasonId(season: number) {
 }
 
 // Skater keys: G A PPG PPA SHG SHA GWG SOG HIT BLK PIM PM   Goalie keys: W L OTL SO SV GA GS
-export function skaterFromRows(summary: any, realtime: any | undefined): NhlPlayer {
+export function skaterFromRows(summary: any, realtime: any | undefined, shootout?: any): NhlPlayer {
   const pp = num(summary.ppGoals);
   const sh = num(summary.shGoals);
   const code = String(summary.positionCode ?? "");
@@ -119,6 +119,7 @@ export function skaterFromRows(summary: any, realtime: any | undefined): NhlPlay
       BLK: num(realtime?.blockedShots),
       PIM: num(summary.penaltyMinutes),
       PM: num(summary.plusMinus),
+      SG: num(shootout?.shootoutGoals),
     },
   };
 }
@@ -130,7 +131,7 @@ export function goalieFromRow(row: any): NhlPlayer {
     team: String(row.teamAbbrevs ?? ""),
     group: "G",
     gp: num(row.gamesPlayed),
-    stats: { W: num(row.wins), L: num(row.losses), OTL: num(row.otLosses), SO: num(row.shutouts), SV: num(row.saves), GA: num(row.goalsAgainst), GS: num(row.gamesStarted), SA: num(row.shotsAgainst) },
+    stats: { W: num(row.wins), L: num(row.losses), OTL: num(row.otLosses), SO: num(row.shutouts), SV: num(row.saves), GA: num(row.goalsAgainst), GS: num(row.gamesStarted), GP: num(row.gamesPlayed), SA: num(row.shotsAgainst), G: num(row.goals), A: num(row.assists) },
   };
 }
 
@@ -152,12 +153,13 @@ export async function fetchNhlSeason(season: number): Promise<{ skaters: NhlPlay
       return [];
     }
   };
-  const [summary, realtime, goalies] = await Promise.all([safe("skater/summary"), safe("skater/realtime"), safe("goalie/summary")]);
+  const [summary, realtime, goalies, shootout] = await Promise.all([safe("skater/summary"), safe("skater/realtime"), safe("goalie/summary"), safe("skater/shootout")]);
   const rt = new Map(realtime.map((r) => [num(r.playerId), r]));
+  const so = new Map(shootout.map((r) => [num(r.playerId), r]));
   return {
-    skaters: summary.map((s) => skaterFromRows(s, rt.get(num(s.playerId)))),
+    skaters: summary.map((s) => skaterFromRows(s, rt.get(num(s.playerId)), so.get(num(s.playerId)))),
     goalies: goalies.map(goalieFromRow),
-    fieldsSeen: { skaterSummary: Object.keys(summary[0] ?? {}), skaterRealtime: Object.keys(realtime[0] ?? {}), goalieSummary: Object.keys(goalies[0] ?? {}) },
+    fieldsSeen: { skaterSummary: Object.keys(summary[0] ?? {}), skaterRealtime: Object.keys(realtime[0] ?? {}), skaterShootout: Object.keys(shootout[0] ?? {}), goalieSummary: Object.keys(goalies[0] ?? {}) },
     errors,
   };
 }
@@ -194,12 +196,36 @@ export function matchPlayers(fx: FantraxRow[], nhl: NhlPlayer[]) {
     used.add(best.nhlId);
     matched.push({ fx: row, nhl: best });
   }
-  return { matched, unmatched, ambiguous };
+  // Second chance for the leftovers: same position group and last name, a first name that starts the
+  // same way (Sam/Samuel, Matt/Matthew, Will/William), and games played within 3. Only unique answers count.
+  const lastOf = (n: string) => normName(n).split(" ").slice(1).join(" ");
+  const firstOf = (n: string) => normName(n).split(" ")[0] ?? "";
+  const compatible = (a: string, b: string) => {
+    if (!a || !b || a[0] !== b[0]) return false;
+    const n = Math.min(a.length, b.length);
+    let common = 0;
+    while (common < n && a[common] === b[common]) common++;
+    return common >= Math.min(3, n) || (common >= 2 && n <= 4);
+  };
+  const variants: { fantrax: string; nhl: string }[] = [];
+  const still: FantraxRow[] = [];
+  for (const row of unmatched) {
+    const pool = nhl.filter((p) => !used.has(p.nhlId) && p.group === row.group && lastOf(p.name) === lastOf(row.name) && compatible(firstOf(p.name), firstOf(row.name)) && Math.abs(p.gp - row.gp) <= 3);
+    if (pool.length === 1) {
+      used.add(pool[0].nhlId);
+      matched.push({ fx: row, nhl: pool[0] });
+      variants.push({ fantrax: row.name, nhl: pool[0].name });
+    } else still.push(row);
+  }
+  return { matched, unmatched: still, ambiguous, variants };
 }
 
 // ------------------------------------------------------------------ fitting the scoring
-export const SKATER_KEYS = ["G", "A", "PPG", "PPA", "SHG", "SHA", "GWG", "SOG", "HIT", "BLK", "PIM", "PM"];
-export const GOALIE_KEYS = ["W", "L", "OTL", "SO", "SV", "GA"];
+// The categories the 2025 Fantrax league scores (its scoring settings page): skaters get goals, assists,
+// shootout goals, short-handed goals, shots, hits and blocks; goalies get wins, shutouts, saves, goals against,
+// OT + shootout losses, and ALSO their own goals and assists.
+export const SKATER_KEYS = ["G", "A", "SHG", "SG", "SOG", "HIT", "BLK"];
+export const GOALIE_KEYS = ["W", "OTL", "SO", "SV", "GA", "G", "A"];
 
 // Solve the normal equations (X'X + ridge) w = X'y by Gaussian elimination.
 export function leastSquares(X: number[][], y: number[]): number[] {
@@ -245,6 +271,7 @@ export interface Fit {
   r2: number;
   meanAbsError: number;
   within005: number; // share of players predicted to within 0.05 points
+  within05: number; // ... to within half a point
   worst: { name: string; actual: number; predicted: number }[];
 }
 
@@ -273,13 +300,15 @@ export function fitScoring(matches: Match[], keys: string[]): Fit | null {
     r2: Math.round((1 - ssRes / ssTot) * 100000) / 100000,
     meanAbsError: Math.round((err.reduce((a, b) => a + b, 0) / err.length) * 1000) / 1000,
     within005: Math.round((err.filter((e) => e <= 0.05).length / err.length) * 1000) / 1000,
+    within05: Math.round((err.filter((e) => e <= 0.5).length / err.length) * 1000) / 1000,
     worst,
   };
 }
 
 // ESPN-style stat ids, so the existing percentile code can use the imported season unchanged.
-const SKATER_ID: Record<string, string> = { G: "13", A: "14", PM: "15", PIM: "17", PPG: "18", PPA: "19", SHG: "20", SHA: "21", GWG: "22", SOG: "29", HIT: "31", BLK: "32" };
-const GOALIE_ID: Record<string, string> = { W: "1", L: "2", SA: "3", GA: "4", SV: "6", SO: "7", OTL: "9", GS: "0" };
+const SKATER_ID: Record<string, string> = { G: "13", A: "14", PM: "15", PIM: "17", PPG: "18", PPA: "19", SHG: "20", SHA: "21", GWG: "22", SOG: "29", HIT: "31", BLK: "32", SG: "900" };
+// A goalie's own goals and assists use ids 913 / 914 so they stay separate from the skater categories.
+const GOALIE_ID: Record<string, string> = { W: "1", L: "2", SA: "3", GA: "4", SV: "6", SO: "7", OTL: "9", GS: "0", GP: "34", G: "913", A: "914" };
 
 export function toEspnStats(p: NhlPlayer): Record<string, number> {
   const out: Record<string, number> = { "34": p.gp };
@@ -305,7 +334,7 @@ export function toScoringItems(weights: Record<string, number>, group: "skater" 
     return items;
   }
   const add = (statId: number, points: number) => points && items.push({ statId, points });
-  for (const k of ["G", "A", "PM", "PIM", "GWG", "SOG", "HIT", "BLK"]) add(Number(SKATER_ID[k]), weights[k] ?? 0);
+  for (const k of ["G", "A", "PM", "PIM", "GWG", "SOG", "HIT", "BLK", "SG"]) add(Number(SKATER_ID[k]), weights[k] ?? 0);
   // PPG/PPA: a weight on both of them equal to w is a PPP category worth w
   if (Math.abs((weights.PPG ?? 0) - (weights.PPA ?? 0)) < 0.011) add(38, weights.PPG ?? 0);
   else {

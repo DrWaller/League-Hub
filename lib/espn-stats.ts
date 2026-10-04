@@ -112,4 +112,8 @@ export const STAT_META: Record<string, { label: string; goalie?: boolean; rate?:
   "37": { label: "STP" },
   "38": { label: "PPP" },
   "39": { label: "SHP" },
+  // Added for the imported 2025 Fantrax season (ESPN has no ids for these):
+  "900": { label: "SG" }, // shootout goals (skaters)
+  "913": { label: "G", goalie: true }, // a goalie's own goals
+  "914": { label: "A", goalie: true }, // a goalie's own assists
 };

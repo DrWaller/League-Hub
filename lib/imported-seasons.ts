@@ -21,8 +21,9 @@ export interface ImportedPlayer {
 export interface ImportedSeason {
   season: number;
   importedAt: string;
-  scoringItems: { skater: { statId: number; points: number }[]; goalie: { statId: number; points: number }[] };
-  fit: { skaterR2: number | null; goalieR2: number | null };
+  // Forwards and defensemen can be scored differently (your 2025 league paid defensemen more per goal and assist).
+  scoringItems: { forwards: { statId: number; points: number }[]; defensemen: { statId: number; points: number }[]; goalies: { statId: number; points: number }[] };
+  fit: { forwardsR2: number | null; defensemenR2: number | null; goaliesR2: number | null };
   players: ImportedPlayer[];
 }
 

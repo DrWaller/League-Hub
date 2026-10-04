@@ -463,7 +463,11 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   by name + position (games played breaks ties for repeated names like the two Elias Pettersons), and recovers the
   league's scoring rules by least-squares fitting the NHL stats to the real Fantrax points. The report shows the fit
   (share of players within 0.05 points, R2) so it can be checked BEFORE saving. Saving stores one JSON document per
-  season in `imported_seasons`. STAGE 1 (this): import, match, fit, save. STAGE 2 (not built yet): feed saved seasons into
+  season in `imported_seasons`. The 2025 Fantrax league scores: skaters G 2, A 1, shootout goals 0.75, short-handed goals 1, SOG 0.1, hits 0.15, blocks 0.15; goalies W 1.5, SO 1.5,
+  SV 0.1, GA -0.45, OT+shootout losses 0.5, and their OWN goals 2, assists 1, short-handed points 1 (defensemen appear to score G 2.2 / A 1.2 via a position override).
+  The import models exactly those categories (`SKATER_KEYS` / `GOALIE_KEYS`); shootout goals come from the NHL `skater/shootout` report, goalie goals/assists from
+  the goalie summary. Forwards, defensemen and goalies are fitted SEPARATELY (the 2025 league paid defensemen more per goal and assist). Leftover names are
+  matched by last name + a first name that starts the same way (Sam/Samuel) + games played within 3. STAGE 1 (this): import, match, fit, save. STAGE 2 (not built yet): feed saved seasons into
   the previous-season picker, the rank browser and the Radar/Bars cards.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the

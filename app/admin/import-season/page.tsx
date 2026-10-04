@@ -10,6 +10,7 @@ interface Fit {
   r2: number;
   meanAbsError: number;
   within005: number;
+  within05: number;
   worst: { name: string; actual: number; predicted: number }[];
 }
 interface Report {
@@ -19,9 +20,8 @@ interface Report {
   saved: boolean;
   csv: { rows: number; withGames: number; forwards: number; defensemen: number; goalies: number };
   nhl: { skaters: number; goalies: number; errors: string[]; fieldsSeen: Record<string, string[]> };
-  match: { matched: number; unmatched: number; ambiguous: number; gamesPlayedDisagree: number; unmatchedTop: string[]; disagreeTop: string[] };
-  fit: { skaters: Fit | null; goalies: Fit | null; split: { forwards: Fit | null; defensemen: Fit | null } | null };
-  scoring: { skater: { statId: number; points: number }[]; goalie: { statId: number; points: number }[] };
+  match: { matched: number; unmatched: number; ambiguous: number; nameVariants: string[]; gamesPlayedDisagree: number; unmatchedTop: string[]; disagreeTop: string[] };
+  fit: { forwards: Fit | null; defensemen: Fit | null; goalies: Fit | null };
 }
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -33,7 +33,8 @@ const weightsLine = (f: Fit) =>
 
 function FitBlock({ title, fit }: { title: string; fit: Fit | null }) {
   if (!fit) return <p className="text-sm text-muted">{title}: not enough matched players to fit.</p>;
-  const good = fit.within005 >= 0.95;
+  const exact = fit.within005 >= 0.9;
+  const close = fit.within05 >= 0.9;
   return (
     <div className="border border-ice-line bg-white p-4 mb-4">
       <div className="font-display text-lg mb-1">{title}</div>
@@ -41,13 +42,16 @@ function FitBlock({ title, fit }: { title: string; fit: Fit | null }) {
         {fit.n} players matched. Recovered point values: <b>{weightsLine(fit)}</b>
       </p>
       <p className="text-sm mb-2">
-        Fit check: <b className={good ? "text-[#1F7A4D]" : "text-center-red"}>{pct(fit.within005)}</b> of players come out within 0.05 of the real Fantrax points (average miss {fit.meanAbsError}, R&sup2; {fit.r2}).{" "}
-        {good ? "That is a very good match: the scoring rules were recovered." : "That is not a clean match: some scored category is missing from the data, or the scoring differs by position."}
+        Fit check: <b className={exact ? "text-[#1F7A4D]" : close ? "text-rink" : "text-center-red"}>{pct(fit.within005)}</b> of players come out within 0.05 of the real Fantrax points and{" "}
+        <b>{pct(fit.within05)}</b> within half a point (average miss {fit.meanAbsError}, R&sup2; {fit.r2}).{" "}
+        {exact
+          ? "That is an essentially exact match: the scoring rules were recovered."
+          : close
+          ? "That is a close match. Small leftovers are expected, because the hit and block counts Fantrax uses can differ slightly from the NHL's."
+          : "That is not a clean match: a scored category is probably missing from the data, or counted differently."}
       </p>
-      {!good && fit.worst.length > 0 && (
-        <div className="text-xs text-muted">
-          Biggest misses: {fit.worst.map((w) => `${w.name} (real ${w.actual}, ours ${w.predicted})`).join("; ")}
-        </div>
+      {!close && fit.worst.length > 0 && (
+        <div className="text-xs text-muted">Biggest misses: {fit.worst.map((w) => `${w.name} (real ${w.actual}, ours ${w.predicted})`).join("; ")}</div>
       )}
     </div>
   );
@@ -149,6 +153,11 @@ export default function ImportSeasonPage() {
           <div className="border border-ice-line bg-white p-4 mb-4 text-sm">
             <div className="font-display text-lg mb-1">3. Matching the two lists</div>
             <b>{report.match.matched}</b> matched, <b>{report.match.unmatched}</b> not found, {report.match.ambiguous} ambiguous, {report.match.gamesPlayedDisagree} where the games played disagree by more than 3.
+            {report.match.nameVariants.length > 0 && (
+              <div className="mt-2 text-xs text-muted">
+                Matched as the same player despite different spellings ({report.match.nameVariants.length}): {report.match.nameVariants.join("; ")}
+              </div>
+            )}
             {report.match.unmatchedTop.length > 0 && (
               <div className="mt-2 text-xs text-muted">
                 Not found (highest points first): {report.match.unmatchedTop.join("; ")}
@@ -158,13 +167,8 @@ export default function ImportSeasonPage() {
           </div>
 
           <h2 className="font-display text-xl mb-2">4. Your 2025 scoring, recovered from the points</h2>
-          <FitBlock title="Skaters (forwards and defensemen)" fit={report.fit.skaters} />
-          {report.fit.split && (
-            <>
-              <FitBlock title="Forwards only" fit={report.fit.split.forwards} />
-              <FitBlock title="Defensemen only" fit={report.fit.split.defensemen} />
-            </>
-          )}
+          <FitBlock title="Forwards" fit={report.fit.forwards} />
+          <FitBlock title="Defensemen" fit={report.fit.defensemen} />
           <FitBlock title="Goalies" fit={report.fit.goalies} />
         </div>
       )}
