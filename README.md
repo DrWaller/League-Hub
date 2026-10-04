@@ -442,7 +442,9 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
 - **Find by rank** (Player Cards page, `/api/admin/players/ranks`): browse the players in rank order by total
   fantasy points, fantasy points per game, or any scoring category per game (lower-is-better categories
   sort the other way), among all players or just forwards / defensemen / goalies; "Start at rank" jumps
-  to a rank. Only players who meet the minimum games count, like the cards; click a name to pick him.
+  to a rank. A Season dropdown ranks a previous season's final numbers instead (that season's ESPN player
+  list and scoring; choosing a player from it also adds that season's cards). Only players who meet the
+  minimum games count, like the cards; click a name to pick him.
 - **Image caching**: next/og tells browsers to keep every image for a year (`immutable`), which made
   a graphic you had already opened keep showing the old picture even after new stats or a redeploy.
   Every image response now sends `NO_CACHE` (`lib/og-theme.ts`) and the card fetch uses `cache: "no-store"`.
