@@ -71,9 +71,15 @@ export default function PlayerCardsPage() {
   const cards = picked
     ? [
         { title: `Player Radar - ${picked.name}`, url: `/api/admin/graphics/player-radar?playerId=${picked.id}&format=portrait` },
+        { title: `Player Bars - ${picked.name}`, url: `/api/admin/graphics/player-bars?playerId=${picked.id}&format=portrait` },
         { title: `Player Spotlight - ${picked.name} (week ${week})`, url: `/api/admin/graphics/player-spotlight?week=${week}&playerId=${picked.id}&position=any&format=portrait` },
         // A previous season's final radar, as its own card (same layout, labelled with the season).
-        ...(pastSeason ? [{ title: `Player Radar - ${picked.name} (${pastSeason})`, url: `/api/admin/graphics/player-radar?playerId=${picked.id}&season=${pastSeason}&format=portrait` }] : []),
+        ...(pastSeason
+          ? [
+              { title: `Player Radar - ${picked.name} (${pastSeason})`, url: `/api/admin/graphics/player-radar?playerId=${picked.id}&season=${pastSeason}&format=portrait` },
+              { title: `Player Bars - ${picked.name} (${pastSeason})`, url: `/api/admin/graphics/player-bars?playerId=${picked.id}&season=${pastSeason}&format=portrait` },
+            ]
+          : []),
       ]
     : [];
 

@@ -426,6 +426,17 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   defaults to the latest completed week). The card list is the `cards` array in the page,
   so a new player card type is one more entry. Uses the shared `components/GraphicCard.tsx`
   (also used by the Graphics page) and `/api/admin/players/rosters` for the team dropdowns.
+- **Player Bars** (`/api/admin/graphics/player-bars`, portrait only): the same data as the Player
+  Radar drawn like Baseball Savant's percentile panel -- one bar per category on a shared
+  POOR / MEDIAN / GREAT scale, a numbered circle at the end of each bar, the actual per-game value
+  on the right, categories grouped into SCORING / PHYSICAL (or GOALIE), rare stats as season-count
+  tiles. Best for goalies and any league with many categories. Both cards share
+  `lib/player-profile.ts` (`loadProfile`) so they always agree, and take the same parameters
+  (`playerId` or `week`, `season`, `minGames`, `debug`, `caption`). A player below the minimum games is
+  NOT QUALIFIED: the radar dims, the bars are hatched with no percentiles. Colors use a blue (strong) /
+  neutral (median) / coral (weak) scale (`scaleColor` in `lib/radar.ts`), which stays readable with
+  common color blindness unlike red/green. The radar's dashed ring is labelled MEDIAN (it is the 50th
+  percentile of the pool). The Player Cards page shows both cards for a picked player.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

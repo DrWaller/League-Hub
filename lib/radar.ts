@@ -165,3 +165,23 @@ export function pointsComparison(me: PoolPlayer, myGroup: Group, groups: { group
   });
   return { total: line(totalOf), avg: line(avgOf) };
 }
+
+// ---------------------------------------------------------------- color scale for good / bad
+// Blue (strong) <-> neutral (median) <-> coral (weak). Blue/orange is distinguishable with the
+// common kinds of color blindness, unlike red/green. `onDark` picks the version for navy panels.
+const lerp = (a: number[], b: number[], t: number) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+export function scaleColor(pct: number, onDark: boolean): string {
+  const low = onDark ? [255, 138, 122] : [201, 63, 52];
+  const mid = onDark ? [226, 233, 242] : [112, 124, 138];
+  const high = onDark ? [99, 199, 255] : [24, 110, 190];
+  const p = Math.max(0, Math.min(100, pct));
+  const c = p < 50 ? lerp(low, mid, p / 50) : lerp(mid, high, (p - 50) / 50);
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+// Which section of the bars card a category belongs to.
+const PHYSICAL = new Set(["31", "32", "33", "17"]); // HIT, BLK, DEF, PIM
+export function sectionOf(statId: string, group: Group): string {
+  if (group === "G") return "GOALIE";
+  return PHYSICAL.has(statId) ? "PHYSICAL" : "SCORING";
+}

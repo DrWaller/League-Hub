@@ -52,6 +52,11 @@ export default function AdminGraphicsPage() {
       url: `/api/admin/graphics/player-radar?week=${week}${radarPlayer ? `&playerId=${radarPlayer.id}` : ""}`,
       alwaysPortrait: true,
     },
+    {
+      title: radarPlayer ? `Player Bars - ${radarPlayer.name}` : "Player Bars (week's top scorer)",
+      url: `/api/admin/graphics/player-bars?week=${week}${radarPlayer ? `&playerId=${radarPlayer.id}` : ""}`,
+      alwaysPortrait: true,
+    },
     { title: "Standings", url: `/api/admin/graphics/standings?week=${week}${seasonQS}` },
     { title: "Matchup Preview (upcoming week)", url: `/api/admin/graphics/matchup-preview?week=${week}` },
     { title: "Weekly Scoreboard", url: `/api/admin/graphics/scoreboard?week=${week}${seasonQS}` },
