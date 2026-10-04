@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       hasHeadshot,
       axes: p.axes,
       counts: p.counts,
-      chips: [{ label: "GP", value: String(p.me.gp) }],
+      gp: p.me.gp,
       points: p.points,
       positionLabel: p.groupName.toUpperCase(),
       pointsDisplay: ((): "pct" | "rank" | "both" | "rankpct" => {

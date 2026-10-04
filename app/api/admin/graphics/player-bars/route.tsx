@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       group: p.group,
       axes: p.axes,
       counts: p.counts,
-      chips: [{ label: "GP", value: String(p.me.gp) }],
+      gp: p.me.gp,
       points: p.points,
       positionLabel: p.groupName.toUpperCase(),
       note: `Ranked vs ${p.eligible} NHL ${p.groupName} \u00b7 per game \u00b7 ${p.minGP}+ GP`,

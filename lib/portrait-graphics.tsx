@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { ReactNode } from "react";
+import { ReactNode, CSSProperties } from "react";
 import { Team, PowerRankingEntry, Matchup } from "./types";
 import { LuckRow, luckColor, luckExtremes, luckTint } from "./luck";
 import { OG } from "./og-theme";
@@ -62,6 +62,7 @@ export async function frame(opts: {
   footer?: string;
   bold?: boolean; // kept for compatibility; every portrait graphic now uses this one style
   plain?: boolean; // no rink markings behind the content (Player Radar draws its own chart)
+  headerContent?: (f: { display: string; body: string }) => ReactNode; // replaces the title/subtitle/week badge (player cards put the player here)
   body: (f: { display: string; body: string }) => ReactNode;
 }) {
   const fonts = await loadGraphicFonts();
@@ -76,6 +77,7 @@ export async function frame(opts: {
   const titleHasWeek = /week\s+\d+/i.test(headTitle);
   const showBadge = week != null && !titleHasWeek;
   // Shrink long titles so they stay on one line (the badge takes ~210px when shown).
+  const headerStyle: CSSProperties = { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 56px", background: OG.rink, borderBottom: `6px solid ${OG.centerRed}` };
   const titleRoom = 968 - (showBadge ? 210 : 0);
   const titleSize = Math.max(52, Math.min(showBadge ? 76 : 84, Math.floor(titleRoom / (headTitle.length * 0.52))));
   // A plain "Week N" subtitle just repeats the badge: show the week's dates there
@@ -93,7 +95,10 @@ export async function frame(opts: {
         {opts.plain ? null : <div style={{ position: "absolute", left: 490, top: 850, width: 100, height: 100, borderRadius: 50, background: "rgba(18,58,97,0.09)", display: "flex" }} />}
         {/* Explicit width + alignSelf + flexShrink: without them the header can collapse to the
             title's width inside a flex column when rendered on the server. */}
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 56px", background: OG.rink, borderBottom: `6px solid ${OG.centerRed}` }}>
+        {opts.headerContent ? (
+          <div style={headerStyle}>{opts.headerContent({ display, body })}</div>
+        ) : (
+        <div style={headerStyle}>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: titleSize, lineHeight: 1, color: "#FFFFFF", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" }}>
               {headTitle}
@@ -110,6 +115,7 @@ export async function frame(opts: {
             <div style={{ display: "flex", flexShrink: 0, fontFamily: display, fontWeight: 700, fontSize: 28, letterSpacing: 2, color: OG.gold }}>{dates}</div>
           ) : null}
         </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "24px 48px 16px 48px" }}>
           {opts.body({ display, body })}
         </div>

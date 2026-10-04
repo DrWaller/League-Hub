@@ -1,7 +1,6 @@
 import { OG } from "./og-theme";
 import { frame } from "./portrait-graphics";
-import { PlayerAvatar } from "./og-avatar";
-import { headshotUrl } from "./headshots";
+import { PlayerHeader } from "./player-header";
 import { PointsComparison, RadarAxis, Standing, scaleColor } from "./radar";
 
 // Player Radar card (portrait). A hero row (big headshot, name, key totals), then
@@ -16,11 +15,11 @@ const SOFT = "#9FB6CD";
 const pctOnLight = (pct: number) => scaleColor(pct, false);
 
 const PW = 984; // panel width
-const PH = 680; // panel height
+const PH = 860; // panel height
 const CX = PW / 2;
-const CY = 326;
-const R = 212; // radius of the 100th-percentile ring
-const LABEL_R = 276; // distance of the label centres
+const CY = 412;
+const R = 262; // radius of the 100th-percentile ring
+const LABEL_R = 326; // distance of the label centres
 const LABEL_W = 150;
 const LABEL_H = 80;
 
@@ -93,7 +92,7 @@ export async function renderPortraitRadar(opts: {
   hasHeadshot: boolean;
   axes: RadarAxis[];
   counts?: { label: string; value: string }[]; // rare stats shown as season totals instead of percentiles
-  chips: { label: string; value: string }[];
+  gp: number;
   points?: PointsComparison;
   positionLabel?: string; // column title for the position comparison, e.g. "FORWARDS"
   pointsDisplay?: "pct" | "rank" | "both" | "rankpct"; // default rankpct = rank big + percentile small (no pool size); the others are available via ?pts=
@@ -108,31 +107,14 @@ export async function renderPortraitRadar(opts: {
 
   return frame({
     footer: opts.footer,
-    title: "Player Radar",
-    subtitle: opts.subtitle ?? "Season to date",
+    title: "",
+    subtitle: "",
     plain: true,
+    headerContent: ({ display }) => (
+      <PlayerHeader display={display} playerId={opts.playerId} name={opts.name} position={opts.position} teamName={opts.teamName} hasHeadshot={opts.hasHeadshot} subtitle={opts.subtitle ?? "Season to date"} gp={opts.gp} notQualified={opts.smallSample} />
+    ),
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16 }}>
-        {/* hero */}
-        <div style={{ display: "flex", alignItems: "center", gap: 28, height: 176, flexShrink: 0 }}>
-          <PlayerAvatar name={opts.name} src={headshotUrl(opts.playerId)} hasHeadshot={opts.hasHeadshot} size={168} fontFamily={display} fontSize={58} border={`7px solid ${GOLD}`} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-            <div style={{ display: "flex", fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1.04, color: OG.board, maxWidth: 760, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.name}</div>
-            <div style={{ display: "flex", fontSize: 30, color: OG.muted, maxWidth: 740, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.teamName ? `${opts.position} \u00b7 ${opts.teamName}` : opts.position}</div>
-            <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-              {opts.chips.map((c) => (
-                <div key={c.label} style={{ display: "flex", alignItems: "baseline", gap: 8, background: OG.rink, borderRadius: 10, padding: "6px 16px" }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 34, fontWeight: 700, lineHeight: 1.1, color: "#FFFFFF" }}>{c.value}</div>
-                  <div style={{ display: "flex", fontSize: 19, fontWeight: 600, letterSpacing: 1, color: "#C9D6E6" }}>{c.label}</div>
-                </div>
-              ))}
-              {opts.smallSample ? (
-                <div style={{ display: "flex", alignItems: "center", background: "#FFF1CF", border: `2px solid ${GOLD}`, borderRadius: 10, padding: "6px 14px", fontSize: 19, fontWeight: 700, letterSpacing: 1, color: OG.goldText }}>{opts.smallSample}</div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
         {opts.points ? <PointsTable points={opts.points} positionLabel={opts.positionLabel} display={display} mode={mode} /> : null}
 
         {/* radar panel */}

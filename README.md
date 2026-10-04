@@ -437,6 +437,8 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   neutral (median) / coral (weak) scale (`scaleColor` in `lib/radar.ts`), which stays readable with
   common color blindness unlike red/green. The radar's dashed ring is labelled MEDIAN (it is the 50th
   percentile of the pool). The Player Cards page shows both cards for a picked player.
+  The header band of both cards is the PLAYER (photo, name, position/team, games played; the shared
+  `lib/player-header.tsx`, passed to `frame()` as `headerContent`) rather than a card-type title.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

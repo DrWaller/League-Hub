@@ -1,7 +1,6 @@
 import { OG } from "./og-theme";
 import { frame } from "./portrait-graphics";
-import { PlayerAvatar } from "./og-avatar";
-import { headshotUrl } from "./headshots";
+import { PlayerHeader } from "./player-header";
 import { Group, PointsComparison, RadarAxis, scaleColor, sectionOf } from "./radar";
 import { PointsTable, formatValue } from "./radar-image";
 
@@ -41,7 +40,7 @@ export async function renderPortraitBars(opts: {
   group: Group;
   axes: RadarAxis[];
   counts?: { label: string; value: string }[];
-  chips: { label: string; value: string }[];
+  gp: number;
   points?: PointsComparison;
   positionLabel?: string;
   pointsDisplay?: "pct" | "rank" | "both" | "rankpct";
@@ -61,39 +60,24 @@ export async function renderPortraitBars(opts: {
     else sections.push({ name, axes: [a] });
   }
 
-  // Row height from the space left in the panel.
-  const PANEL_H = opts.points ? 700 : 850;
-  const fixed = 34 /* scale labels */ + sections.length * 40 + (counts.length ? 66 : 0) + (qualified ? 0 : 52) + 34 /* note */ + 30 /* padding */;
-  const rowH = Math.max(46, Math.min(84, Math.floor((PANEL_H - fixed) / Math.max(1, opts.axes.length))));
-  const barH = Math.round(rowH * 0.58);
+  // Row height from the space available; a card with few rows (goalies) gets bigger rows and a
+  // shorter panel, and the stack is centered on the card instead of leaving gaps inside the panel.
+  const PANEL_MAX = opts.points ? 870 : 1020;
+  const fixed = 34 /* scale labels */ + sections.length * 40 + (counts.length ? 66 : 0) + (qualified ? 0 : 52) + 34 /* note */ + 34 /* padding */;
+  const rowH = Math.max(46, Math.min(116, Math.floor((PANEL_MAX - fixed) / Math.max(1, opts.axes.length))));
+  const PANEL_H = Math.min(PANEL_MAX, fixed + opts.axes.length * rowH + 10);
+  const barH = Math.min(56, Math.round(rowH * 0.56));
 
   return frame({
     footer: opts.footer,
-    title: "Player Bars",
-    subtitle: opts.subtitle ?? "Season to date",
+    title: "",
+    subtitle: "",
     plain: true,
+    headerContent: ({ display }) => (
+      <PlayerHeader display={display} playerId={opts.playerId} name={opts.name} position={opts.position} teamName={opts.teamName} hasHeadshot={opts.hasHeadshot} subtitle={opts.subtitle ?? "Season to date"} gp={opts.gp} notQualified={opts.smallSample} />
+    ),
     body: ({ display }) => (
-      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16 }}>
-        {/* hero */}
-        <div style={{ display: "flex", alignItems: "center", gap: 26, height: 150, flexShrink: 0 }}>
-          <PlayerAvatar name={opts.name} src={headshotUrl(opts.playerId)} hasHeadshot={opts.hasHeadshot} size={140} fontFamily={display} fontSize={50} border={`6px solid ${GOLD}`} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-            <div style={{ display: "flex", fontFamily: display, fontSize: 54, fontWeight: 700, lineHeight: 1.04, color: OG.board, maxWidth: 780, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.name}</div>
-            <div style={{ display: "flex", fontSize: 28, color: OG.muted, maxWidth: 780, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.teamName ? `${opts.position} \u00b7 ${opts.teamName}` : opts.position}</div>
-            <div style={{ display: "flex", gap: 12, marginTop: 2 }}>
-              {opts.chips.map((c) => (
-                <div key={c.label} style={{ display: "flex", alignItems: "baseline", gap: 8, background: OG.rink, borderRadius: 10, padding: "4px 16px" }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 32, fontWeight: 700, lineHeight: 1.1, color: "#FFFFFF" }}>{c.value}</div>
-                  <div style={{ display: "flex", fontSize: 19, fontWeight: 600, letterSpacing: 1, color: "#C9D6E6" }}>{c.label}</div>
-                </div>
-              ))}
-              {opts.smallSample ? (
-                <div style={{ display: "flex", alignItems: "center", background: "#FFF1CF", border: `2px solid ${GOLD}`, borderRadius: 10, padding: "4px 14px", fontSize: 19, fontWeight: 700, letterSpacing: 1, color: OG.goldText }}>{opts.smallSample}</div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16, justifyContent: "center" }}>
         {opts.points ? <PointsTable points={opts.points} positionLabel={opts.positionLabel} display={display} mode={opts.pointsDisplay ?? "rankpct"} /> : null}
 
         {/* the bars panel */}
