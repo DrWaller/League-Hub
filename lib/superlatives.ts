@@ -7,7 +7,7 @@
 // /api/admin/draft-sheet-import?run=1 has been run.
 
 import { sql } from "@/lib/db";
-import { SheetMap, pickSheet } from "@/lib/player-sheet";
+import { SheetMap, pickSheet, loadSheetMap, sheetLoadError } from "@/lib/player-sheet";
 
 export interface PickRow {
   overall_pick: number;
@@ -34,13 +34,18 @@ export async function loadPicks(season: number, source = "espn"): Promise<PickRo
     FROM draft_picks WHERE season = ${season} AND source = ${source}
     ORDER BY overall_pick;
   `;
-  return rows as unknown as PickRow[];
+  const picks = rows as unknown as PickRow[];
+  // Attach the projections-sheet data so any caller of loadPicks gets it,
+  // without needing to pass it along separately.
+  (picks as any).__sheet = await loadSheetMap();
+  return picks;
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const ord = (n: number) => `pick #${n}`;
 
-export function computeSuperlatives(all: PickRow[], sheet?: SheetMap) {
+export function computeSuperlatives(all: PickRow[], sheetArg?: SheetMap) {
+  const sheet: SheetMap | undefined = sheetArg && sheetArg.size > 0 ? sheetArg : (all as any).__sheet;
   const teamIds = Array.from(new Set(all.map((p) => p.team_id))).sort((a, b) => a - b);
 
   const teams = teamIds.map((id) => {
@@ -205,6 +210,7 @@ export function computeSuperlatives(all: PickRow[], sheet?: SheetMap) {
     youthMovement,
     mostHitsBlocks,
     sheetImported: sheetReady,
+    sheetDebug: { sheetPlayersLoaded: sheet ? Array.from(sheet.values()).reduce((t, l) => t + l.length, 0) : 0, loadError: sheetLoadError() },
     autoDraft,
     teams: teams.map((t) => ({
       manager: t.manager,

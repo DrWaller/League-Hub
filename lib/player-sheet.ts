@@ -66,16 +66,35 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-export async function fetchSheetRows(): Promise<string[][]> {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_TAB)}`;
-  const res = await fetch(url, { cache: "no-store", redirect: "follow" });
-  const text = await res.text();
-  if (!res.ok || text.trimStart().startsWith("<")) {
-    throw new Error(
-      `Could not read the sheet as CSV (HTTP ${res.status}). Set sharing to "Anyone with the link can view", or export the "${SHEET_TAB}" tab and send it to me.`
-    );
+// gid of the "The List" tab in Dom's sheet. A copy of the sheet normally keeps it.
+export const SHEET_GID = 1396113004;
+
+async function getCsv(url: string): Promise<string[][] | string> {
+  try {
+    const res = await fetch(url, { cache: "no-store", redirect: "follow" });
+    const text = await res.text();
+    if (!res.ok || text.trimStart().startsWith("<")) return `HTTP ${res.status} (not readable as CSV; check sharing)`;
+    return parseCsv(text);
+  } catch (e) {
+    return String(e instanceof Error ? e.message : e).slice(0, 120);
   }
-  return parseCsv(text);
+}
+
+// The tab has a saved filter that hides rows marked KEEP? = Y. The gviz CSV
+// leaves those rows out, so we also read the plain export and merge both:
+// whichever includes the hidden rows wins. If neither does, make a copy of
+// the sheet, remove the filter (Data > Remove filter), share it, and pass
+// ?sheet=<copy id> to the import route.
+export async function fetchSheetRows(sheetId = SHEET_ID): Promise<{ rows: string[][]; info: Record<string, unknown> }> {
+  const g = await getCsv(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_TAB)}`);
+  const e = await getCsv(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${SHEET_GID}`);
+  const info = { gvizRows: Array.isArray(g) ? g.length : g, exportRows: Array.isArray(e) ? e.length : e };
+  const lists = [g, e].filter(Array.isArray) as string[][][];
+  if (lists.length === 0) {
+    throw new Error(`Could not read the sheet as CSV (${JSON.stringify(info)}). Set sharing to "Anyone with the link can view", or send me an export of the "${SHEET_TAB}" tab.`);
+  }
+  const [first, ...rest] = lists;
+  return { rows: [...first, ...rest.flatMap((r) => r.slice(1))], info };
 }
 
 const num = (s: string | undefined) => {
@@ -166,6 +185,9 @@ export async function storeSheetPlayers(players: SheetPlayer[]) {
 
 export type SheetMap = Map<string, SheetPlayer[]>;
 
+let lastLoadError: string | null = null;
+export const sheetLoadError = () => lastLoadError;
+
 export async function loadSheetMap(): Promise<SheetMap> {
   const map: SheetMap = new Map();
   try {
@@ -177,8 +199,9 @@ export async function loadSheetMap(): Promise<SheetMap> {
       list.push(p);
       map.set(p.name_key, list);
     }
-  } catch {
-    /* table missing or unreadable: callers just get an empty map */
+  } catch (e) {
+    // Table missing or unreadable: callers get an empty map; the reason is kept for diagnostics.
+    lastLoadError = String(e instanceof Error ? e.message : e).slice(0, 200);
   }
   return map;
 }
