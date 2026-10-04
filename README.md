@@ -448,6 +448,14 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
 - **Image caching**: next/og tells browsers to keep every image for a year (`immutable`), which made
   a graphic you had already opened keep showing the old picture even after new stats or a redeploy.
   Every image response now sends `NO_CACHE` (`lib/og-theme.ts`) and the card fetch uses `cache: "no-store"`.
+- **Public Player Cards** (`/players`, in the main nav): the same Player Cards page without the commissioner
+  login: search a player, pick from a team, browse rankings, previous seasons; Radar, Bars and the weekly
+  Spotlight. The page is `components/PlayerCardsBrowser.tsx`, shared with the admin page (props choose the
+  endpoints). The public endpoints are `/api/cards/*` (images) and `/api/players/*` (search, rosters,
+  ranks, seasons): thin wrappers around the admin handlers (`lib/public-cards.ts`), so the two can't
+  drift apart. Because anyone can open them: answers are cached on Vercel's CDN for 15 minutes, `debug`
+  is refused, errors aren't cached, and setting the environment variable `PUBLIC_PLAYER_CARDS=off`
+  switches the public cards off (404) without touching the admin ones.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

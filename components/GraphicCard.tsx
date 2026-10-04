@@ -11,7 +11,7 @@ type State =
 // answers with an error instead of a picture -- "no final matchups yet",
 // "ESPN isn't connected", a crash -- the actual message shows up here
 // instead of a blank broken-image icon.
-export default function GraphicCard({ title, url, portrait }: { title: string; url: string; portrait?: boolean }) {
+export default function GraphicCard({ title, url, portrait, fresh = true }: { title: string; url: string; portrait?: boolean; fresh?: boolean }) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [copied, setCopied] = useState<"idle" | "ok" | "error">("idle");
 
@@ -33,7 +33,7 @@ export default function GraphicCard({ title, url, portrait }: { title: string; u
     let objectUrl: string | null = null;
     setState({ status: "loading" });
 
-    fetch(url, { cache: "no-store" })
+    fetch(url, fresh ? { cache: "no-store" } : undefined)
       .then(async (res) => {
         const type = res.headers.get("content-type") || "";
         if (res.ok && type.startsWith("image/")) {

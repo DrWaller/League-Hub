@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/matchups", label: "Matchups" },
   { href: "/rosters", label: "Rosters" },
   { href: "/power-rankings", label: "Power Rankings" },
+  { href: "/players", label: "Players" },
   { href: "/awards", label: "Awards" },
   { href: "/newsletter", label: "Newsletter" },
   { href: "/keepers", label: "Keepers" },
