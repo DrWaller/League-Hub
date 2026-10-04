@@ -100,19 +100,38 @@ export async function GET(req: NextRequest) {
   const chunks: number[][] = [];
   for (let i = 0; i < ids.length; i += 60) chunks.push(ids.slice(i, i + 60));
 
-  const playerResults = await Promise.all(
-    chunks.map((chunk) =>
-      getJson(`${base(season)}?view=kona_player_info`, {
-        "x-fantasy-filter": JSON.stringify({
-          players: {
-            filterIds: { value: chunk },
-            filterStatus: { value: ["FREEAGENT", "WAIVERS", "ONTEAM"] },
-            limit: chunk.length,
-          },
-        }),
-      })
-    )
-  );
+  // ESPN rejects "limit" without a sort, so every shape carries one. Shapes are
+  // tried in order per chunk; the first that works wins and is reported.
+  const statsFilter = { filterStatsForTopScoringPeriodIds: { value: 5, additionalValue: [`00${season - 1}`, `00${season}`] } };
+  const shapesFor = (chunk: number[]) => [
+    {
+      name: "ids + percOwned sort + stats",
+      filter: { players: { filterIds: { value: chunk }, filterStatus: { value: ["FREEAGENT", "WAIVERS", "ONTEAM"] }, ...statsFilter, sortPercOwned: { sortPriority: 1, sortAsc: false }, limit: chunk.length } },
+    },
+    {
+      name: "ids + percOwned sort",
+      filter: { players: { filterIds: { value: chunk }, filterStatus: { value: ["FREEAGENT", "WAIVERS", "ONTEAM"] }, sortPercOwned: { sortPriority: 1, sortAsc: false }, limit: chunk.length } },
+    },
+    {
+      name: "ids + draftRanks sort",
+      filter: { players: { filterIds: { value: chunk }, filterStatus: { value: ["FREEAGENT", "WAIVERS", "ONTEAM"] }, sortDraftRanks: { sortPriority: 1, sortAsc: true, value: "STANDARD" }, limit: chunk.length } },
+    },
+  ];
+
+  const shapeUsed: string[] = [];
+  const playerResults: any[] = [];
+  for (const chunk of chunks) {
+    let last: any = null;
+    for (const sh of shapesFor(chunk)) {
+      const r: any = await getJson(`${base(season)}?view=kona_player_info`, { "x-fantasy-filter": JSON.stringify(sh.filter) });
+      last = r;
+      if (r.ok) {
+        shapeUsed.push(sh.name);
+        break;
+      }
+    }
+    playerResults.push(last);
+  }
 
   const playerErrors = playerResults.filter((r) => !r.ok).map((r: any) => ({ status: r.status, error: r.error }));
   const rawEntries: any[] = playerResults.flatMap((r: any) => (r.ok ? r.data?.players ?? [] : []));
@@ -207,6 +226,8 @@ export async function GET(req: NextRequest) {
       playersReturned: byId.size,
       withOwnershipObject: ownershipPresent,
       withPositiveAverageDraftPosition: adpPopulated,
+      shapeUsedPerChunk: shapeUsed,
+      withLastSeasonStatLine: Array.from(byId.values()).filter(({ pl }) => (pl.stats ?? []).some((x: any) => String(x.id) === `00${season - 1}` && x.statSourceId === 0)).length,
       playerPoolErrors: playerErrors,
     },
     playerSamples: samples,
