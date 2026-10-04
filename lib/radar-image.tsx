@@ -2,7 +2,7 @@ import { OG } from "./og-theme";
 import { frame } from "./portrait-graphics";
 import { PlayerAvatar } from "./og-avatar";
 import { headshotUrl } from "./headshots";
-import { RadarAxis } from "./radar";
+import { PointsComparison, RadarAxis, Standing } from "./radar";
 
 // Player Radar card (portrait). A hero row (big headshot, name, key totals), then
 // the percentile radar on a navy panel with a
@@ -11,16 +11,18 @@ import { RadarAxis } from "./radar";
 // elements placed around it because Satori doesn't render text inside SVG.
 
 const GOLD = "#E0AE4A";
+const NAVY = "#123A61";
 const GOOD = "#5ED69A"; // on navy
 const BAD = "#FF8195"; // on navy
 const SOFT = "#9FB6CD";
+const pctOnLight = (pct: number) => (pct >= 75 ? "#1F7A4D" : pct <= 25 ? "#C41E3A" : NAVY);
 
 const PW = 984; // panel width
-const PH = 820; // panel height
+const PH = 680; // panel height
 const CX = PW / 2;
-const CY = 392;
-const R = 258; // radius of the 100th-percentile ring
-const LABEL_R = 314; // distance of the label centres
+const CY = 326;
+const R = 212; // radius of the 100th-percentile ring
+const LABEL_R = 276; // distance of the label centres
 const LABEL_W = 150;
 const LABEL_H = 80;
 
@@ -54,11 +56,16 @@ export async function renderPortraitRadar(opts: {
   axes: RadarAxis[];
   counts?: { label: string; value: string }[]; // rare stats shown as season totals instead of percentiles
   chips: { label: string; value: string }[];
+  points?: PointsComparison;
+  positionLabel?: string; // column title for the position comparison, e.g. "FORWARDS"
+  pointsDisplay?: "pct" | "rank" | "both" | "rankpct"; // default rankpct = rank big + percentile small (no pool size); the others are available via ?pts=
   note: string; // e.g. "Ranked vs 312 NHL forwards - per game - min 3 GP"
   smallSample?: string; // e.g. "SMALL SAMPLE - 2 GP"
 }) {
   const { axes } = opts;
   const n = axes.length;
+  const mode = opts.pointsDisplay ?? "rankpct";
+  const modeName = mode === "rank" ? "RANK" : mode === "both" ? "PCTL / RANK" : mode === "rankpct" ? "RANK / PCTL" : "PERCENTILE";
 
   return frame({
     footer: opts.footer,
@@ -66,12 +73,12 @@ export async function renderPortraitRadar(opts: {
     subtitle: opts.subtitle ?? "Season to date",
     plain: true,
     body: ({ display }) => (
-      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16 }}>
         {/* hero */}
-        <div style={{ display: "flex", alignItems: "center", gap: 30, height: 204, flexShrink: 0 }}>
-          <PlayerAvatar name={opts.name} src={headshotUrl(opts.playerId)} hasHeadshot={opts.hasHeadshot} size={196} fontFamily={display} fontSize={68} border={`7px solid ${GOLD}`} />
+        <div style={{ display: "flex", alignItems: "center", gap: 28, height: 176, flexShrink: 0 }}>
+          <PlayerAvatar name={opts.name} src={headshotUrl(opts.playerId)} hasHeadshot={opts.hasHeadshot} size={168} fontFamily={display} fontSize={58} border={`7px solid ${GOLD}`} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-            <div style={{ display: "flex", fontFamily: display, fontSize: 62, fontWeight: 700, lineHeight: 1.04, color: OG.board, maxWidth: 740, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.name}</div>
+            <div style={{ display: "flex", fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1.04, color: OG.board, maxWidth: 760, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.name}</div>
             <div style={{ display: "flex", fontSize: 30, color: OG.muted, maxWidth: 740, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{opts.teamName ? `${opts.position} \u00b7 ${opts.teamName}` : opts.position}</div>
             <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
               {opts.chips.map((c) => (
@@ -86,6 +93,42 @@ export async function renderPortraitRadar(opts: {
             </div>
           </div>
         </div>
+
+        {/* fantasy points: the totals lead; the comparison is a smaller supporting number */}
+        {opts.points ? (
+          <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, background: "#FFFFFF", border: "1px solid #BCD5EA", borderRadius: 14, boxShadow: "0 6px 16px rgba(18,58,97,0.10)" }}>
+            <div style={{ display: "flex", alignItems: "center", height: 30, padding: "0 20px", borderBottom: "1px solid #BCD5EA" }}>
+              <div style={{ display: "flex", width: 330, fontFamily: display, fontSize: 16, fontWeight: 700, letterSpacing: 3, color: OG.muted }}>FANTASY POINTS</div>
+              <div style={{ display: "flex", flex: 1, fontFamily: display, fontSize: 16, fontWeight: 700, letterSpacing: 2, color: OG.muted }}>{`ALL PLAYERS \u00b7 ${modeName}`}</div>
+              <div style={{ display: "flex", flex: 1, fontFamily: display, fontSize: 16, fontWeight: 700, letterSpacing: 2, color: OG.muted }}>{`${opts.positionLabel ?? "POSITION"} \u00b7 ${modeName}`}</div>
+            </div>
+            {[
+              { name: "TOTAL", line: opts.points.total, fmt: (v: number) => v.toFixed(1) },
+              { name: "AVG / GAME", line: opts.points.avg, fmt: (v: number) => v.toFixed(2) },
+            ].map((r, i) => (
+              <div key={r.name} style={{ display: "flex", alignItems: "center", height: 60, padding: "0 20px", borderTop: i === 0 ? "none" : "1px solid #E1ECF6" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, width: 330 }}>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 50, fontWeight: 700, color: NAVY, lineHeight: 1 }}>{r.fmt(r.line.value)}</div>
+                  <div style={{ display: "flex", fontSize: 20, fontWeight: 600, letterSpacing: 1, color: OG.muted }}>{r.name}</div>
+                </div>
+                {[r.line.all, r.line.position].map((st: Standing, k) => (
+                  <div key={k} style={{ display: "flex", flex: 1, alignItems: "baseline", gap: 8 }}>
+                    {mode === "rank" || mode === "rankpct" ? (
+                      <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, lineHeight: 1, color: "#3F5E7D" }}>{`#${st.rank}`}</div>
+                    ) : (
+                      <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, lineHeight: 1, color: pctOnLight(st.pct) }}>{String(Math.round(st.pct))}</div>
+                    )}
+                    {mode === "pct" ? null : mode === "rankpct" ? (
+                      <div style={{ display: "flex", fontSize: 20, fontWeight: 700, color: pctOnLight(st.pct) }}>{`${Math.round(st.pct)}th pct`}</div>
+                    ) : (
+                      <div style={{ display: "flex", fontSize: 18, color: OG.muted }}>{mode === "rank" ? `of ${st.of}` : `#${st.rank} of ${st.of}`}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {/* radar panel */}
         <div style={{ display: "flex", position: "relative", width: PW, height: PH, flexShrink: 0, borderRadius: 26, backgroundImage: "linear-gradient(160deg, #16406B 0%, #0C2740 100%)", overflow: "hidden" }}>
@@ -127,7 +170,7 @@ export async function renderPortraitRadar(opts: {
               </div>
             );
           })}
-          <div style={{ position: "absolute", left: 0, bottom: 16, width: PW, display: "flex", justifyContent: "center", fontSize: 21, color: SOFT }}>{opts.note}</div>
+          <div style={{ position: "absolute", left: 0, bottom: 10, width: PW, display: "flex", justifyContent: "center", fontSize: 21, color: SOFT }}>{opts.note}</div>
         </div>
       </div>
     ),

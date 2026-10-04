@@ -126,3 +126,42 @@ export function buildRadar(me: PoolPlayer, pool: PoolPlayer[], cats: Category[],
   });
   return { axes, eligible: eligible.length };
 }
+
+// ---------------------------------------------------------------- fantasy points: total and per game
+export interface Standing {
+  pct: number; // 0-100 percentile (share of the pool he beats, ties count half)
+  rank: number; // 1 = best
+  of: number; // how many players he is ranked among
+}
+export interface PointsLine {
+  value: number;
+  all: Standing; // vs every eligible NHL player (forwards, defensemen and goalies together)
+  position: Standing; // vs eligible players in his own group
+}
+export interface PointsComparison {
+  total: PointsLine; // season fantasy points
+  avg: PointsLine; // fantasy points per game played
+}
+
+const standing = (value: number, values: number[]): Standing => ({
+  pct: percentileOf(value, values, true, false),
+  rank: 1 + values.filter((x) => x > value).length,
+  of: values.length,
+});
+
+// Fantasy points use the league's own scoring, so unlike the category radar they CAN
+// be compared across positions. Each group applies its own minimum-games cutoff.
+export function pointsComparison(me: PoolPlayer, myGroup: Group, groups: { group: Group; pool: PoolPlayer[]; minGP: number }[]): PointsComparison {
+  const eligibleOf = (g: { pool: PoolPlayer[]; minGP: number }) => g.pool.filter((p) => p.gp >= g.minGP);
+  const mine = groups.find((g) => g.group === myGroup);
+  const posPool = mine ? eligibleOf(mine) : [];
+  const allPool = groups.flatMap(eligibleOf);
+  const totalOf = (p: PoolPlayer) => p.appliedTotal;
+  const avgOf = (p: PoolPlayer) => (p.gp > 0 ? p.appliedTotal / p.gp : 0);
+  const line = (f: (p: PoolPlayer) => number): PointsLine => ({
+    value: f(me),
+    all: standing(f(me), allPool.map(f)),
+    position: standing(f(me), posPool.map(f)),
+  });
+  return { total: line(totalOf), avg: line(avgOf) };
+}

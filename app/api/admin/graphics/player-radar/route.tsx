@@ -11,7 +11,7 @@ import {
   getWeeklyPlayerStats,
 } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
-import { buildRadar, categoriesFor, groupOfPositionId, GROUP_NAME, minGamesFor, POSITION_LABEL, seasonCount, splitRare, type Group, type PoolPlayer } from "@/lib/radar";
+import { buildRadar, categoriesFor, groupOfPositionId, GROUP_NAME, minGamesFor, pointsComparison, POSITION_LABEL, seasonCount, splitRare, type Group, type PoolPlayer } from "@/lib/radar";
 import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { renderPortraitRadar } from "@/lib/radar-image";
 import { seasonFooter } from "@/lib/portrait-graphics";
@@ -94,6 +94,15 @@ export async function GET(req: NextRequest) {
     // 4. Percentiles.
     const minGP = minGamesFor(pool, Number(params.get("minGames")) || undefined, isPast ? 20 : 15);
     const { axes, eligible } = buildRadar(me, pool, cats, minGP);
+
+    // Fantasy points (total and per game) vs every NHL player and vs his own group.
+    const others = (["F", "D", "G"] as Group[]).filter((g) => g !== group);
+    const otherPools = await Promise.all(others.map((g) => getPlayerPool(g, season)));
+    const overrideGP = Number(params.get("minGames")) || undefined;
+    const points = pointsComparison(me, group, [
+      { group, pool, minGP },
+      ...others.map((g, i) => ({ group: g, pool: otherPools[i], minGP: minGamesFor(otherPools[i], overrideGP, isPast ? 20 : 15) })),
+    ]);
     if (eligible === 0) return new Response(`Nobody has played ${minGP} games yet, so there is nothing to rank against. Try &minGames=1.`, { status: 400 });
 
     if (params.get("debug")) {
@@ -108,6 +117,7 @@ export async function GET(req: NextRequest) {
         rareAsCounts: countCats.map((c) => ({ label: c.label, total: seasonCount(me!, c) })),
         scoringItems: items,
         axes,
+        points,
         rawStats: me.stats,
       });
     }
@@ -143,7 +153,7 @@ export async function GET(req: NextRequest) {
           lines,
           ...(counts ? ["", `Season totals: ${counts}`] : []),
           "",
-          `${me.gp} GP, ${me.appliedTotal.toFixed(1)} fantasy pts`,
+          `${me.gp} GP | ${points.total.value.toFixed(1)} fantasy pts (${Math.round(points.total.all.pct)}th pct of all players, ${Math.round(points.total.position.pct)}th of ${groupName}) | ${points.avg.value.toFixed(2)} per game (${Math.round(points.avg.all.pct)}th of all, ${Math.round(points.avg.position.pct)}th of ${groupName})`,
           "",
           "#FantasyHockey",
         ].join("\n")
@@ -161,11 +171,13 @@ export async function GET(req: NextRequest) {
       hasHeadshot: headshots.has(me.id),
       axes,
       counts: countCats.map((c) => ({ label: c.label, value: String(seasonCount(me!, c)) })),
-      chips: [
-        { label: "GP", value: String(me.gp) },
-        { label: "FANTASY PTS", value: me.appliedTotal.toFixed(1) },
-        { label: "PTS/GP", value: me.gp > 0 ? (me.appliedTotal / me.gp).toFixed(1) : "-" },
-      ],
+      chips: [{ label: "GP", value: String(me.gp) }],
+      points,
+      positionLabel: groupName.toUpperCase(),
+      pointsDisplay: ((): "pct" | "rank" | "both" | "rankpct" => {
+        const v = params.get("pts");
+        return v === "pct" || v === "rank" || v === "both" ? v : "rankpct";
+      })(),
       note: `Ranked vs ${eligible} NHL ${groupName} \u00b7 per game \u00b7 ${minGP}+ GP \u00b7 dashed ring = average`,
       smallSample: small ? `SMALL SAMPLE \u00b7 ${me.gp} GP` : undefined,
     });

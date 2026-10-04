@@ -413,6 +413,13 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   season: add `&season=YYYY` (needs `&playerId=`): uses that season's ESPN player list and
   scoring settings, minimum games capped at 20, labelled with the season. The Player Cards
   page has an "Add a previous season" picker (`/api/admin/players/seasons`).
+  Fantasy points table (total and per game): each shown as a percentile (big) with the rank
+  beside it, vs ALL players (forwards + defensemen + goalies together; fantasy points use the
+  league's own scoring so they compare across positions) and vs his own group. Each group
+  applies its own minimum-games cutoff. `pointsComparison` in `lib/radar.ts`; the `points`
+  block of `&debug=1` shows the numbers. The totals are the big numbers; beside each is the rank
+  (larger) and the percentile (smaller), e.g. "#24  96th pct" -- no pool size shown. Other layouts
+  exist behind `&pts=pct|rank|both` (percentile only, rank only, percentile big + rank small).
 - **Player Cards** (`/admin/player-cards`): pick one player (search any NHL player by
   name, or choose a fantasy team and then a player from its roster) and every card for
   that player is generated: Player Radar and the weekly Player Spotlight (week box
