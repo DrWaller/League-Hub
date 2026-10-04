@@ -479,6 +479,14 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
 - **Two decimals, always**: every fantasy-points value (player points, team scores, PF/PA, medians, margins, in the
   graphics, captions, admin forms and public pages) is shown with two decimals (62.60, 1,851.05). Use `pts()` / `ptsComma()`
   from `lib/format.ts` for new screens instead of rounding by hand. Percentages and per-game stat rates are not points.
+- **Navigation and home page**: the top bar is grouped instead of 12 flat links -- Season (Standings, Matchups, Rosters, Power
+  Rankings), Players, League (Awards, Newsletter, Keepers, Managers), History (League History, Records); the wordmark is the Home
+  link. Menus open on hover or click, close on Escape / click-away / navigating, and the section you're in is underlined; on a
+  phone they become labelled groups (`components/Nav.tsx`, edit the `NAV` list to change it). The home page no longer repeats
+  the nav as button cards: under the hero it shows this week's full scoreboard, a power rankings top 6 with movement arrows, and
+  "Players of the Week" (top 3 scorers of the latest completed week plus the radar card for the best one, from the public
+  `/api/cards/player-radar`). That last section streams in (`<Suspense>`) so a slow ESPN call never delays the page, and it
+  simply disappears if its data or image can't load. Sections with no data yet (before Week 1 is final) are skipped.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

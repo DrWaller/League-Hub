@@ -1,18 +1,26 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
 import { getTeamLogos } from "@/lib/content";
 import TeamLogo from "@/components/TeamLogo";
-import { pts, ptsComma } from "@/lib/format";
+import PlayersOfTheWeek from "@/components/PlayersOfTheWeek";
+import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
+import { regularSeasonFinals } from "@/lib/luck";
+import { pts } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [{ teams, live }, meta, logos] = await Promise.all([
+  const [{ teams, live }, meta, logos, all] = await Promise.all([
     getStandings(),
     getLeagueMeta(),
     getTeamLogos(),
+    getMatchups(), // every week: this week's games, plus what the power rankings and "players of the week" need
   ]);
-  const { matchups } = await getMatchups(meta.currentWeek);
+  const matchups = all.matchups.filter((m) => m.week === meta.currentWeek);
+  const latestFinalWeek = regularSeasonFinals(all.matchups).reduce((max, m) => Math.max(max, m.week), 0);
+  const power = latestFinalWeek > 0 ? calculatePowerRankingsWithMovement(teams, all.matchups) : null;
+  const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name])) as Record<number, string>;
 
   const top3 = teams.slice(0, 3);
   const marquee = matchups[0];
@@ -67,7 +75,12 @@ export default async function HomePage() {
             )}
           </div>
           <div className="bg-rink-deep p-8 md:p-10">
-            <p className="font-body text-sm text-ice/70 mb-4">Top of the Standings</p>
+            <div className="flex items-baseline justify-between mb-4">
+              <p className="font-body text-sm text-ice/70">Top of the Standings</p>
+              <Link href="/standings" className="text-sm text-ice/70 hover:text-white">
+                Full standings →
+              </Link>
+            </div>
             <ol className="space-y-3 font-tabular">
               {top3.map((t, i) => (
                 <li key={t.id} className="flex items-center justify-between">
@@ -89,28 +102,79 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Quick links */}
-      <section className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {[
-          { href: "/standings", label: "Full Standings", desc: "Every team, every stat." },
-          { href: "/matchups", label: "Matchups", desc: "Scores, previews, and recaps." },
-          { href: "/power-rankings", label: "Power Rankings", desc: "Beyond the win-loss record." },
-          { href: "/awards", label: "Weekly Awards", desc: "3 Stars, and the week's best." },
-          { href: "/newsletter", label: "Newsletter", desc: "Weekly recaps and monthly wrap-ups." },
-          { href: "/keepers", label: "Keepers", desc: "Who's protected, season by season." },
-          { href: "/managers", label: "Managers", desc: "The people behind the teams, across every rename." },
-          { href: "/history", label: "League History", desc: "Champions, season by season." },
-        ].map((card) => (
-          <Link
-            key={card.href}
-            href={card.href}
-            className="border border-ice-line p-5 hover:border-rink-bright transition-colors"
-          >
-            <h2 className="font-display text-lg mb-1">{card.label}</h2>
-            <p className="text-sm text-muted">{card.desc}</p>
-          </Link>
-        ))}
-      </section>
+      {/* This week's games: every matchup, not just the marquee one */}
+      {matchups.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="font-display text-2xl">Week {meta.currentWeek} Scoreboard</h2>
+            <Link href="/matchups" className="text-sm text-rink hover:underline">
+              All matchups →
+            </Link>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {matchups.map((m) => {
+              const started = m.isFinal || m.homeScore + m.awayScore > 0;
+              const homeWins = m.homeScore > m.awayScore;
+              return (
+                <div key={`${m.homeTeamId}-${m.awayTeamId}`} className="border border-ice-line px-4 py-3 space-y-2 font-tabular">
+                  {[
+                    { id: m.homeTeamId, score: m.homeScore, lead: started && homeWins },
+                    { id: m.awayTeamId, score: m.awayScore, lead: started && !homeWins && m.awayScore > m.homeScore },
+                  ].map((side) => (
+                    <div key={side.id} className="flex items-center justify-between gap-3">
+                      <span className={`flex items-center gap-2 min-w-0 font-body ${side.lead ? "font-semibold" : started ? "text-muted" : ""}`}>
+                        <TeamLogo url={logos[side.id]} name={teamById(side.id)?.name ?? ""} size={22} />
+                        <span className="truncate">{teamById(side.id)?.name}</span>
+                      </span>
+                      <span className={`font-display text-lg ${side.lead ? "text-center-red" : ""}`}>{started ? pts(side.score) : "–"}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Power rankings snapshot */}
+      {power && (
+        <section>
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="font-display text-2xl">Power Rankings</h2>
+            <Link href="/power-rankings" className="text-sm text-rink hover:underline">
+              Full rankings →
+            </Link>
+          </div>
+          <ol className="grid md:grid-cols-2 gap-x-10 divide-y md:divide-y-0 divide-ice-line border-y md:border-y-0 border-ice-line">
+            {power.rankings.slice(0, 6).map((r) => {
+              const team = power.teams.find((t) => t.id === r.teamId);
+              if (!team) return null;
+              const moved = r.previousRank !== undefined ? r.previousRank - r.rank : 0;
+              return (
+                <li key={r.teamId} className="flex items-center gap-3 py-3 md:border-b md:border-ice-line">
+                  <span className="w-7 h-7 rounded-full bg-rink text-ice flex items-center justify-center font-display text-sm shrink-0">{r.rank}</span>
+                  <TeamLogo url={logos[team.id]} name={team.name} size={26} />
+                  <span className="font-body truncate flex-1">{team.name}</span>
+                  {moved !== 0 ? (
+                    <span className="text-xs font-tabular font-semibold" style={{ color: moved > 0 ? "#1F7A4D" : "#C41E3A" }}>
+                      {moved > 0 ? "▲" : "▼"} {Math.abs(moved)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted">—</span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
+      {/* The week's best players, and a player card (streams in after the rest of the page) */}
+      {latestFinalWeek > 0 && (
+        <Suspense fallback={<div className="h-72 bg-ice-panel animate-pulse rounded-sm" />}>
+          <PlayersOfTheWeek week={latestFinalWeek} teamNames={teamNames} />
+        </Suspense>
+      )}
     </div>
   );
 }
