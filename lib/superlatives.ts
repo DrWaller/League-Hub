@@ -127,7 +127,7 @@ export function computeSuperlatives(all: PickRow[], sheet?: SheetMap) {
     const late = withGoalie[withGoalie.length - 1];
     goaliePatience = {
       manager: late.manager,
-      headline: `${late.manager} waited until ${ord(late.firstGoalie!.overall_pick)} (round ${late.firstGoalie!.round}) for a first goalie: ${late.firstGoalie!.player_name}.`,
+      headline: `${late.manager} waited until ${ord(late.firstGoalie!.overall_pick)} (round ${late.firstGoalie!.round}) for a first goalie: ${late.firstGoalie!.player_name}${late.keeperGoalies > 0 ? `, with ${late.keeperGoalies} keeper goalie${late.keeperGoalies > 1 ? "s" : ""} already on the roster` : ""}.`,
     };
   }
 
