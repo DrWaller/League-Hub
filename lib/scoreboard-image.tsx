@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { Matchup } from "./types";
-import { OG } from "./og-theme";
+import { OG, NO_CACHE } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
 import { TeamBadge } from "./og-team-logo";
 
@@ -128,6 +128,6 @@ export async function renderScoreboard(opts: {
         </div>
       </div>
     ),
-    { width: 1200, height, fonts }
+    { width: 1200, height, fonts, headers: NO_CACHE }
   );
 }

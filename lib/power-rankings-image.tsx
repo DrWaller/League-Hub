@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { Team, PowerRankingEntry } from "./types";
-import { OG } from "./og-theme";
+import { OG, NO_CACHE } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
 import { TeamBadge } from "./og-team-logo";
 
@@ -111,6 +111,6 @@ export async function renderPowerRankings(opts: {
         </div>
       </div>
     ),
-    { width: 1200, height, fonts }
+    { width: 1200, height, fonts, headers: NO_CACHE }
   );
 }

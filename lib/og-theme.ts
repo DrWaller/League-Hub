@@ -22,3 +22,8 @@ export const OG = {
 };
 
 export const OG_WIDTH = 1200;
+
+// next/og tells browsers to cache every image for a YEAR ("immutable"), so a graphic you have
+// already opened (same player, same week) would keep showing the old picture even after new
+// stats or a redeploy. These graphics are made fresh each time, so say so.
+export const NO_CACHE = { "cache-control": "no-store, max-age=0" };

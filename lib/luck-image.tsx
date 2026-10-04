@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { LuckRow, luckColor, luckExtremes, luckTint } from "./luck";
-import { OG } from "./og-theme";
+import { OG, NO_CACHE } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
 import { TeamBadge } from "./og-team-logo";
 
@@ -125,6 +125,6 @@ export async function renderLuckChart(opts: {
         </div>
       </div>
     ),
-    { width: 1200, height, fonts }
+    { width: 1200, height, fonts, headers: NO_CACHE }
   );
 }

@@ -439,6 +439,13 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   percentile of the pool). The Player Cards page shows both cards for a picked player.
   The header band of both cards is the PLAYER (photo, name, position/team, games played; the shared
   `lib/player-header.tsx`, passed to `frame()` as `headerContent`) rather than a card-type title.
+- **Find by rank** (Player Cards page, `/api/admin/players/ranks`): browse the players in rank order by total
+  fantasy points, fantasy points per game, or any scoring category per game (lower-is-better categories
+  sort the other way), among all players or just forwards / defensemen / goalies; "Start at rank" jumps
+  to a rank. Only players who meet the minimum games count, like the cards; click a name to pick him.
+- **Image caching**: next/og tells browsers to keep every image for a year (`immutable`), which made
+  a graphic you had already opened keep showing the old picture even after new stats or a redeploy.
+  Every image response now sends `NO_CACHE` (`lib/og-theme.ts`) and the card fetch uses `cache: "no-store"`.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

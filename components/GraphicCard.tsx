@@ -33,7 +33,7 @@ export default function GraphicCard({ title, url, portrait }: { title: string; u
     let objectUrl: string | null = null;
     setState({ status: "loading" });
 
-    fetch(url)
+    fetch(url, { cache: "no-store" })
       .then(async (res) => {
         const type = res.headers.get("content-type") || "";
         if (res.ok && type.startsWith("image/")) {

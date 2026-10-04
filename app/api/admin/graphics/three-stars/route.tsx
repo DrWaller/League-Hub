@@ -5,7 +5,7 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
-import { OG } from "@/lib/og-theme";
+import { OG, NO_CACHE } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
           </div>
         </div>
       ),
-      { width: 1200, height: 640, fonts }
+      { width: 1200, height: 640, fonts, headers: NO_CACHE }
     );
   } catch (err) {
     console.error("Graphics route failed", err);

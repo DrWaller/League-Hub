@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { ReactNode, CSSProperties } from "react";
 import { Team, PowerRankingEntry, Matchup } from "./types";
 import { LuckRow, luckColor, luckExtremes, luckTint } from "./luck";
-import { OG } from "./og-theme";
+import { OG, NO_CACHE } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
 import { TeamBadge, TeamLine } from "./og-team-logo";
 import { PlayerAvatar } from "./og-avatar";
@@ -124,7 +124,7 @@ export async function frame(opts: {
         </div>
       </div>
     ),
-    { width: W, height: H, fonts }
+    { width: W, height: H, fonts, headers: NO_CACHE }
   );
 }
 
