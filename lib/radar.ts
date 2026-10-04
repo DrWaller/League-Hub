@@ -45,7 +45,9 @@ export function categoriesFor(group: Group, items: { statId: number; points: num
   for (const it of items) {
     const id = String(it.statId);
     if (!it.points || id === "34" || seen.has(id)) continue; // 34 = games played
-    if (group === "F" && id === "33") continue; // DEF (defensemen points) means nothing for a forward
+    // DEF (defensemen points) is just a bonus on every goal and assist a defenseman records, so as a chart axis it only
+    // repeats G and A (and it is not a physical stat). It still counts in his fantasy points; it just isn't charted.
+    if (id === "33") continue;
     const meta = STAT_META[id];
     const isGoalieStat = Boolean(meta?.goalie);
     if (isGoalieStat !== (group === "G")) continue;
@@ -181,7 +183,7 @@ export function scaleColor(pct: number, onDark: boolean): string {
 }
 
 // Which section of the bars card a category belongs to.
-const PHYSICAL = new Set(["31", "32", "33", "17"]); // HIT, BLK, DEF, PIM
+const PHYSICAL = new Set(["31", "32", "17"]); // HIT, BLK, PIM
 export function sectionOf(statId: string, group: Group): string {
   if (group === "G") return "GOALIE";
   return PHYSICAL.has(statId) ? "PHYSICAL" : "SCORING";

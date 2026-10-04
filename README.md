@@ -487,6 +487,12 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   "Players of the Week" (top 3 scorers of the latest completed week plus the radar card for the best one, from the public
   `/api/cards/player-radar`). That last section streams in (`<Suspense>`) so a slow ESPN call never delays the page, and it
   simply disappears if its data or image can't load. Sections with no data yet (before Week 1 is final) are skipped.
+- **Hero numbers on the player cards**: both the Radar and the Bars card open with two navy scoreboard tiles -- TOTAL and PER GAME
+  fantasy points as the big white numbers (always two decimals) -- with rank (larger) and percentile (smaller, "62nd") vs all
+  players and vs his position group underneath (`HeroTiles` in `lib/radar-image.tsx`). This replaced the small points table and the
+  `?pts=` display options. Use `ordinal()` from `lib/format.ts` for any "1st / 2nd / 3rd" text.
+- **DEF is not charted**: the defensemen-points category (a bonus on each goal/assist a defenseman records) only repeats G and A,
+  so `categoriesFor` in `lib/radar.ts` skips it for everyone. It still counts in fantasy points; it just isn't an axis, bar, or rank option.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past
