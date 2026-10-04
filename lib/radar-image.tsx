@@ -1,6 +1,8 @@
 import { OG } from "./og-theme";
 import { frame } from "./portrait-graphics";
 import { PlayerHeader } from "./player-header";
+import { ordinal } from "./format";
+import { TIERS, type TierName } from "./tiers";
 import { PointsComparison, RadarAxis, Standing, scaleColor } from "./radar";
 
 // Player Radar card (portrait). A hero row (big headshot, name, key totals), then
@@ -15,11 +17,11 @@ const SOFT = "#9FB6CD";
 const pctOnLight = (pct: number) => scaleColor(pct, false);
 
 const PW = 984; // panel width
-const PH = 860; // panel height
+const PH = 668; // panel height
 const CX = PW / 2;
-const CY = 412;
-const R = 262; // radius of the 100th-percentile ring
-const LABEL_R = 326; // distance of the label centres
+const CY = 321;
+const R = 204; // radius of the 100th-percentile ring
+const LABEL_R = 267; // distance of the label centres
 const LABEL_W = 150;
 const LABEL_H = 80;
 
@@ -43,43 +45,50 @@ export function formatValue(a: RadarAxis): string {
 }
 
 
-// Fantasy points: the totals lead; the comparison (rank big, percentile small) is a supporting number.
-export function PointsTable({ points, positionLabel, display, mode }: { points: PointsComparison; positionLabel?: string; display: string; mode: "pct" | "rank" | "both" | "rankpct" }) {
-  const modeName = mode === "rank" ? "RANK" : mode === "both" ? "PCTL / RANK" : mode === "rankpct" ? "RANK / PCTL" : "PERCENTILE";
+// A drawn star: the card font has no star glyph.
+function Star({ size, color }: { size: number; color: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", flexShrink: 0, background: "#FFFFFF", border: "1px solid #BCD5EA", borderRadius: 14, boxShadow: "0 6px 16px rgba(18,58,97,0.10)" }}>
-            <div style={{ display: "flex", alignItems: "center", height: 30, padding: "0 20px", borderBottom: "1px solid #BCD5EA" }}>
-              <div style={{ display: "flex", width: 330, fontFamily: display, fontSize: 16, fontWeight: 700, letterSpacing: 3, color: OG.muted }}>FANTASY POINTS</div>
-              <div style={{ display: "flex", flex: 1, fontFamily: display, fontSize: 16, fontWeight: 700, letterSpacing: 2, color: OG.muted }}>{`ALL PLAYERS \u00b7 ${modeName}`}</div>
-              <div style={{ display: "flex", flex: 1, fontFamily: display, fontSize: 16, fontWeight: 700, letterSpacing: 2, color: OG.muted }}>{`${positionLabel ?? "POSITION"} \u00b7 ${modeName}`}</div>
-            </div>
-            {[
-              // Always two decimals (193.85, 41.50).
-      { name: "TOTAL", line: points.total, fmt: (v: number) => v.toFixed(2) },
-              { name: "AVG / GAME", line: points.avg, fmt: (v: number) => v.toFixed(2) },
-            ].map((r, i) => (
-              <div key={r.name} style={{ display: "flex", alignItems: "center", height: 60, padding: "0 20px", borderTop: i === 0 ? "none" : "1px solid #E1ECF6" }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12, width: 330 }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 50, fontWeight: 700, color: NAVY, lineHeight: 1 }}>{r.fmt(r.line.value)}</div>
-                  <div style={{ display: "flex", fontSize: 20, fontWeight: 600, letterSpacing: 1, color: OG.muted }}>{r.name}</div>
-                </div>
-                {[r.line.all, r.line.position].map((st: Standing, k) => (
-                  <div key={k} style={{ display: "flex", flex: 1, alignItems: "baseline", gap: 8 }}>
-                    {mode === "rank" || mode === "rankpct" ? (
-                      <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, lineHeight: 1, color: "#3F5E7D" }}>{`#${st.rank}`}</div>
-                    ) : (
-                      <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, lineHeight: 1, color: pctOnLight(st.pct) }}>{String(Math.round(st.pct))}</div>
-                    )}
-                    {mode === "pct" ? null : mode === "rankpct" ? (
-                      <div style={{ display: "flex", fontSize: 20, fontWeight: 700, color: pctOnLight(st.pct) }}>{`${Math.round(st.pct)}th pct`}</div>
-                    ) : (
-                      <div style={{ display: "flex", fontSize: 18, color: OG.muted }}>{mode === "rank" ? `of ${st.of}` : `#${st.rank} of ${st.of}`}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <polygon points="12,1.5 15,8.6 22.5,9.3 16.8,14.3 18.6,21.8 12,17.8 5.4,21.8 7.2,14.3 1.5,9.3 9,8.6" fill={color} />
+    </svg>
+  );
+}
+export function TierPill({ tier, display, size = 24 }: { tier: TierName; display: string; size?: number }) {
+  const t = TIERS[tier];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: size * 0.3, backgroundImage: t.bg, color: t.fg, borderRadius: size, padding: `${size * 0.12}px ${size * 0.7}px`, fontFamily: display, fontWeight: 700, fontSize: size, letterSpacing: 3 }}>
+      {t.star ? <Star size={size * 0.85} color={t.fg} /> : null}
+      <div style={{ display: "flex" }}>{tier.toUpperCase()}</div>
+    </div>
+  );
+}
+
+// Fantasy points as two scoreboard tiles: the total and the per-game average are the hero numbers; rank
+// (larger) and percentile (smaller) against all players and against his own group sit underneath.
+export function HeroTiles({ points, positionLabel, display, tier }: { points: PointsComparison; positionLabel?: string; display: string; tier?: TierName | null }) {
+  const tile = (label: string, value: string, all: Standing, pos: Standing) => (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, borderRadius: 18, backgroundImage: "linear-gradient(160deg, #16406B 0%, #0C2740 100%)", padding: "16px 12px 16px 12px", boxShadow: "0 6px 16px rgba(18,58,97,0.18)" }}>
+      <div style={{ display: "flex", fontFamily: display, fontSize: 20, fontWeight: 700, letterSpacing: 4, color: GOLD }}>{label}</div>
+      <div style={{ display: "flex", fontFamily: display, fontSize: 124, fontWeight: 700, lineHeight: 1.02, color: "#FFFFFF" }}>{value}</div>
+      {/* the tier is based on per-game points vs his position, so it sits in the PER GAME tile; both tiles get the same
+          fixed-height slot (a red rule, or the tier badge) so their rank lines stay level */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 40, width: "100%" }}>
+        {tier && label === "PER GAME" ? <TierPill tier={tier} display={display} size={24} /> : <div style={{ display: "flex", width: 140, height: 3, background: "#C41E3A" }} />}
+      </div>
+      {([["ALL PLAYERS", all], [positionLabel ?? "POSITION", pos]] as [string, Standing][]).map(([l, st]) => (
+        <div key={l} style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 3 }}>
+          <div style={{ display: "flex", width: 138, fontSize: 18, fontWeight: 600, letterSpacing: 1, color: "#9FB6CD" }}>{l}</div>
+          <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, color: "#FFFFFF" }}>{`#${st.rank}`}</div>
+          <div style={{ display: "flex", fontSize: 20, fontWeight: 700, color: scaleColor(st.pct, true) }}>{ordinal(st.pct)}</div>
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", gap: 16, flexShrink: 0 }}>
+      {tile("TOTAL", points.total.value.toFixed(2), points.total.all, points.total.position)}
+      {tile("PER GAME", points.avg.value.toFixed(2), points.avg.all, points.avg.position)}
+    </div>
   );
 }
 
@@ -97,7 +106,7 @@ export async function renderPortraitRadar(opts: {
   gp: number;
   points?: PointsComparison;
   positionLabel?: string; // column title for the position comparison, e.g. "FORWARDS"
-  pointsDisplay?: "pct" | "rank" | "both" | "rankpct"; // default rankpct = rank big + percentile small (no pool size); the others are available via ?pts=
+  tier?: TierName | null; // per-game tier vs his position group (null / absent = not shown)
   note: string; // e.g. "Ranked vs 312 NHL forwards - per game - min 3 GP"
   qualified?: boolean; // false = below the minimum games: the shape and numbers are dimmed
   smallSample?: string; // e.g. "NOT QUALIFIED - 2 of 3 GP"
@@ -105,7 +114,6 @@ export async function renderPortraitRadar(opts: {
   const { axes } = opts;
   const n = axes.length;
   const qualified = opts.qualified !== false;
-  const mode = opts.pointsDisplay ?? "rankpct";
 
   return frame({
     footer: opts.footer,
@@ -117,7 +125,7 @@ export async function renderPortraitRadar(opts: {
     ),
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16 }}>
-        {opts.points ? <PointsTable points={opts.points} positionLabel={opts.positionLabel} display={display} mode={mode} /> : null}
+        {opts.points ? <HeroTiles points={opts.points} positionLabel={opts.positionLabel} display={display} tier={opts.tier} /> : null}
 
         {/* radar panel */}
         <div style={{ display: "flex", position: "relative", width: PW, height: PH, flexShrink: 0, borderRadius: 26, backgroundImage: "linear-gradient(160deg, #16406B 0%, #0C2740 100%)", overflow: "hidden" }}>

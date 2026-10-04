@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { loadProfile, loadExtras, debugJson, profileCaption } from "@/lib/player-profile";
+import { loadProfile, loadExtras, debugJson, profileCaption, tierFor } from "@/lib/player-profile";
 import { renderPortraitRadar } from "@/lib/radar-image";
 import { seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse } from "@/lib/captions";
@@ -37,11 +37,8 @@ export async function GET(req: NextRequest) {
       gp: p.me.gp,
       points: p.points,
       positionLabel: p.groupName.toUpperCase(),
-      pointsDisplay: ((): "pct" | "rank" | "both" | "rankpct" => {
-        const v = params.get("pts");
-        return v === "pct" || v === "rank" || v === "both" ? v : "rankpct";
-      })(),
       note: `Ranked vs ${p.eligible} NHL ${p.groupName} \u00b7 per game \u00b7 ${p.minGP}+ GP \u00b7 dashed ring = median`,
+      tier: tierFor(p),
       qualified: p.qualified,
       smallSample: p.qualified ? undefined : `NOT QUALIFIED \u00b7 ${p.me.gp} of ${p.minGP} GP`,
     });

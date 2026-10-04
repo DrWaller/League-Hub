@@ -493,6 +493,12 @@ including Generate Graphics opened to that week. It's on the admin dashboard.
   `?pts=` display options. Use `ordinal()` from `lib/format.ts` for any "1st / 2nd / 3rd" text.
 - **DEF is not charted**: the defensemen-points category (a bonus on each goal/assist a defenseman records) only repeats G and A,
   so `categoriesFor` in `lib/radar.ts` skips it for everyone. It still counts in fantasy points; it just isn't an axis, bar, or rank option.
+- **Player tiers** (`lib/tiers.ts`): Superstar (99th percentile and up), Elite (95-98th), Good (75-94th), Depth (50-74th),
+  Replacement (below 50th), from fantasy points PER GAME against his own position group (forwards / defensemen / goalies), using the
+  same minimum-games pool as the rest of the card. The badge sits in the PER GAME hero tile (that is the number it is based on); a player
+  below the games minimum has no tier. `tierFor(profile)` in `lib/player-profile.ts`; the tier is also in the Copy caption text and `&debug=1`.
+  Small pools mean few top tiers (only one goalie is Superstar), which is correct. A tier-list graphic (players grouped by tier) was
+  mocked up but not built.
 - **Standings** -- the full table (record, points for/against; the landscape one
   also shows diff and streak). Current season uses ESPN's own order (same as the
   Standings page), `?week=N` gives the table as of week N, `?season=YYYY` a past

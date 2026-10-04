@@ -2,7 +2,8 @@ import { OG } from "./og-theme";
 import { frame } from "./portrait-graphics";
 import { PlayerHeader } from "./player-header";
 import { Group, PointsComparison, RadarAxis, scaleColor, sectionOf } from "./radar";
-import { PointsTable, formatValue } from "./radar-image";
+import type { TierName } from "./tiers";
+import { HeroTiles, formatValue } from "./radar-image";
 
 // Player Bars card (portrait): the same data as the radar, drawn like Baseball Savant's
 // percentile panel -- one bar per category on a shared scale, a numbered circle at the end of
@@ -44,7 +45,7 @@ export async function renderPortraitBars(opts: {
   gp: number;
   points?: PointsComparison;
   positionLabel?: string;
-  pointsDisplay?: "pct" | "rank" | "both" | "rankpct";
+  tier?: TierName | null;
   note: string;
   qualified?: boolean;
   smallSample?: string;
@@ -63,7 +64,7 @@ export async function renderPortraitBars(opts: {
 
   // Row height from the space available; a card with few rows (goalies) gets bigger rows and a
   // shorter panel, and the stack is centered on the card instead of leaving gaps inside the panel.
-  const PANEL_MAX = opts.points ? 870 : 1020;
+  const PANEL_MAX = opts.points ? 650 : 1020;
   const fixed = 34 /* scale labels */ + sections.length * 40 + (counts.length ? 66 : 0) + (qualified ? 0 : 52) + 34 /* note */ + 34 /* padding */;
   const rowH = Math.max(46, Math.min(116, Math.floor((PANEL_MAX - fixed) / Math.max(1, opts.axes.length))));
   const PANEL_H = Math.min(PANEL_MAX, fixed + opts.axes.length * rowH + 10);
@@ -79,7 +80,7 @@ export async function renderPortraitBars(opts: {
     ),
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16, justifyContent: "center" }}>
-        {opts.points ? <PointsTable points={opts.points} positionLabel={opts.positionLabel} display={display} mode={opts.pointsDisplay ?? "rankpct"} /> : null}
+        {opts.points ? <HeroTiles points={opts.points} positionLabel={opts.positionLabel} display={display} tier={opts.tier} /> : null}
 
         {/* the bars panel */}
         <div style={{ display: "flex", flexDirection: "column", width: PW, height: PANEL_H, flexShrink: 0, background: "#FFFFFF", border: "1px solid #BCD5EA", borderRadius: 18, boxShadow: "0 6px 16px rgba(18,58,97,0.10)", padding: `14px ${PAD}px 10px ${PAD}px` }}>

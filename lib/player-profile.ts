@@ -33,6 +33,7 @@ import {
 import { getPlayedElsewhereSeasons } from "./content";
 import { getImportedSeason, importedItemsFor, importedPools, type ImportedSeason } from "./imported-seasons";
 import { nhlSeasonId, normName } from "./season-import";
+import { tierOf, type TierName } from "./tiers";
 import type { LeagueMeta } from "./types";
 
 export interface Profile {
@@ -55,6 +56,12 @@ export interface Profile {
   qualified: boolean; // has he played at least the minimum games?
   // Set when the season is an imported one (the 2025 Fantrax season) rather than an ESPN season.
   imported?: { fid: string; nhlId: number | null; team: string; owner: string };
+}
+
+// Superstar / Elite / Good / Depth / Replacement from per-game points vs his position group. A player who has not
+// played the minimum games has no tier yet.
+export function tierFor(p: Profile): TierName | null {
+  return p.qualified ? tierOf(p.points.avg.position.pct) : null;
 }
 
 export async function loadProfile(params: URLSearchParams): Promise<{ response: Response } | { profile: Profile }> {
@@ -282,6 +289,7 @@ export function debugJson(p: Profile) {
     minGP: p.minGP,
     eligible: p.eligible,
     qualified: p.qualified,
+    tier: tierFor(p),
     season: p.seasonParam,
     categories: p.cats,
     rareAsCounts: p.counts,
@@ -304,6 +312,7 @@ export function profileCaption(p: Profile, title: string, teamName?: string): st
     lines,
     ...(counts ? ["", `Season totals: ${counts}`] : []),
     "",
+    ...(tierFor(p) ? [`Tier: ${tierFor(p)} (fantasy points per game vs ${p.groupName})`, ""] : []),
     `${p.me.gp} GP${p.qualified ? "" : " (not yet qualified)"} | ${pts.total.value.toFixed(2)} fantasy pts (#${pts.total.all.rank} of all players, #${pts.total.position.rank} of ${p.groupName}) | ${pts.avg.value.toFixed(2)} per game (#${pts.avg.all.rank} of all, #${pts.avg.position.rank} of ${p.groupName})`,
     "",
     "#FantasyHockey",

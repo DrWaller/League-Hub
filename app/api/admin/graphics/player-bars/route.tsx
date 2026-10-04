@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { loadProfile, loadExtras, debugJson, profileCaption } from "@/lib/player-profile";
+import { loadProfile, loadExtras, debugJson, profileCaption, tierFor } from "@/lib/player-profile";
 import { renderPortraitBars } from "@/lib/bars-image";
 import { seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse } from "@/lib/captions";
@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
       points: p.points,
       positionLabel: p.groupName.toUpperCase(),
       note: `Ranked vs ${p.eligible} NHL ${p.groupName} \u00b7 per game \u00b7 ${p.minGP}+ GP`,
+      tier: tierFor(p),
       qualified: p.qualified,
       smallSample: p.qualified ? undefined : `NOT QUALIFIED \u00b7 ${p.me.gp} of ${p.minGP} GP`,
     });
