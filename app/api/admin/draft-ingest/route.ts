@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       const clean = flag.filter((r) => !isGamble(r));
       const byPos = (arr: typeof flag) => arr.reduce((m: Record<string, number>, r) => ((m[r.position] = (m[r.position] ?? 0) + 1), m), {});
       return NextResponse.json({
-        mode: "recomputed (ADP + last-season points blend)",
+        mode: "recomputed (within-position ADP + points blend)",
         season,
         regularPicks: reg.length,
         netValue: reg.reduce((t, r) => t + (r.value as number), 0),

@@ -97,19 +97,27 @@ function seasonStatsOf(pl: any, season: number) {
   return res;
 }
 
-// Expected pick = a blend of two ranks, both taken among the players this
-// league actually drafted (keepers excluded):
+// Steals and reaches are graded WITHIN each position. Ranking everyone on one
+// list called nearly half the goalies reaches, because a league that must
+// start 2 goalies per team drafts them earlier than any all-position
+// ranking says. That timing is a real story (Goalie Panic), but it isn't a
+// bad pick, so it's kept out of this score.
+//
+// For each position, among the players this league drafted (keepers
+// excluded), we blend two ranks:
 //   - ADP rank (ESPN consensus), and
 //   - last-season fantasy-points rank under THIS league's scoring.
-// Raw ADP alone is on the wrong scale (it covers players nobody drafted here)
-// and ignores your scoring: goalies and defensemen were systematically off.
-// Players with no last-season line (rookies) fall back to ADP alone. The
-// blended scores are re-ranked 1..N so the draft nets to zero.
+// Players with no last-season line (rookies) use ADP alone. The best-scoring
+// player at a position is expected to go in the earliest slot that position
+// was actually drafted in, the next-best in the next slot, and so on, so each
+// position nets to zero. adp_rank / points_rank are stored as ranks within
+// the player's position.
 // value = actual pick - expected pick: positive = steal, negative = reach.
 export const ADP_WEIGHT = 0.5;
 
 type Rankable = {
   is_keeper: boolean;
+  position: string;
   adp: number | null;
   overall_pick: number;
   has_last_season: boolean;
@@ -127,19 +135,28 @@ export function applyExpectedPicks<T extends Rankable>(rows: T[]) {
     r.expected_pick = null;
     r.value = null;
   }
-  const pool = rows.filter((r) => !r.is_keeper && r.adp != null);
-  [...pool].sort((a, b) => (a.adp as number) - (b.adp as number)).forEach((r, i) => (r.adp_rank = i + 1));
-  const withPts = pool.filter((r) => r.has_last_season && r.last_season_points != null);
-  [...withPts]
-    .sort((a, b) => (b.last_season_points as number) - (a.last_season_points as number) || (a.adp_rank as number) - (b.adp_rank as number))
-    .forEach((r, i) => (r.points_rank = i + 1));
-  const score = (r: T) => (r.points_rank != null ? ADP_WEIGHT * (r.adp_rank as number) + (1 - ADP_WEIGHT) * r.points_rank : (r.adp_rank as number));
-  [...pool]
-    .sort((a, b) => score(a) - score(b) || (a.adp_rank as number) - (b.adp_rank as number))
-    .forEach((r, i) => {
-      r.expected_pick = i + 1;
-      r.value = r.overall_pick - (i + 1);
-    });
+  const groups = new Map<string, T[]>();
+  for (const r of rows) {
+    if (r.is_keeper || r.adp == null) continue;
+    const g = groups.get(r.position) ?? [];
+    g.push(r);
+    groups.set(r.position, g);
+  }
+  for (const g of Array.from(groups.values())) {
+    [...g].sort((a, b) => (a.adp as number) - (b.adp as number)).forEach((r, i) => (r.adp_rank = i + 1));
+    [...g]
+      .filter((r) => r.has_last_season && r.last_season_points != null)
+      .sort((a, b) => (b.last_season_points as number) - (a.last_season_points as number) || (a.adp_rank as number) - (b.adp_rank as number))
+      .forEach((r, i) => (r.points_rank = i + 1));
+    const score = (r: T) => (r.points_rank != null ? ADP_WEIGHT * (r.adp_rank as number) + (1 - ADP_WEIGHT) * r.points_rank : (r.adp_rank as number));
+    const slots = g.map((r) => r.overall_pick).sort((a, b) => a - b);
+    [...g]
+      .sort((a, b) => score(a) - score(b) || (a.adp_rank as number) - (b.adp_rank as number))
+      .forEach((r, i) => {
+        r.expected_pick = slots[i];
+        r.value = r.overall_pick - slots[i];
+      });
+  }
   return rows;
 }
 
