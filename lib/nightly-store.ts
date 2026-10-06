@@ -46,6 +46,22 @@ export async function saveNight(season: number, period: number, date: string, bl
   }
 }
 
+function rowToBlurb(row: Record<string, unknown>): NightlyBlurb {
+  return {
+    playerId: Number(row.player_id),
+    playerName: row.player_name as string,
+    position: (row.position as string) ?? "?",
+    teamId: Number(row.team_id),
+    teamName: (row.team_name as string) ?? "",
+    points: Number(row.points),
+    active: Boolean(row.active),
+    kind: row.kind as BlurbKind,
+    statLine: (row.stat_line as string | null) ?? null,
+    text: row.body as string,
+    gameOfNight: Boolean(row.game_of_night),
+  };
+}
+
 // The most recent nights that have at least one blurb, newest first. A quiet
 // night has no rows, so it simply never appears.
 export async function getRecentNights(season: number, nights: number): Promise<StoredNight[]> {
@@ -65,23 +81,31 @@ export async function getRecentNights(season: number, nights: number): Promise<S
         if (byNight.size >= nights) break;
         byNight.set(date, { date, period: Number(row.scoring_period), blurbs: [] });
       }
-      byNight.get(date)!.blurbs.push({
-        playerId: Number(row.player_id),
-        playerName: row.player_name as string,
-        position: (row.position as string) ?? "?",
-        teamId: Number(row.team_id),
-        teamName: (row.team_name as string) ?? "",
-        points: Number(row.points),
-        active: Boolean(row.active),
-        kind: row.kind as BlurbKind,
-        statLine: (row.stat_line as string | null) ?? null,
-        text: row.body as string,
-        gameOfNight: Boolean(row.game_of_night),
-      });
+      byNight.get(date)!.blurbs.push(rowToBlurb(row));
     }
     return Array.from(byNight.values());
   } catch (err) {
     console.error("getRecentNights failed (is Postgres connected?)", err);
     return [];
+  }
+}
+
+// One specific night (YYYY-MM-DD), or the latest one when no date is given.
+// Used by the Big Nights graphic. Null when nothing is saved for it.
+export async function getNight(season: number, date?: string): Promise<StoredNight | null> {
+  if (!date) return (await getRecentNights(season, 1))[0] ?? null;
+  try {
+    await ensureTable();
+    const r = await sql`
+      SELECT scoring_period, night_date, player_id, team_id, team_name, player_name, position, points, active, kind, stat_line, body, game_of_night
+      FROM nightly_blurbs
+      WHERE season = ${season} AND night_date = ${date}
+      ORDER BY game_of_night DESC, points DESC;
+    `;
+    if (!r.rows.length) return null;
+    return { date, period: Number(r.rows[0].scoring_period), blurbs: r.rows.map(rowToBlurb) };
+  } catch (err) {
+    console.error("getNight failed (is Postgres connected?)", err);
+    return null;
   }
 }
