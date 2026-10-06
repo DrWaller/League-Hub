@@ -13,8 +13,7 @@ export async function GET(req: NextRequest) {
   const season = Number(q.get("season")) || 2027;
   const run = q.get("run") === "1";
   try {
-    const players = parseSheetPlayers(await fetchSheetRows());
-
+const players = parseSheetPlayers((await fetchSheetRows()).rows);
     let written = 0;
     if (run) written = await storeSheetPlayers(players);
 
