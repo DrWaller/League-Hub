@@ -4,6 +4,7 @@ import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
 import { getTeamLogos } from "@/lib/content";
 import TeamLogo from "@/components/TeamLogo";
 import PlayersOfTheWeek from "@/components/PlayersOfTheWeek";
+import LastNight from "@/components/LastNight";
 import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
 import { regularSeasonFinals } from "@/lib/luck";
 import { pts } from "@/lib/format";
@@ -101,6 +102,11 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Last night's big performances (renders nothing on a quiet night) */}
+      <Suspense fallback={null}>
+        <LastNight />
+      </Suspense>
 
       {/* This week's games: every matchup, not just the marquee one */}
       {matchups.length > 0 && (

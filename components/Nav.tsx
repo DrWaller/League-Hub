@@ -17,6 +17,7 @@ const NAV: Entry[] = [
       { href: "/matchups", label: "Matchups" },
       { href: "/rosters", label: "Rosters" },
       { href: "/power-rankings", label: "Power Rankings" },
+      { href: "/last-night", label: "Big Nights" },
     ],
   },
   { label: "Players", href: "/players" },

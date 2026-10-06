@@ -1,40 +1,82 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { currentSeason } from "@/lib/espn-daily";
 import { getRecentNights, type StoredNight } from "@/lib/nightly-store";
 import { prettyDate, recentCutoff } from "@/lib/nightly-blurbs";
 import { pts } from "@/lib/format";
 
-// One night's blurbs. Used by the home-page section and the /last-night page.
-export function NightCard({ night, title }: { night: StoredNight; title?: string }) {
+// One night's blurbs: the Game of the Night as a featured panel, then the rest
+// as a list. Styled with the site's own look (rink / ice / center-red).
+export function NightBlock({
+  night,
+  heading,
+  subheading,
+  action,
+}: {
+  night: StoredNight;
+  heading: string;
+  subheading?: string;
+  action?: ReactNode;
+}) {
+  const star = night.blurbs.find((b) => b.gameOfNight);
+  const rest = night.blurbs.filter((b) => !b.gameOfNight);
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <header className="border-b-2 border-red-600 bg-slate-900 px-4 py-3 text-white">
-        <h2 className="text-base font-bold">{title ?? "Last Night"}</h2>
-        <p className="text-xs text-slate-300">{prettyDate(night.date)}</p>
-      </header>
-      <ul className="divide-y divide-slate-100">
-        {night.blurbs.map((b) => (
-          <li key={b.playerId} className="px-4 py-3">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="font-semibold text-slate-900">
-                {b.playerName} <span className="text-xs font-normal text-slate-500">{b.position}</span>
-              </p>
-              <p className="shrink-0 text-sm font-bold tabular-nums text-slate-900">{pts(b.points)}</p>
-            </div>
-            <p className="mt-1 text-sm leading-relaxed text-slate-700">{b.text}</p>
-            {!b.active && (
-              <p className="mt-1 text-xs font-semibold text-amber-700">Not in the active lineup, so these points did not count</p>
-            )}
-          </li>
-        ))}
-      </ul>
+    <section>
+      <div className="flex items-baseline justify-between gap-4 mb-4">
+        <h2 className="font-display text-2xl">
+          {heading}
+          {subheading && <span className="ml-3 font-body text-sm text-muted">{subheading}</span>}
+        </h2>
+        {action}
+      </div>
+
+      {star && (
+        <div className="bg-rink text-ice rounded-sm border-l-4 border-center-red p-6 md:p-8 mb-3">
+          <p className="font-body text-sm text-ice/70 mb-1">Game of the Night</p>
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="font-display text-2xl md:text-3xl leading-tight">
+              {star.playerName} <span className="font-body text-sm text-ice/60">{star.position}</span>
+            </p>
+            <p className="font-display text-3xl md:text-4xl shrink-0">{pts(star.points)}</p>
+          </div>
+          <p className="font-body mt-2 text-ice/90">{star.text}</p>
+        </div>
+      )}
+
+      {rest.length > 0 && (
+        <ul className="border-y border-ice-line divide-y divide-ice-line">
+          {rest.map((b) => (
+            <li key={b.playerId} className="py-3">
+              <div className="flex items-baseline justify-between gap-4">
+                <p className="font-body font-semibold">
+                  {b.playerName} <span className="text-xs font-normal text-muted">{b.position}</span>
+                </p>
+                <p className="font-display text-lg shrink-0">{pts(b.points)}</p>
+              </div>
+              <p className="font-body text-sm text-muted mt-1">{b.text}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
 
-// Home-page section: last night's big performances. Renders nothing when
-// there's nothing to show (a quiet night, or the job hasn't run recently).
+// Home-page section: last night's big performances with a button to the full
+// page. Renders nothing on a quiet night (or if the job hasn't run recently).
 export default async function LastNight() {
   const [night] = await getRecentNights(currentSeason(), 1);
   if (!night || night.date < recentCutoff(2)) return null;
-  return <NightCard night={night} />;
+  return (
+    <NightBlock
+      night={night}
+      heading="Last Night"
+      subheading={prettyDate(night.date)}
+      action={
+        <Link href="/last-night" className="shrink-0 bg-rink text-ice font-body text-sm px-4 py-2 rounded-sm hover:bg-rink-deep">
+          All big nights →
+        </Link>
+      }
+    />
+  );
 }
