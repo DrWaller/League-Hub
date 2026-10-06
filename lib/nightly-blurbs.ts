@@ -1,40 +1,27 @@
 // Decides which player nights are "big" and writes the blurb for each. Pure
 // functions only (no ESPN, no database), so it's easy to test and to tune.
 //
-// ALL the tunable numbers live in NIGHTLY just below. The fantasy-points
-// thresholds are starting guesses: open /api/admin/nightly-blurbs (dry run)
-// for a past day to see how many blurbs they'd produce and what a normal
-// top score looks like in YOUR league's scoring, then adjust.
+// ALL the tunable numbers live in NIGHTLY just below. A big night is decided
+// by FANTASY POINTS (ESPN's own number, so it follows your league's scoring).
+// The stats (goals, saves...) only decide the wording. Open
+// /api/admin/nightly-blurbs (dry run) on a past day to see how many blurbs a
+// threshold produces and what a normal top score looks like, then adjust.
 
 import { STAT_ID, statLine } from "./espn-stats";
 import { pts } from "./format";
 import type { DailyPlayerLine } from "./espn-daily";
 
 export const NIGHTLY = {
-  skater: {
-    hatTrickGoals: 3, // goals in one night
-    goalsPlusAssists: 4, // points in one night
-    shots: 8, // shots on goal
-    fantasy: 8, // fantasy points (safety net for nights the stat triggers miss)
-  },
+  skater: { fantasy: 4 }, // fantasy points in one night
   goalie: {
-    bigSaves: 40, // saves in one night (a shutout always counts, whatever the saves)
-    fantasy: 8, // fantasy points
+    fantasy: 4, // goalies score differently from skaters, so this has its own number
     meltdownGoalsAgainst: 6, // only used when includeMeltdowns is true
   },
   includeMeltdowns: false, // true adds a roast blurb for a goalie who gives up 6+
-  maxPerNight: 6, // a heavy slate never floods the page; best nights win
+  maxPerNight: 8, // a heavy slate never floods the page; best nights win
 };
 
-export type BlurbKind =
-  | "HAT_TRICK"
-  | "BIG_POINTS"
-  | "SHOT_VOLUME"
-  | "BIG_NIGHT"
-  | "SHUTOUT"
-  | "SAVE_FEST"
-  | "GOALIE_BIG"
-  | "MELTDOWN";
+export type BlurbKind = "HAT_TRICK" | "MULTI_GOAL" | "BIG_POINTS" | "BIG_NIGHT" | "SHUTOUT" | "SAVE_FEST" | "GOALIE_BIG" | "MELTDOWN";
 
 export interface Candidate {
   player: DailyPlayerLine;
@@ -53,6 +40,7 @@ export interface NightlyBlurb {
   kind: BlurbKind;
   statLine: string | null;
   text: string;
+  gameOfNight: boolean; // the single best performance of the night
 }
 
 function n(stats: Record<string, number> | undefined, id: string): number {
@@ -60,8 +48,8 @@ function n(stats: Record<string, number> | undefined, id: string): number {
   return Number.isFinite(v) ? v : 0;
 }
 
-// Returns the one kind that best describes the night (most specific first), or
-// null for an ordinary night.
+// A night is big when its fantasy points reach the threshold. The kind (most
+// specific first) only picks the wording. Null for an ordinary night.
 export function classify(p: DailyPlayerLine): Candidate | null {
   const s = p.stats;
   const triggers: string[] = [];
@@ -69,39 +57,26 @@ export function classify(p: DailyPlayerLine): Candidate | null {
   if (p.position === "G") {
     const saves = n(s, STAT_ID.saves);
     const ga = n(s, STAT_ID.goalsAgainst);
-    const shutout = n(s, STAT_ID.shutouts) >= 1;
-    if (shutout) triggers.push("shutout");
-    if (saves >= NIGHTLY.goalie.bigSaves) triggers.push(`${NIGHTLY.goalie.bigSaves}+ saves`);
-    if (p.points >= NIGHTLY.goalie.fantasy) triggers.push(`fantasy >= ${NIGHTLY.goalie.fantasy}`);
+    const big = p.points >= NIGHTLY.goalie.fantasy;
     const meltdown = NIGHTLY.includeMeltdowns && ga >= NIGHTLY.goalie.meltdownGoalsAgainst;
+    if (big) triggers.push(`fantasy >= ${NIGHTLY.goalie.fantasy}`);
     if (meltdown) triggers.push(`${NIGHTLY.goalie.meltdownGoalsAgainst}+ goals against`);
     if (!triggers.length) return null;
-    const kind: BlurbKind = shutout
-      ? "SHUTOUT"
-      : saves >= NIGHTLY.goalie.bigSaves
-        ? "SAVE_FEST"
-        : p.points >= NIGHTLY.goalie.fantasy
-          ? "GOALIE_BIG"
-          : "MELTDOWN";
+    const kind: BlurbKind = !big
+      ? "MELTDOWN"
+      : n(s, STAT_ID.shutouts) >= 1
+        ? "SHUTOUT"
+        : saves >= 40
+          ? "SAVE_FEST"
+          : "GOALIE_BIG";
     return { player: p, kind, triggers };
   }
 
+  if (p.points < NIGHTLY.skater.fantasy) return null;
+  triggers.push(`fantasy >= ${NIGHTLY.skater.fantasy}`);
   const g = n(s, STAT_ID.goals);
   const a = n(s, STAT_ID.assists);
-  const sog = n(s, STAT_ID.shotsOnGoal);
-  if (g >= NIGHTLY.skater.hatTrickGoals) triggers.push("hat trick");
-  if (g + a >= NIGHTLY.skater.goalsPlusAssists) triggers.push(`${NIGHTLY.skater.goalsPlusAssists}+ points`);
-  if (sog >= NIGHTLY.skater.shots) triggers.push(`${NIGHTLY.skater.shots}+ shots`);
-  if (p.points >= NIGHTLY.skater.fantasy) triggers.push(`fantasy >= ${NIGHTLY.skater.fantasy}`);
-  if (!triggers.length) return null;
-  const kind: BlurbKind =
-    g >= NIGHTLY.skater.hatTrickGoals
-      ? "HAT_TRICK"
-      : g + a >= NIGHTLY.skater.goalsPlusAssists
-        ? "BIG_POINTS"
-        : sog >= NIGHTLY.skater.shots
-          ? "SHOT_VOLUME"
-          : "BIG_NIGHT";
+  const kind: BlurbKind = g >= 3 ? "HAT_TRICK" : g >= 2 && g + a < 4 ? "MULTI_GOAL" : g + a >= 3 ? "BIG_POINTS" : "BIG_NIGHT";
   return { player: p, kind, triggers };
 }
 
@@ -125,15 +100,15 @@ const TEMPLATES: Record<BlurbKind, ((c: Ctx) => string)[]> = {
     (c) => `Hat trick for ${c.name}. ${c.pts} points${c.ln}.`,
     (c) => `${c.name} lit the lamp ${c.g} times for ${c.pts} points${c.ln}.`,
   ],
+  MULTI_GOAL: [
+    (c) => `${c.name} scored ${c.g} goals for ${c.team}, ${c.pts} fantasy points${c.ln}.`,
+    (c) => `A ${c.g}-goal night for ${c.name}: ${c.pts} points${c.ln}.`,
+    (c) => `${c.name} found the net ${c.g} times for ${c.pts} points${c.ln}.`,
+  ],
   BIG_POINTS: [
     (c) => `${c.name} racked up ${c.points} points for ${c.team}: ${c.pts} fantasy points${c.ln}.`,
     (c) => `A ${c.points}-point night for ${c.name}, ${c.pts} fantasy points${c.ln}.`,
     (c) => `${c.name} kept the scoresheet busy: ${c.pts} points${c.ln}.`,
-  ],
-  SHOT_VOLUME: [
-    (c) => `${c.name} fired ${c.sog} shots on goal for ${c.team} and finished with ${c.pts} points${c.ln}.`,
-    (c) => `${c.sog} shots on goal for ${c.name}, worth ${c.pts} fantasy points${c.ln}.`,
-    (c) => `${c.name} peppered the net with ${c.sog} shots for ${c.pts} points${c.ln}.`,
   ],
   BIG_NIGHT: [
     (c) => `${c.name} put up ${c.pts} fantasy points for ${c.team}${c.ln}.`,
@@ -202,6 +177,7 @@ export function writeBlurb(c: Candidate, teamName: string, period: number): Nigh
     kind: c.kind,
     statLine: line,
     text,
+    gameOfNight: false,
   };
 }
 
@@ -218,12 +194,20 @@ export function scanNight(players: DailyPlayerLine[], teamNames: Record<number, 
     .filter((c): c is Candidate => c !== null)
     .sort((a, b) => Math.abs(b.player.points) - Math.abs(a.player.points));
   const kept = cands.slice(0, NIGHTLY.maxPerNight);
+  // Game of the Night: the highest fantasy score among the big games that
+  // counted for their fantasy team (a bench player only wins it if no active
+  // player had a big game; a roast is never the star). It's listed first.
+  const byPoints = (a: Candidate, b: Candidate) => b.player.points - a.player.points;
+  const eligible = kept.filter((c) => c.kind !== "MELTDOWN");
+  const star = eligible.filter((c) => c.player.active).sort(byPoints)[0] ?? eligible.sort(byPoints)[0];
   const topScorers = [...players]
     .sort((a, b) => b.points - a.points)
     .slice(0, 10)
     .map((p) => ({ name: p.name, position: p.position, points: pts(p.points), statLine: statLine(p.position, p.stats), active: p.active }));
   return {
-    blurbs: kept.map((c) => writeBlurb(c, teamNames[c.player.teamId] ?? `Team ${c.player.teamId}`, period)),
+    blurbs: [...kept]
+      .sort((a, b) => (b === star ? 1 : 0) - (a === star ? 1 : 0))
+      .map((c) => ({ ...writeBlurb(c, teamNames[c.player.teamId] ?? `Team ${c.player.teamId}`, period), gameOfNight: c === star })),
     considered: cands.map((c, i) => ({
       name: c.player.name,
       position: c.player.position,
