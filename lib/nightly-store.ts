@@ -23,6 +23,7 @@ async function ensureTable() {
     );
   `;
   await sql`ALTER TABLE nightly_blurbs ADD COLUMN IF NOT EXISTS game_of_night BOOLEAN NOT NULL DEFAULT false;`;
+  await sql`ALTER TABLE nightly_blurbs ADD COLUMN IF NOT EXISTS stats_json TEXT;`;
 }
 
 export interface StoredNight {
@@ -39,10 +40,20 @@ export async function saveNight(season: number, period: number, date: string, bl
   for (const b of blurbs) {
     await sql`
       INSERT INTO nightly_blurbs
-        (season, scoring_period, night_date, player_id, team_id, team_name, player_name, position, points, active, kind, stat_line, body, game_of_night)
+        (season, scoring_period, night_date, player_id, team_id, team_name, player_name, position, points, active, kind, stat_line, body, game_of_night, stats_json)
       VALUES
-        (${season}, ${period}, ${date}, ${b.playerId}, ${b.teamId}, ${b.teamName}, ${b.playerName}, ${b.position}, ${b.points}, ${b.active}, ${b.kind}, ${b.statLine}, ${b.text}, ${b.gameOfNight});
+        (${season}, ${period}, ${date}, ${b.playerId}, ${b.teamId}, ${b.teamName}, ${b.playerName}, ${b.position}, ${b.points}, ${b.active}, ${b.kind}, ${b.statLine}, ${b.text}, ${b.gameOfNight}, ${b.stats ? JSON.stringify(b.stats) : null});
     `;
+  }
+}
+
+function parseStats(v: unknown): Record<string, number> | undefined {
+  if (typeof v !== "string") return undefined;
+  try {
+    const o = JSON.parse(v);
+    return o && typeof o === "object" ? (o as Record<string, number>) : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -59,6 +70,7 @@ function rowToBlurb(row: Record<string, unknown>): NightlyBlurb {
     statLine: (row.stat_line as string | null) ?? null,
     text: row.body as string,
     gameOfNight: Boolean(row.game_of_night),
+    stats: parseStats(row.stats_json),
   };
 }
 
@@ -68,7 +80,7 @@ export async function getRecentNights(season: number, nights: number): Promise<S
   try {
     await ensureTable();
     const r = await sql`
-      SELECT scoring_period, night_date, player_id, team_id, team_name, player_name, position, points, active, kind, stat_line, body, game_of_night
+      SELECT scoring_period, night_date, player_id, team_id, team_name, player_name, position, points, active, kind, stat_line, body, game_of_night, stats_json
       FROM nightly_blurbs
       WHERE season = ${season}
       ORDER BY night_date DESC, game_of_night DESC, points DESC
@@ -97,7 +109,7 @@ export async function getNight(season: number, date?: string): Promise<StoredNig
   try {
     await ensureTable();
     const r = await sql`
-      SELECT scoring_period, night_date, player_id, team_id, team_name, player_name, position, points, active, kind, stat_line, body, game_of_night
+      SELECT scoring_period, night_date, player_id, team_id, team_name, player_name, position, points, active, kind, stat_line, body, game_of_night, stats_json
       FROM nightly_blurbs
       WHERE season = ${season} AND night_date = ${date}
       ORDER BY game_of_night DESC, points DESC;

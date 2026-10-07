@@ -41,6 +41,7 @@ export interface NightlyBlurb {
   statLine: string | null;
   text: string;
   gameOfNight: boolean; // the single best performance of the night
+  stats?: Record<string, number>; // raw ESPN stat counts for the night, keyed by stat id
 }
 
 function n(stats: Record<string, number> | undefined, id: string): number {
@@ -178,6 +179,7 @@ export function writeBlurb(c: Candidate, teamName: string, period: number): Nigh
     statLine: line,
     text,
     gameOfNight: false,
+    stats: p.stats,
   };
 }
 

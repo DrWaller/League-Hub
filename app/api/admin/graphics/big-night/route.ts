@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getLeagueMeta } from "@/lib/espn";
+import { getLeagueMeta, getScoringItems } from "@/lib/espn";
 import { currentSeason } from "@/lib/espn-daily";
 import { getNight } from "@/lib/nightly-store";
 import { prettyDate } from "@/lib/nightly-blurbs";
@@ -65,13 +65,16 @@ export async function GET(req: NextRequest) {
     }
 
     const meta = await getLeagueMeta();
-    const [logos, headshots] = await Promise.all([loadLogoData(false), checkHeadshots([blurb.playerId])]);
+    const [logos, headshots, scoring] = await Promise.all([loadLogoData(false), checkHeadshots([blurb.playerId]), getScoringItems()]);
+    // Every stat the league scores points for; the card shows the ones this player recorded.
+    const scoredIds = new Set(scoring.filter((i) => i.points !== 0).map((i) => String(i.statId)));
     return await renderBigNightCard({
       date: night.date,
       blurb,
       footer: seasonFooter(meta.name, season),
       logos,
       hasHeadshot: headshots.has(blurb.playerId),
+      scoredIds,
     });
   } catch (err) {
     console.error("Big Night card failed", err);
