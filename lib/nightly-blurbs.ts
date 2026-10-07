@@ -17,9 +17,15 @@ export const NIGHTLY = {
     fantasy: 4, // goalies score differently from skaters, so this has its own number
     meltdownGoalsAgainst: 6, // only used when includeMeltdowns is true
   },
+  // A "Monster Night" is a big night that's a cut above: it gets its own look on the card and a tag on the site.
+  monster: { skater: 7, goalie: 7 },
   includeMeltdowns: false, // true adds a roast blurb for a goalie who gives up 6+
   maxPerNight: 8, // a heavy slate never floods the page; best nights win
 };
+
+export function isMonsterNight(points: number, position: string): boolean {
+  return points >= (position === "G" ? NIGHTLY.monster.goalie : NIGHTLY.monster.skater);
+}
 
 export type BlurbKind = "HAT_TRICK" | "MULTI_GOAL" | "BIG_POINTS" | "BIG_NIGHT" | "SHUTOUT" | "SAVE_FEST" | "GOALIE_BIG" | "MELTDOWN";
 
