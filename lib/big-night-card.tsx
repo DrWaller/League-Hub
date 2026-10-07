@@ -14,7 +14,7 @@ import { isMonsterNight, type NightlyBlurb } from "./nightly-blurbs";
 
 export type LogoStyle =
   | "badge" | "inline" | "watermark" | "pair" | "badge+watermark" | "pair+watermark" | "corner+watermark"
-  | "header" | "banner" | "strip" | "score" | "nameplate";
+  | "header" | "banner" | "strip" | "score" | "nameplate" | "emblem";
 
 // Where the team logo goes (teams with no logo uploaded show none of these):
 //   badge     = round logo on the lower-right of the headshot
@@ -27,6 +27,7 @@ export type LogoStyle =
 //   strip     = a navy strip along the bottom of the card with logo and team name
 //   score     = the logo beside the points number
 //   nameplate = a large logo beside the player's name
+//   emblem    = just the logo, centered under the name (no team name; a team with no logo shows its name)
 //   "x+watermark" = that logo placement plus a lighter watermark behind everything
 const LOGO_STYLE: LogoStyle = "inline";
 
@@ -140,6 +141,8 @@ export async function renderBigNightCard(opts: {
   // When a clear logo is also shown, the watermark steps back.
   const watermark = (opts.watermarkOpacity ?? WATERMARK_BY_TEAM[b.teamId] ?? WATERMARK_DEFAULT) * (logoStyle.includes("+") ? 0.6 : 1);
   const monster = isMonsterNight(b.points, b.position);
+  // A plain gold line under the points when the night was a hat trick or a shutout.
+  const special = b.kind === "HAT_TRICK" ? "HAT TRICK" : b.kind === "SHUTOUT" ? "SHUTOUT" : null;
   const { month, day } = dateParts(opts.date);
   const teamColor = TEAM_COLOR[b.teamId] ?? OG.rink;
   const hasLogo = Boolean(logo);
@@ -160,8 +163,10 @@ export async function renderBigNightCard(opts: {
   const tileStyle = opts.tileStyle ?? TILE_STYLE;
   const light = tileStyle === "light";
   // A benched player's card carries an extra note line, so the photo gives up some room for it.
-  const photo = (compact ? 240 : 290) - (b.active ? 0 : compact ? 34 : 40);
+  const photo = (compact ? 256 : 316) - (b.active ? 0 : compact ? 34 : 40) - (special ? 30 : 0);
 
+  // Space (pixels) above each line, measured as margins: photo > position > name > team > points.
+  const SP = compact ? { pos: 14, name: -8, team: 6, pts: -1 } : { pos: 18, name: -8, team: 6, pts: -6 };
   const zoom = opts.headshotZoom ?? HEADSHOT_ZOOM;
   const inner = photo - 16; // inside the 8px ring
   const avatar = (display: string) => (
@@ -188,6 +193,20 @@ export async function renderBigNightCard(opts: {
   const logoScale = vis ? Math.min(maxLogoW / vis.bw, maxLogoH / vis.bh) : 1;
   const logoDW = vis ? Math.round(vis.bw * logoScale) : maxLogoH;
   const logoDH = vis ? Math.round(vis.bh * logoScale) : maxLogoH;
+
+  // "emblem" layout: the logo alone, bigger, centered.
+  const EMBLEM_H = special ? 88 : compact ? 92 : 108;
+  const EMBLEM_W = Math.round(EMBLEM_H * 2.1);
+  const eScale = vis ? Math.min(EMBLEM_W / vis.bw, EMBLEM_H / vis.bh) : 1;
+  const emblem = logo ? (
+    vis ? (
+      <div style={{ display: "flex", position: "relative", width: Math.round(vis.bw * eScale), height: Math.round(vis.bh * eScale), overflow: "hidden" }}>
+        <img src={logo} width={Math.round(vis.w * eScale)} height={Math.round(vis.h * eScale)} style={{ position: "absolute", left: -Math.round(vis.x * eScale), top: -Math.round(vis.y * eScale) }} />
+      </div>
+    ) : (
+      <img src={logo} width={EMBLEM_H} height={EMBLEM_H} style={{ objectFit: "contain" }} />
+    )
+  ) : null;
 
   return frame({
     footer: opts.footer,
@@ -294,12 +313,16 @@ export async function renderBigNightCard(opts: {
               </div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: compact ? 20 : 30 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: SP.pos }}>
               <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, letterSpacing: 4, color: OG.goldText }}>{(POSITION_NAMES[b.position] ?? b.position).toUpperCase()}</div>
-              <div style={{ display: "flex", fontFamily: display, fontSize: nameSize, fontWeight: 700, color: OG.board, lineHeight: 1.1, marginTop: 6, textAlign: "center" }}>{b.playerName}</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: nameSize, fontWeight: 700, color: OG.board, lineHeight: 1.1, marginTop: SP.name, textAlign: "center" }}>{b.playerName}</div>
               {placement === "banner" || placement === "strip" ? null : (
-                <div style={{ display: "flex", marginTop: placement === "inline" ? 6 : 10 }}>
-                  {placement === "inline" ? (
+                <div style={{ display: "flex", marginTop: placement === "inline" || placement === "emblem" ? SP.team : 10 }}>
+                  {placement === "emblem" && logo ? (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: EMBLEM_H }}>
+                      {emblem}
+                    </div>
+                  ) : placement === "inline" ? (
                     // The team name stays dead center: equal-width slots on each side, with the logo in the left one.
                     <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", height: maxLogoH + 6 }}>
                       <div style={{ display: "flex", width: maxLogoW + 36, justifyContent: "flex-end", alignItems: "center", paddingRight: 18 }}>
@@ -321,7 +344,7 @@ export async function renderBigNightCard(opts: {
               )}
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 28, marginTop: compact ? 14 : 26 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 28, marginTop: SP.pts }}>
             {placement === "score" && logo ? <img src={logo} width={compact ? 130 : 160} height={compact ? 130 : 160} style={{ objectFit: "contain" }} /> : null}
           <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end" }}>
             <div style={{ display: "flex", width: 132 }} />
@@ -329,6 +352,13 @@ export async function renderBigNightCard(opts: {
             <div style={{ display: "flex", width: 132, paddingLeft: 14, paddingBottom: Math.round((opts.ptsLift ?? PTS_LIFT) * (compact ? 0.85 : 1)), fontFamily: display, fontSize: compact ? 34 : 38, fontWeight: 700, color: OG.muted, letterSpacing: 2 }}>PTS</div>
           </div>
           </div>
+          {special ? (
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 18, marginTop: compact ? 10 : 14 }}>
+              <div style={{ display: "flex", width: 56, height: 4, borderRadius: 2, background: OG.gold }} />
+              <div style={{ display: "flex", paddingLeft: 6, fontFamily: display, fontSize: compact ? 28 : 32, fontWeight: 700, letterSpacing: 6, color: OG.goldText }}>{special}</div>
+              <div style={{ display: "flex", width: 56, height: 4, borderRadius: 2, background: OG.gold }} />
+            </div>
+          ) : null}
           {b.active ? null : (
             <div style={{ display: "flex", marginTop: 8, fontSize: 24, color: OG.muted }}>Not in the active lineup, so these points did not count</div>
           )}
