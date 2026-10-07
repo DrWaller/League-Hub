@@ -1,5 +1,6 @@
 import { frame } from "./portrait-graphics";
 import { PlayerAvatar } from "./og-avatar";
+import { logoVisibleBox } from "./logo-trim";
 import { headshotUrl } from "./headshots";
 import { OG } from "./og-theme";
 import { STAT_META } from "./espn-stats";
@@ -31,8 +32,20 @@ const LOGO_STYLE: LogoStyle = "inline";
 
 // Watermark strength (0 = invisible, 1 = solid). Busy or strongly colored logos get less so the
 // player's name and points stay easy to read. Keyed by ESPN team id; anything not listed uses the default.
-// Logo size (pixels) beside the team name in the "inline" layout.
+// Logo size (pixels) beside the team name in the "inline" layout: the tallest it gets. Wide logos may be
+// up to 1.45x that wide, so a wide logo and a square one carry about the same visual weight.
 const INLINE_LOGO_SIZE = 90;
+
+// How far the headshot is zoomed inside its circle (1 = as the photo comes), and how far down the photo
+// the zoom is anchored (smaller keeps more of the top of the head).
+const HEADSHOT_ZOOM = 1.18;
+const HEADSHOT_ANCHOR = 0.38;
+
+// Where the "PTS" label sits beside the big number: "center" (middle of the digits) or "top" (level with their top).
+const PTS_ALIGN: "center" | "top" = "center";
+
+// Stat tiles: "dark" (solid navy) or "light" (pale panel with navy numbers).
+const TILE_STYLE: "dark" | "light" = "dark";
 
 const WATERMARK_DEFAULT = 0.07;
 const WATERMARK_BY_TEAM: Record<number, number> = {
@@ -59,17 +72,6 @@ const POSITION_NAMES: Record<string, string> = {
   RW: "Right Wing",
   D: "Defenseman",
   G: "Goaltender",
-};
-
-// Why the night was big, when there's a specific reason worth a tag.
-// (A night that qualified on fantasy points alone gets no tag.)
-const MILESTONE: Partial<Record<NightlyBlurb["kind"], string>> = {
-  HAT_TRICK: "HAT TRICK",
-  MULTI_GOAL: "MULTI-GOAL NIGHT",
-  BIG_POINTS: "BIG POINTS NIGHT",
-  SHUTOUT: "SHUTOUT",
-  SAVE_FEST: "40+ SAVES",
-  MELTDOWN: "ROUGH NIGHT",
 };
 
 // Tile names by ESPN stat id; anything not listed falls back to the short name in lib/espn-stats.ts.
@@ -126,6 +128,9 @@ export async function renderBigNightCard(opts: {
   logoStyle?: LogoStyle;
   watermarkOpacity?: number; // overrides the per-team strength (for testing)
   inlineLogoSize?: number; // overrides INLINE_LOGO_SIZE (for testing)
+  tileStyle?: "dark" | "light"; // overrides TILE_STYLE (for testing)
+  headshotZoom?: number; // overrides HEADSHOT_ZOOM (for testing)
+  ptsAlign?: "center" | "top"; // overrides PTS_ALIGN (for testing)
 }) {
   const { blurb: b, logos } = opts;
   const logoStyle = opts.logoStyle ?? LOGO_STYLE;
@@ -141,7 +146,6 @@ export async function renderBigNightCard(opts: {
   const inlineSize = opts.inlineLogoSize ?? INLINE_LOGO_SIZE;
   const tiles =
     b.stats && opts.scoredIds && opts.scoredIds.size > 0 ? tilesFromStats(b.stats, opts.scoredIds) : tilesFromLine(b.statLine);
-  const tag = MILESTONE[b.kind];
   const nameSize = b.playerName.length > 20 ? 56 : 72;
 
   // More tiles than fit in one row: smaller photo and points, tiles wrap into a grid.
@@ -151,15 +155,39 @@ export async function renderBigNightCard(opts: {
   const GAP = 18;
   const ROW_W = 904;
   const tileW = n <= 3 ? 200 : Math.floor((ROW_W - GAP * (cols - 1)) / cols);
-  const tileValue = n <= 3 ? 68 : cols === 4 ? 54 : 58;
-  const tileLabel = n <= 3 ? 20 : 16;
-  const photo = compact ? 240 : 300;
+  const tileValue = n <= 3 ? 74 : cols === 4 ? 58 : 62;
+  const tileLabel = n <= 3 ? 26 : 22;
+  const tileStyle = opts.tileStyle ?? TILE_STYLE;
+  const light = tileStyle === "light";
+  // A benched player's card carries an extra note line, so the photo gives up some room for it.
+  const photo = (compact ? 260 : 300) - (b.active ? 0 : compact ? 34 : 40);
 
+  const zoom = opts.headshotZoom ?? HEADSHOT_ZOOM;
+  const inner = photo - 16; // inside the 8px ring
   const avatar = (display: string) => (
     <div style={{ display: "flex", borderRadius: photo / 2, boxShadow: "0 10px 22px rgba(18,58,97,0.25)" }}>
-      <PlayerAvatar name={b.playerName} src={headshotUrl(b.playerId)} hasHeadshot={opts.hasHeadshot} size={photo} fontFamily={display} fontSize={compact ? 84 : 104} border={`8px solid ${OG.gold}`} />
+      {opts.hasHeadshot ? (
+        <div style={{ display: "flex", position: "relative", width: photo, height: photo, borderRadius: photo / 2, border: `8px solid ${OG.gold}`, overflow: "hidden" }}>
+          <img
+            src={headshotUrl(b.playerId)}
+            width={Math.round(inner * zoom)}
+            height={Math.round(inner * zoom)}
+            style={{ position: "absolute", left: -Math.round(((zoom - 1) * inner) / 2), top: -Math.round((zoom - 1) * inner * HEADSHOT_ANCHOR), objectFit: "cover" }}
+          />
+        </div>
+      ) : (
+        <PlayerAvatar name={b.playerName} src={headshotUrl(b.playerId)} hasHeadshot={false} size={photo} fontFamily={display} fontSize={compact ? 90 : 104} border={`8px solid ${OG.gold}`} />
+      )}
     </div>
   );
+
+  // The logo beside the team name, cut to its visible part and sized to fit a fixed box.
+  const maxLogoH = inlineSize;
+  const maxLogoW = Math.round(inlineSize * 1.45);
+  const vis = logo ? logoVisibleBox(logo) : null;
+  const logoScale = vis ? Math.min(maxLogoW / vis.bw, maxLogoH / vis.bh) : 1;
+  const logoDW = vis ? Math.round(vis.bw * logoScale) : maxLogoH;
+  const logoDH = vis ? Math.round(vis.bh * logoScale) : maxLogoH;
 
   return frame({
     footer: opts.footer,
@@ -257,7 +285,7 @@ export async function renderBigNightCard(opts: {
           )}
 
           {placement === "nameplate" && logo ? (
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 30, marginTop: compact ? 18 : 26 }}>
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 30, marginTop: compact ? 20 : 30 }}>
               <img src={logo} width={150} height={150} style={{ objectFit: "contain" }} />
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                 <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, letterSpacing: 4, color: OG.goldText }}>{(POSITION_NAMES[b.position] ?? b.position).toUpperCase()}</div>
@@ -266,19 +294,25 @@ export async function renderBigNightCard(opts: {
               </div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: compact ? 18 : 26 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: compact ? 20 : 30 }}>
               <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, letterSpacing: 4, color: OG.goldText }}>{(POSITION_NAMES[b.position] ?? b.position).toUpperCase()}</div>
               <div style={{ display: "flex", fontFamily: display, fontSize: nameSize, fontWeight: 700, color: OG.board, lineHeight: 1.1, marginTop: 6, textAlign: "center" }}>{b.playerName}</div>
               {placement === "banner" || placement === "strip" ? null : (
-                <div style={{ display: "flex", marginTop: 10 }}>
+                <div style={{ display: "flex", marginTop: placement === "inline" ? 6 : 10 }}>
                   {placement === "inline" ? (
                     // The team name stays dead center: equal-width slots on each side, with the logo in the left one.
-                    <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-                      <div style={{ display: "flex", width: inlineSize + 36, justifyContent: "flex-end", paddingRight: 18 }}>
-                        {logo ? <img src={logo} width={inlineSize} height={inlineSize} style={{ objectFit: "contain" }} /> : null}
+                    <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", height: maxLogoH + 6 }}>
+                      <div style={{ display: "flex", width: maxLogoW + 36, justifyContent: "flex-end", alignItems: "center", paddingRight: 18 }}>
+                        {logo && vis ? (
+                          <div style={{ display: "flex", position: "relative", width: logoDW, height: logoDH, overflow: "hidden" }}>
+                            <img src={logo} width={Math.round(vis.w * logoScale)} height={Math.round(vis.h * logoScale)} style={{ position: "absolute", left: -Math.round(vis.x * logoScale), top: -Math.round(vis.y * logoScale) }} />
+                          </div>
+                        ) : logo ? (
+                          <img src={logo} width={maxLogoH} height={maxLogoH} style={{ objectFit: "contain" }} />
+                        ) : null}
                       </div>
                       <div style={{ display: "flex", fontFamily: display, fontSize: 38, fontWeight: 700, letterSpacing: 0.5, color: OG.rink }}>{b.teamName}</div>
-                      <div style={{ display: "flex", width: inlineSize + 36 }} />
+                      <div style={{ display: "flex", width: maxLogoW + 36 }} />
                     </div>
                   ) : (
                     <div style={{ display: "flex", fontFamily: display, fontSize: 38, fontWeight: 700, letterSpacing: 0.5, color: OG.rink }}>{b.teamName}</div>
@@ -287,26 +321,23 @@ export async function renderBigNightCard(opts: {
               )}
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 28, marginTop: compact ? 10 : 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 28, marginTop: compact ? 14 : 26 }}>
             {placement === "score" && logo ? <img src={logo} width={compact ? 130 : 160} height={compact ? 130 : 160} style={{ objectFit: "contain" }} /> : null}
-          <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end" }}>
-            <div style={{ display: "flex", width: 124 }} />
-            <div style={{ display: "flex", fontFamily: display, fontSize: compact ? 104 : 128, fontWeight: 700, color: OG.centerRed, lineHeight: 1 }}>{b.points.toFixed(2)}</div>
-            <div style={{ display: "flex", width: 124, paddingLeft: 14, paddingBottom: 10, fontFamily: display, fontSize: 34, fontWeight: 700, color: OG.muted, letterSpacing: 2 }}>PTS</div>
+          <div style={{ display: "flex", flexDirection: "row", alignItems: (opts.ptsAlign ?? PTS_ALIGN) === "top" ? "flex-start" : "center" }}>
+            <div style={{ display: "flex", width: 132 }} />
+            <div style={{ display: "flex", fontFamily: display, fontSize: compact ? (b.active ? 116 : 106) : 140, fontWeight: 700, color: OG.centerRed, lineHeight: 1 }}>{b.points.toFixed(2)}</div>
+            <div style={{ display: "flex", width: 132, paddingLeft: 14, paddingTop: (opts.ptsAlign ?? PTS_ALIGN) === "top" ? (compact ? 12 : 16) : 0, fontFamily: display, fontSize: compact ? 34 : 38, fontWeight: 700, color: OG.muted, letterSpacing: 2 }}>PTS</div>
           </div>
           </div>
-          {tag ? (
-            <div style={{ display: "flex", marginTop: 12, fontFamily: display, fontSize: 26, fontWeight: 700, letterSpacing: 3, color: monster ? OG.board : OG.goldText, background: monster ? OG.gold : "#F7EBCB", border: `3px solid ${OG.gold}`, borderRadius: 999, padding: "6px 26px" }}>{tag}</div>
-          ) : null}
           {b.active ? null : (
-            <div style={{ display: "flex", marginTop: 12, fontSize: 24, color: OG.muted }}>Not in the active lineup, so these points did not count</div>
+            <div style={{ display: "flex", marginTop: 8, fontSize: 24, color: OG.muted }}>Not in the active lineup, so these points did not count</div>
           )}
           {n > 0 ? (
-            <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: GAP, marginTop: compact ? 22 : 30, width: ROW_W }}>
+            <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: GAP, marginTop: compact ? 30 : 40, width: ROW_W }}>
               {tiles.map((t) => (
-                <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: tileW, background: OG.rink, borderRadius: 12, padding: compact ? "10px 8px" : "16px 12px" }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: tileValue, fontWeight: 700, color: "#FFFFFF", lineHeight: 1.1 }}>{t.value}</div>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: tileLabel, fontWeight: 700, letterSpacing: 2, color: "#C9D6E6" }}>{t.label}</div>
+                <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: tileW, background: light ? OG.icePanel : OG.rink, border: light ? `2px solid ${OG.iceLine}` : "none", borderRadius: 12, padding: compact ? "12px 8px" : "18px 12px" }}>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: tileValue, fontWeight: 700, color: light ? OG.rink : "#FFFFFF", lineHeight: 1.1 }}>{t.value}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: tileLabel, fontWeight: 700, letterSpacing: 1.5, color: light ? OG.muted : "#C9D6E6" }}>{t.label}</div>
                 </div>
               ))}
             </div>
