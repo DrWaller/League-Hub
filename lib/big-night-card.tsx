@@ -41,8 +41,8 @@ const INLINE_LOGO_SIZE = 90;
 const HEADSHOT_ZOOM = 1.18;
 const HEADSHOT_ANCHOR = 0.38;
 
-// Where the "PTS" label sits beside the big number: "center" (middle of the digits) or "top" (level with their top).
-const PTS_ALIGN: "center" | "top" = "center";
+// How far (pixels) the "PTS" label sits above the bottom of the big number. 0 is on the baseline; bigger is higher.
+const PTS_LIFT = 30;
 
 // Stat tiles: "dark" (solid navy) or "light" (pale panel with navy numbers).
 const TILE_STYLE: "dark" | "light" = "dark";
@@ -130,7 +130,7 @@ export async function renderBigNightCard(opts: {
   inlineLogoSize?: number; // overrides INLINE_LOGO_SIZE (for testing)
   tileStyle?: "dark" | "light"; // overrides TILE_STYLE (for testing)
   headshotZoom?: number; // overrides HEADSHOT_ZOOM (for testing)
-  ptsAlign?: "center" | "top"; // overrides PTS_ALIGN (for testing)
+  ptsLift?: number; // overrides PTS_LIFT (for testing)
 }) {
   const { blurb: b, logos } = opts;
   const logoStyle = opts.logoStyle ?? LOGO_STYLE;
@@ -155,12 +155,12 @@ export async function renderBigNightCard(opts: {
   const GAP = 18;
   const ROW_W = 904;
   const tileW = n <= 3 ? 200 : Math.floor((ROW_W - GAP * (cols - 1)) / cols);
-  const tileValue = n <= 3 ? 74 : cols === 4 ? 58 : 62;
-  const tileLabel = n <= 3 ? 26 : 22;
+  const tileValue = n <= 3 ? 66 : cols === 4 ? 58 : 62;
+  const tileLabel = n <= 3 ? 24 : 22;
   const tileStyle = opts.tileStyle ?? TILE_STYLE;
   const light = tileStyle === "light";
   // A benched player's card carries an extra note line, so the photo gives up some room for it.
-  const photo = (compact ? 260 : 300) - (b.active ? 0 : compact ? 34 : 40);
+  const photo = (compact ? 240 : 290) - (b.active ? 0 : compact ? 34 : 40);
 
   const zoom = opts.headshotZoom ?? HEADSHOT_ZOOM;
   const inner = photo - 16; // inside the 8px ring
@@ -323,17 +323,17 @@ export async function renderBigNightCard(opts: {
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 28, marginTop: compact ? 14 : 26 }}>
             {placement === "score" && logo ? <img src={logo} width={compact ? 130 : 160} height={compact ? 130 : 160} style={{ objectFit: "contain" }} /> : null}
-          <div style={{ display: "flex", flexDirection: "row", alignItems: (opts.ptsAlign ?? PTS_ALIGN) === "top" ? "flex-start" : "center" }}>
+          <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end" }}>
             <div style={{ display: "flex", width: 132 }} />
-            <div style={{ display: "flex", fontFamily: display, fontSize: compact ? (b.active ? 116 : 106) : 140, fontWeight: 700, color: OG.centerRed, lineHeight: 1 }}>{b.points.toFixed(2)}</div>
-            <div style={{ display: "flex", width: 132, paddingLeft: 14, paddingTop: (opts.ptsAlign ?? PTS_ALIGN) === "top" ? (compact ? 12 : 16) : 0, fontFamily: display, fontSize: compact ? 34 : 38, fontWeight: 700, color: OG.muted, letterSpacing: 2 }}>PTS</div>
+            <div style={{ display: "flex", fontFamily: display, fontSize: compact ? (b.active ? 108 : 100) : 140, fontWeight: 700, color: OG.centerRed, lineHeight: 1 }}>{b.points.toFixed(2)}</div>
+            <div style={{ display: "flex", width: 132, paddingLeft: 14, paddingBottom: Math.round((opts.ptsLift ?? PTS_LIFT) * (compact ? 0.85 : 1)), fontFamily: display, fontSize: compact ? 34 : 38, fontWeight: 700, color: OG.muted, letterSpacing: 2 }}>PTS</div>
           </div>
           </div>
           {b.active ? null : (
             <div style={{ display: "flex", marginTop: 8, fontSize: 24, color: OG.muted }}>Not in the active lineup, so these points did not count</div>
           )}
           {n > 0 ? (
-            <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: GAP, marginTop: compact ? 30 : 40, width: ROW_W }}>
+            <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: GAP, marginTop: compact ? 26 : 40, width: ROW_W }}>
               {tiles.map((t) => (
                 <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: tileW, background: light ? OG.icePanel : OG.rink, border: light ? `2px solid ${OG.iceLine}` : "none", borderRadius: 12, padding: compact ? "12px 8px" : "18px 12px" }}>
                   <div style={{ display: "flex", fontFamily: display, fontSize: tileValue, fontWeight: 700, color: light ? OG.rink : "#FFFFFF", lineHeight: 1.1 }}>{t.value}</div>
