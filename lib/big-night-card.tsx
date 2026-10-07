@@ -14,7 +14,7 @@ import { isMonsterNight, type NightlyBlurb } from "./nightly-blurbs";
 
 export type LogoStyle =
   | "badge" | "inline" | "watermark" | "pair" | "badge+watermark" | "pair+watermark" | "corner+watermark"
-  | "header" | "banner" | "strip" | "score" | "nameplate" | "emblem";
+  | "header" | "banner" | "strip" | "score" | "nameplate" | "emblem" | "topleft";
 
 // Where the team logo goes (teams with no logo uploaded show none of these):
 //   badge     = round logo on the lower-right of the headshot
@@ -27,9 +27,10 @@ export type LogoStyle =
 //   strip     = a navy strip along the bottom of the card with logo and team name
 //   score     = the logo beside the points number
 //   nameplate = a large logo beside the player's name
+//   topleft   = a clear logo in the top-left corner of the white card; the team name stays centered under the player
 //   emblem    = just the logo, centered under the name (no team name; a team with no logo shows its name)
 //   "x+watermark" = that logo placement plus a lighter watermark behind everything
-const LOGO_STYLE: LogoStyle = "inline";
+const LOGO_STYLE: LogoStyle = "topleft";
 
 // Watermark strength (0 = invisible, 1 = solid). Busy or strongly colored logos get less so the
 // player's name and points stay easy to read. Keyed by ESPN team id; anything not listed uses the default.
@@ -44,6 +45,13 @@ const HEADSHOT_ANCHOR = 0.38;
 
 // How far (pixels) the "PTS" label sits above the bottom of the big number. 0 is on the baseline; bigger is higher.
 const PTS_LIFT = 30;
+
+// Distance (pixels) of the top-left logo from the card's top and left edges.
+const TOP_LEFT_INSET = { top: 44, left: 52 };
+
+// null = the logo sits in the corner at TOP_LEFT_INSET. A number instead puts it level with the headshot,
+// that many pixels to its left (so a smaller number is closer to the headshot).
+const TOP_LEFT_BESIDE: number | null = 44;
 
 // Stat tiles: "dark" (solid navy) or "light" (pale panel with navy numbers).
 const TILE_STYLE: "dark" | "light" = "dark";
@@ -132,6 +140,8 @@ export async function renderBigNightCard(opts: {
   tileStyle?: "dark" | "light"; // overrides TILE_STYLE (for testing)
   headshotZoom?: number; // overrides HEADSHOT_ZOOM (for testing)
   ptsLift?: number; // overrides PTS_LIFT (for testing)
+  topLeftInset?: { top: number; left: number }; // overrides TOP_LEFT_INSET (for testing)
+  topLeftBeside?: number | null; // overrides TOP_LEFT_BESIDE (for testing)
 }) {
   const { blurb: b, logos } = opts;
   const logoStyle = opts.logoStyle ?? LOGO_STYLE;
@@ -167,6 +177,8 @@ export async function renderBigNightCard(opts: {
 
   // Space (pixels) above each line, measured as margins: photo > position > name > team > points.
   const SP = compact ? { pos: 14, name: -8, team: 6, pts: -1 } : { pos: 18, name: -8, team: 6, pts: -6 };
+  // Layouts where the team shows as plain text (no tall logo row) need slightly different gaps.
+  const teamRowIsText = !(placement === "inline" || placement === "emblem" || placement === "banner" || placement === "strip" || placement === "nameplate");
   const zoom = opts.headshotZoom ?? HEADSHOT_ZOOM;
   const inner = photo - 16; // inside the 8px ring
   const avatar = (display: string) => (
@@ -193,6 +205,20 @@ export async function renderBigNightCard(opts: {
   const logoScale = vis ? Math.min(maxLogoW / vis.bw, maxLogoH / vis.bh) : 1;
   const logoDW = vis ? Math.round(vis.bw * logoScale) : maxLogoH;
   const logoDH = vis ? Math.round(vis.bh * logoScale) : maxLogoH;
+
+  // "topleft" layout: the logo in the card's top-left corner, sized to fit a fixed box.
+  const TL_W = 200;
+  const TL_H = 160;
+  const beside = opts.topLeftBeside === undefined ? TOP_LEFT_BESIDE : opts.topLeftBeside;
+  const CARD_W = 984; // width of the white card
+  const padTop = compact ? 20 : 28;
+  // In "beside" mode the logo may only use the room between the card's left margin and the headshot.
+  const roomLeft = CARD_W / 2 - photo / 2 - (beside ?? 0) - 24;
+  const tlScale = vis ? Math.min((beside === null ? TL_W : Math.min(TL_W, roomLeft)) / vis.bw, TL_H / vis.bh) : 1;
+  const tlDW = vis ? Math.round(vis.bw * tlScale) : TL_H;
+  const tlDH = vis ? Math.round(vis.bh * tlScale) : TL_H;
+  const tlLeft = beside === null ? (opts.topLeftInset ?? TOP_LEFT_INSET).left : Math.round(CARD_W / 2 - photo / 2 - beside - tlDW);
+  const tlTop = beside === null ? (opts.topLeftInset ?? TOP_LEFT_INSET).top : Math.round(padTop + photo / 2 - tlDH / 2);
 
   // "emblem" layout: the logo alone, bigger, centered.
   const EMBLEM_H = special ? 88 : compact ? 92 : 108;
@@ -285,6 +311,18 @@ export async function renderBigNightCard(opts: {
             </div>
           ) : null}
 
+          {placement === "topleft" && logo ? (
+            <div style={{ display: "flex", position: "absolute", top: tlTop, left: tlLeft, width: tlDW, height: tlDH, alignItems: "flex-start", justifyContent: "flex-start" }}>
+              {vis ? (
+                <div style={{ display: "flex", position: "relative", width: Math.round(vis.bw * tlScale), height: Math.round(vis.bh * tlScale), overflow: "hidden" }}>
+                  <img src={logo} width={Math.round(vis.w * tlScale)} height={Math.round(vis.h * tlScale)} style={{ position: "absolute", left: -Math.round(vis.x * tlScale), top: -Math.round(vis.y * tlScale) }} />
+                </div>
+              ) : (
+                <img src={logo} width={TL_H} height={TL_H} style={{ objectFit: "contain" }} />
+              )}
+            </div>
+          ) : null}
+
           {placement === "pair" && logo ? (
             <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
               {avatar(display)}
@@ -317,7 +355,7 @@ export async function renderBigNightCard(opts: {
               <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, letterSpacing: 4, color: OG.goldText }}>{(POSITION_NAMES[b.position] ?? b.position).toUpperCase()}</div>
               <div style={{ display: "flex", fontFamily: display, fontSize: nameSize, fontWeight: 700, color: OG.board, lineHeight: 1.1, marginTop: SP.name, textAlign: "center" }}>{b.playerName}</div>
               {placement === "banner" || placement === "strip" ? null : (
-                <div style={{ display: "flex", marginTop: placement === "inline" || placement === "emblem" ? SP.team : 10 }}>
+                <div style={{ display: "flex", marginTop: placement === "inline" || placement === "emblem" ? SP.team : SP.team - 12 }}>
                   {placement === "emblem" && logo ? (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: EMBLEM_H }}>
                       {emblem}
@@ -344,7 +382,7 @@ export async function renderBigNightCard(opts: {
               )}
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 28, marginTop: SP.pts }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 28, marginTop: teamRowIsText ? SP.pts - (compact ? 8 : 3) : SP.pts }}>
             {placement === "score" && logo ? <img src={logo} width={compact ? 130 : 160} height={compact ? 130 : 160} style={{ objectFit: "contain" }} /> : null}
           <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end" }}>
             <div style={{ display: "flex", width: 132 }} />
