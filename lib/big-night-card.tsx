@@ -262,7 +262,7 @@ export async function renderBigNightCard(opts: {
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                 <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, letterSpacing: 4, color: OG.goldText }}>{(POSITION_NAMES[b.position] ?? b.position).toUpperCase()}</div>
                 <div style={{ display: "flex", fontFamily: display, fontSize: nameSize, fontWeight: 700, color: OG.board, lineHeight: 1.1, marginTop: 4 }}>{b.playerName}</div>
-                <div style={{ display: "flex", fontSize: 32, fontWeight: 600, color: OG.rink, marginTop: 8 }}>{b.teamName}</div>
+                <div style={{ display: "flex", fontFamily: display, fontSize: 38, fontWeight: 700, letterSpacing: 0.5, color: OG.rink, marginTop: 8 }}>{b.teamName}</div>
               </div>
             </div>
           ) : (
@@ -277,11 +277,11 @@ export async function renderBigNightCard(opts: {
                       <div style={{ display: "flex", width: inlineSize + 36, justifyContent: "flex-end", paddingRight: 18 }}>
                         {logo ? <img src={logo} width={inlineSize} height={inlineSize} style={{ objectFit: "contain" }} /> : null}
                       </div>
-                      <div style={{ display: "flex", fontSize: 32, fontWeight: 600, color: OG.rink }}>{b.teamName}</div>
+                      <div style={{ display: "flex", fontFamily: display, fontSize: 38, fontWeight: 700, letterSpacing: 0.5, color: OG.rink }}>{b.teamName}</div>
                       <div style={{ display: "flex", width: inlineSize + 36 }} />
                     </div>
                   ) : (
-                    <div style={{ display: "flex", fontSize: 32, fontWeight: 600, color: OG.rink }}>{b.teamName}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 38, fontWeight: 700, letterSpacing: 0.5, color: OG.rink }}>{b.teamName}</div>
                   )}
                 </div>
               )}
