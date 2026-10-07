@@ -15,6 +15,7 @@ export default async function AdminDashboard() {
     { href: "/admin/weekly", label: "Weekly Checklist", desc: "One page for the weekly routine: blurbs, awards, writeup, graphics, power rankings, luck chart." },
     { href: "/admin/awards", label: "Weekly Awards", desc: "3 Stars, Forward/Defense/Goalie of the Week + runners-up." },
     { href: "/admin/graphics", label: "Graphics", desc: "Auto-generated shareable images from real weekly stats." },
+    { href: "/admin/big-night-cards", label: "Big Night Cards", desc: "A shareable card, and a caption, for every player who had a big night." },
     { href: "/admin/monthly-periods", label: "Monthly Periods", desc: "Define the week ranges Monthly Awards use." },
     { href: "/admin/monthly-awards", label: "Monthly Awards", desc: "Player picks + an automatic Manager of the Month." },
     { href: "/admin/newsletter", label: "Newsletter", desc: "Weekly recap and monthly wrap-up, AI-draftable." },
