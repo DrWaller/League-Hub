@@ -1,16 +1,21 @@
 import Link from "next/link";
 import { currentSeason } from "@/lib/espn-daily";
 import { getNight, getRecentNights } from "@/lib/nightly-store";
-import { prettyDate } from "@/lib/nightly-blurbs";
+import { prettyDate, recentCutoff } from "@/lib/nightly-blurbs";
 import { pts } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 // Commissioner page: every big-night card for a night, ready to open or save.
 // Open /admin/big-night-cards for the latest saved night, or ?date=YYYY-MM-DD.
-export default async function BigNightCardsPage({ searchParams }: { searchParams: { date?: string } }) {
+export default async function BigNightCardsPage({ searchParams }: { searchParams: { date?: string; refreshed?: string } }) {
   const season = currentSeason();
   const [night, recent] = await Promise.all([getNight(season, searchParams.date), getRecentNights(season, 10)]);
+
+  // If nothing is saved for last night yet, say so and offer a one-tap refresh.
+  const lastNight = recentCutoff(1);
+  const behind = !recent[0] || recent[0].date < lastNight;
+  const refreshed = searchParams.refreshed;
 
   return (
     <div className="space-y-8">
@@ -18,6 +23,29 @@ export default async function BigNightCardsPage({ searchParams }: { searchParams
         <h1 className="font-display text-3xl">Big Night Cards</h1>
         <p className="font-body text-muted mt-1">One card per player who had a big night. Open one full size to save it, or grab its caption.</p>
       </div>
+
+      {refreshed && (
+        <p className="font-body text-sm bg-ice-panel border border-ice-line px-4 py-3 rounded">
+          {refreshed === "error"
+            ? "Couldn't reach ESPN just now. Try again in a minute."
+            : Number(refreshed) > 0
+              ? `Refreshed from ESPN: ${refreshed} night${Number(refreshed) === 1 ? "" : "s"} saved.`
+              : "Refreshed from ESPN: nothing new to save."}
+        </p>
+      )}
+
+      {behind ? (
+        <div className="font-body text-sm border border-ice-line px-4 py-3 rounded space-y-2">
+          <p>No cards are saved for last night ({prettyDate(lastNight)}) yet. If the games are final, pull them in now. A quiet night will show nothing.</p>
+          <Link href="/api/admin/nightly-blurbs/refresh" className="inline-block bg-rink text-ice px-4 py-2 rounded-sm hover:bg-rink-deep">
+            Refresh from ESPN
+          </Link>
+        </div>
+      ) : (
+        <Link href="/api/admin/nightly-blurbs/refresh" className="font-body text-sm text-rink hover:underline">
+          Refresh from ESPN
+        </Link>
+      )}
 
       {recent.length > 1 && (
         <div className="flex flex-wrap gap-2">

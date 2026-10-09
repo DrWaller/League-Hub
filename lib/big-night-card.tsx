@@ -53,6 +53,9 @@ const TOP_LEFT_INSET = { top: 44, left: 52 };
 // that many pixels to its left (so a smaller number is closer to the headshot).
 const TOP_LEFT_BESIDE: number | null = 44;
 
+// With the logo off to the side the team line is just text, so the headshot gets this much more room.
+const PHOTO_BONUS_TEXT_ONLY = 34;
+
 // Stat tiles: "dark" (solid navy) or "light" (pale panel with navy numbers).
 const TILE_STYLE: "dark" | "light" = "dark";
 
@@ -173,7 +176,7 @@ export async function renderBigNightCard(opts: {
   const tileStyle = opts.tileStyle ?? TILE_STYLE;
   const light = tileStyle === "light";
   // A benched player's card carries an extra note line, so the photo gives up some room for it.
-  const photo = (compact ? 256 : 316) - (b.active ? 0 : compact ? 34 : 40) - (special ? 30 : 0);
+  const photo = (compact ? 256 : 316) + (placement === "topleft" ? PHOTO_BONUS_TEXT_ONLY : 0) - (b.active ? 0 : compact ? 34 : 40) - (special ? 30 : 0);
 
   // Space (pixels) above each line, measured as margins: photo > position > name > team > points.
   const SP = compact ? { pos: 14, name: -8, team: 6, pts: -1 } : { pos: 18, name: -8, team: 6, pts: -6 };
@@ -213,7 +216,8 @@ export async function renderBigNightCard(opts: {
   const CARD_W = 984; // width of the white card
   const padTop = compact ? 20 : 28;
   // In "beside" mode the logo may only use the room between the card's left margin and the headshot.
-  const roomLeft = CARD_W / 2 - photo / 2 - (beside ?? 0) - 24;
+  const sideW = Math.round((904 - photo) / 2); // the space left of the headshot inside the card's padding
+  const roomLeft = sideW - (beside ?? 0) - 6;
   const tlScale = vis ? Math.min((beside === null ? TL_W : Math.min(TL_W, roomLeft)) / vis.bw, TL_H / vis.bh) : 1;
   const tlDW = vis ? Math.round(vis.bw * tlScale) : TL_H;
   const tlDH = vis ? Math.round(vis.bh * tlScale) : TL_H;
@@ -311,7 +315,7 @@ export async function renderBigNightCard(opts: {
             </div>
           ) : null}
 
-          {placement === "topleft" && logo ? (
+          {placement === "topleft" && logo && beside === null ? (
             <div style={{ display: "flex", position: "absolute", top: tlTop, left: tlLeft, width: tlDW, height: tlDH, alignItems: "flex-start", justifyContent: "flex-start" }}>
               {vis ? (
                 <div style={{ display: "flex", position: "relative", width: Math.round(vis.bw * tlScale), height: Math.round(vis.bh * tlScale), overflow: "hidden" }}>
@@ -329,6 +333,23 @@ export async function renderBigNightCard(opts: {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: photo, height: photo, background: OG.icePanel, border: `3px solid ${OG.iceLine}`, borderRadius: 28 }}>
                 <img src={logo} width={photo - 56} height={photo - 56} style={{ objectFit: "contain" }} />
               </div>
+            </div>
+          ) : placement === "topleft" && beside !== null ? (
+            // Logo, headshot and an equal empty slot: the headshot stays centered and the logo stays level with it.
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", width: 904 }}>
+              <div style={{ display: "flex", width: sideW, justifyContent: "flex-end", alignItems: "center", paddingRight: beside }}>
+                {logo ? (
+                  vis ? (
+                    <div style={{ display: "flex", position: "relative", width: tlDW, height: tlDH, overflow: "hidden" }}>
+                      <img src={logo} width={Math.round(vis.w * tlScale)} height={Math.round(vis.h * tlScale)} style={{ position: "absolute", left: -Math.round(vis.x * tlScale), top: -Math.round(vis.y * tlScale) }} />
+                    </div>
+                  ) : (
+                    <img src={logo} width={TL_H} height={TL_H} style={{ objectFit: "contain" }} />
+                  )
+                ) : null}
+              </div>
+              <div style={{ display: "flex", position: "relative", width: photo, height: photo }}>{avatar(display)}</div>
+              <div style={{ display: "flex", width: sideW }} />
             </div>
           ) : (
             <div style={{ display: "flex", position: "relative", width: photo, height: photo, marginTop: placement === "banner" ? -56 : 0 }}>

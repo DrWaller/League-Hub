@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runNightly } from "@/lib/nightly-run";
+import { catchUpNights, runNightly } from "@/lib/nightly-run";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -13,6 +13,8 @@ export async function GET(req: Request) {
   if (req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  // Heal any night missed in the last 2 days first, then save last night.
+  await catchUpNights(2);
   const result = await runNightly({ save: true });
   return NextResponse.json({
     ok: result.ok,

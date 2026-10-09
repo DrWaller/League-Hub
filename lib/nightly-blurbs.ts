@@ -12,19 +12,26 @@ import { pts } from "./format";
 import type { DailyPlayerLine } from "./espn-daily";
 
 export const NIGHTLY = {
-  skater: { fantasy: 4 }, // fantasy points in one night
+  // Fantasy points in one night that make it a "big night", by position.
+  forward: { fantasy: 5 }, // C, LW, RW
+  defense: { fantasy: 4 }, // D
   goalie: {
-    fantasy: 4, // goalies score differently from skaters, so this has its own number
+    fantasy: 4,
     meltdownGoalsAgainst: 6, // only used when includeMeltdowns is true
   },
   // A "Monster Night" is a big night that's a cut above: it gets its own look on the card and a tag on the site.
-  monster: { skater: 7, goalie: 7 },
+  monster: { forward: 7, defense: 6, goalie: 7 },
   includeMeltdowns: false, // true adds a roast blurb for a goalie who gives up 6+
-  maxPerNight: 8, // a heavy slate never floods the page; best nights win
+  maxPerNight: 12, // a heavy slate never floods the page; best nights win
 };
 
+// Big-night and Monster Night cutoffs for a position (D and G have their own; everything else is a forward).
+export function bigCutoff(position: string): number {
+  return position === "G" ? NIGHTLY.goalie.fantasy : position === "D" ? NIGHTLY.defense.fantasy : NIGHTLY.forward.fantasy;
+}
+
 export function isMonsterNight(points: number, position: string): boolean {
-  return points >= (position === "G" ? NIGHTLY.monster.goalie : NIGHTLY.monster.skater);
+  return points >= (position === "G" ? NIGHTLY.monster.goalie : position === "D" ? NIGHTLY.monster.defense : NIGHTLY.monster.forward);
 }
 
 export type BlurbKind = "HAT_TRICK" | "MULTI_GOAL" | "BIG_POINTS" | "BIG_NIGHT" | "SHUTOUT" | "SAVE_FEST" | "GOALIE_BIG" | "MELTDOWN";
@@ -79,8 +86,9 @@ export function classify(p: DailyPlayerLine): Candidate | null {
     return { player: p, kind, triggers };
   }
 
-  if (p.points < NIGHTLY.skater.fantasy) return null;
-  triggers.push(`fantasy >= ${NIGHTLY.skater.fantasy}`);
+  const cutoff = bigCutoff(p.position);
+  if (p.points < cutoff) return null;
+  triggers.push(`fantasy >= ${cutoff}`);
   const g = n(s, STAT_ID.goals);
   const a = n(s, STAT_ID.assists);
   const kind: BlurbKind = g >= 3 ? "HAT_TRICK" : g >= 2 && g + a < 4 ? "MULTI_GOAL" : g + a >= 3 ? "BIG_POINTS" : "BIG_NIGHT";

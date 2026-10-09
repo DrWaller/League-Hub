@@ -4,7 +4,7 @@
 
 import { currentSeason, getCurrentScoringPeriod, getDailyPlayerLines } from "./espn-daily";
 import { nightDate, scanNight, type NightScan } from "./nightly-blurbs";
-import { saveNight } from "./nightly-store";
+import { getNight, saveNight } from "./nightly-store";
 
 export interface NightlyResult {
   ok: boolean;
@@ -53,4 +53,24 @@ export async function runNightly(opts: { period?: number; save: boolean }): Prom
   }
 
   return { ok: true, saved, season, period, date, espnPeriod: status, scan, diag: day.diag, sampleRawStats };
+}
+
+// Save any of the last few nights that aren't saved yet (oldest first). A night
+// that is already saved is left alone unless force is set. Used by the morning
+// job (so one missed day heals itself the next morning) and by the admin
+// "Refresh from ESPN" button.
+export async function catchUpNights(days: number, force = false): Promise<{ ok: boolean; saved: number; error?: string }> {
+  const season = currentSeason();
+  const status = await getCurrentScoringPeriod();
+  if (!status.connected || status.current === null) return { ok: false, saved: 0, error: "ESPN isn't connected." };
+  let saved = 0;
+  for (let k = days; k >= 1; k--) {
+    const period = status.current - k;
+    if (period < 1) continue;
+    const date = nightDate(status.current, period);
+    if (!force && (await getNight(season, date))) continue;
+    const r = await runNightly({ period, save: true });
+    if (r.ok && r.saved) saved++;
+  }
+  return { ok: true, saved };
 }
