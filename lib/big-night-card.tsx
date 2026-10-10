@@ -2,7 +2,7 @@ import { frame } from "./portrait-graphics";
 import { PlayerAvatar } from "./og-avatar";
 import { logoVisibleBox } from "./logo-trim";
 import { headshotUrl } from "./headshots";
-import { OG } from "./og-theme";
+import { OG, TEAM_COLOR } from "./og-theme";
 import { STAT_META } from "./espn-stats";
 import { isMonsterNight, type NightlyBlurb } from "./nightly-blurbs";
 
@@ -66,16 +66,6 @@ const WATERMARK_BY_TEAM: Record<number, number> = {
   7: 0.055, // Carter's Club: solid purple disc
   2: 0.08, // Hagel and Cream Cheese: soft blues, can take more
   1: 0.06, // Mighty Tkachuks: a face in the middle
-};
-
-// Team colors (from each logo) for the banner layout; any team not listed gets the site navy.
-const TEAM_COLOR: Record<number, string> = {
-  1: "#034946", // Mighty Tkachuks
-  2: "#215070", // Hagel and Cream Cheese
-  5: "#C11C2C", // DANtastic SENSations
-  7: "#51287E", // Carter's Club
-  9: "#D61C18", // Randy's 18-Wheelers
-  10: "#1B2554", // Reinhart of the Cards
 };
 
 const POSITION_NAMES: Record<string, string> = {

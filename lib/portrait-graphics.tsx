@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { ReactNode, CSSProperties } from "react";
 import { Team, PowerRankingEntry, Matchup } from "./types";
 import { LuckRow, luckColor, luckExtremes, luckTint } from "./luck";
-import { OG, NO_CACHE } from "./og-theme";
+import { OG, NO_CACHE, TEAM_COLOR } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
 import { TeamBadge, TeamLine } from "./og-team-logo";
 import { PlayerAvatar } from "./og-avatar";
@@ -22,8 +22,38 @@ const W = 1080;
 const H = 1350;
 const GREEN = "#1F7A4D";
 const GREEN_TINT = "#DCEFE4";
-const BOLD_HEADER_H = 206; // header band + red rule
+const BOLD_HEADER_H = 192; // header band + red rule
 const FOOTER_H = 64;
+
+// One set of numbers every card shares, so the weekly package stays consistent.
+const CARD_RADIUS = 18;
+const CARD_BORDER = "1px solid #BCD5EA";
+const CARD_SHADOW = "0 6px 16px rgba(18,58,97,0.10)";
+const AVATAR_BORDER = 6; // portrait ring thickness
+const AVATAR_LIST = 216; // portrait circle in the Top 3 / runner-up cards
+const AVATAR_LIST_FIRST = 256; // ...and in the #1 card
+const LOGO_SIZE = 44; // team logo next to a team name under a player
+const TOTW_LOGO = 30; // same, inside the smaller Team of the Week cards
+const PTS_GAP = 14; // space between a points number and "PTS"
+const RINK_LINE = "rgba(196,30,58,0.08)"; // rink markings: noticed on the second look
+const RINK_DOT = "rgba(18,58,97,0.055)";
+
+// Thin team-colour strip along the bottom edge of a player card. Teams with no colour in
+// lib/og-theme.ts (TEAM_COLOR) just get no strip. The card must be position:relative + overflow:hidden.
+function TeamAccent({ teamId }: { teamId: number }) {
+  const c = TEAM_COLOR[teamId];
+  if (!c) return null;
+  return <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 5, background: c, display: "flex" }} />;
+}
+
+// Satori has no star glyph in the loaded fonts, so draw one.
+function GoldStar({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <polygon points="12,1.5 15,8.6 22.5,9.2 16.8,14.1 18.6,21.5 12,17.6 5.4,21.5 7.2,14.1 1.5,9.2 9,8.6" fill={OG.gold} />
+    </svg>
+  );
+}
 const CHROME = BOLD_HEADER_H + FOOTER_H + 40; // header + footer + body padding: what rows can't use
 
 // Portrait is the primary shape: only an explicit ?format=landscape gives the wide version.
@@ -34,7 +64,7 @@ const signed = (n: number, digits = 0) => `${n > 0 ? "+" : ""}${n.toFixed(digits
 const record = (w: number, l: number, t: number) => `${w}-${l}${t ? `-${t}` : ""}`;
 
 export const seasonFooter = (leagueName: string, season: number) =>
-  `${leagueName.toUpperCase()} - ${season - 1}-${String(season).slice(2)} SEASON`;
+  `${leagueName.toUpperCase()} \u00b7 ${season - 1}\u2013${String(season).slice(2)} SEASON`;
 
 // Pulls "Week N" out of the title/subtitle so the header can show a big week
 // badge and that week's dates (from the saved Week Days calendar). Past seasons
@@ -61,6 +91,7 @@ export async function frame(opts: {
   subtitle: string;
   footer?: string;
   bold?: boolean; // kept for compatibility; every portrait graphic now uses this one style
+  flush?: boolean; // body runs edge to edge (no side/top padding): Player Spotlight
   plain?: boolean; // no rink markings behind the content (Player Radar draws its own chart)
   headerContent?: (f: { display: string; body: string }) => ReactNode; // replaces the title/subtitle/week badge (player cards put the player here)
   body: (f: { display: string; body: string }) => ReactNode;
@@ -77,8 +108,8 @@ export async function frame(opts: {
   const titleHasWeek = /week\s+\d+/i.test(headTitle);
   const showBadge = week != null && !titleHasWeek;
   // Shrink long titles so they stay on one line (the badge takes ~210px when shown).
-  const headerStyle: CSSProperties = { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 56px", background: OG.rink, borderBottom: `6px solid ${OG.centerRed}` };
-  const titleRoom = 968 - (showBadge ? 210 : 0);
+  const headerStyle: CSSProperties = { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 64px", background: OG.rink, borderBottom: `6px solid ${OG.centerRed}` };
+  const titleRoom = 952 - (showBadge ? 190 : 0);
   const titleSize = Math.max(52, Math.min(showBadge ? 76 : 84, Math.floor(titleRoom / (headTitle.length * 0.52))));
   // A plain "Week N" subtitle just repeats the badge: show the week's dates there
   // instead (or nothing when no dates are saved).
@@ -90,9 +121,9 @@ export async function frame(opts: {
     (
       <div style={{ width: W, height: H, display: "flex", flexDirection: "column", position: "relative", backgroundImage: "linear-gradient(180deg, #F8FCFF 0%, #E3EFF9 55%, #D3E5F4 100%)", fontFamily: body }}>
         {/* faint rink markings behind the content: faceoff circle, center dot, center line */}
-        {opts.plain ? null : <div style={{ position: "absolute", left: 130, top: 470, width: 820, height: 820, borderRadius: 410, border: "8px solid rgba(196,30,58,0.13)", display: "flex" }} />}
-        {opts.plain ? null : <div style={{ position: "absolute", left: 0, top: 876, width: 1080, height: 8, background: "rgba(196,30,58,0.13)", display: "flex" }} />}
-        {opts.plain ? null : <div style={{ position: "absolute", left: 490, top: 850, width: 100, height: 100, borderRadius: 50, background: "rgba(18,58,97,0.09)", display: "flex" }} />}
+        {opts.plain ? null : <div style={{ position: "absolute", left: 130, top: 470, width: 820, height: 820, borderRadius: 410, border: `8px solid ${RINK_LINE}`, display: "flex" }} />}
+        {opts.plain ? null : <div style={{ position: "absolute", left: 0, top: 876, width: 1080, height: 8, background: RINK_LINE, display: "flex" }} />}
+        {opts.plain ? null : <div style={{ position: "absolute", left: 490, top: 850, width: 100, height: 100, borderRadius: 50, background: RINK_DOT, display: "flex" }} />}
         {/* Explicit width + alignSelf + flexShrink: without them the header can collapse to the
             title's width inside a flex column when rendered on the server. */}
         {opts.headerContent ? (
@@ -106,9 +137,9 @@ export async function frame(opts: {
             {subtitleText ? <div style={{ display: "flex", fontSize: 28, color: "#C9D6E6", marginTop: 14, letterSpacing: subtitleIsPlainWeek ? 2 : 0 }}>{subtitleText}</div> : null}
           </div>
           {showBadge ? (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, padding: "8px 24px 10px 24px", border: `3px solid ${OG.gold}`, borderRadius: 16 }}>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 4, color: "#C9D6E6" }}>WEEK</div>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 92, lineHeight: 1, color: OG.gold }}>{week}</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, padding: "6px 20px 8px 20px", border: `3px solid ${OG.gold}`, borderRadius: 16 }}>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 20, letterSpacing: 4, color: "#C9D6E6" }}>WEEK</div>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 80, lineHeight: 1, color: OG.gold }}>{week}</div>
               {badgeDates ? <div style={{ display: "flex", fontFamily: display, fontSize: 20, letterSpacing: 1, color: "#C9D6E6", marginTop: 4 }}>{badgeDates}</div> : null}
             </div>
           ) : dates ? (
@@ -116,10 +147,10 @@ export async function frame(opts: {
           ) : null}
         </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "24px 48px 16px 48px" }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: opts.flush ? 0 : "24px 48px 16px 48px" }}>
           {opts.body({ display, body })}
         </div>
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", alignSelf: "stretch", flexShrink: 0, height: FOOTER_H, fontFamily: display, fontSize: 26, letterSpacing: 3, color: OG.muted }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", alignSelf: "stretch", flexShrink: 0, height: FOOTER_H, fontFamily: display, fontSize: 26, letterSpacing: 2, color: OG.muted }}>
           {opts.footer ?? ""}
         </div>
       </div>
@@ -239,7 +270,7 @@ export async function renderPortraitScoreboard(opts: {
           const homeWin = m.isFinal && m.homeScore > m.awayScore;
           const awayWin = m.isFinal && m.awayScore > m.homeScore;
           return (
-            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", boxShadow: "0 6px 16px rgba(18,58,97,0.10)", border: `1px solid #BCD5EA`, borderRadius: 10 }}>
+            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", boxShadow: CARD_SHADOW, border: CARD_BORDER, borderRadius: CARD_RADIUS }}>
               {side(m.homeTeamId, m.homeScore, homeWin)}
               <div style={{ display: "flex", height: 1, background: OG.iceLine, marginLeft: 20, marginRight: 20 }} />
               {side(m.awayTeamId, m.awayScore, awayWin)}
@@ -351,10 +382,11 @@ export async function renderPortraitPlayerList(opts: {
             <div
               key={p.id}
               style={{
-                display: "flex", flex: first ? 1.25 : 1, alignItems: "center", gap: 26, padding: "0 32px",
+                display: "flex", position: "relative", overflow: "hidden", flex: first ? 1.25 : 1, alignItems: "center", gap: 20, padding: "0 32px",
                 background: first ? "#F1F8FF" : "#FFFFFF",
-                border: first ? `4px solid ${OG.gold}` : `1px solid #BCD5EA`,
-                borderRadius: 18,
+                border: first ? `4px solid ${OG.gold}` : CARD_BORDER,
+                borderRadius: CARD_RADIUS,
+                boxShadow: CARD_SHADOW,
               }}
             >
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 96, flexShrink: 0 }}>
@@ -365,23 +397,104 @@ export async function renderPortraitPlayerList(opts: {
                 name={p.name}
                 src={headshotUrl(p.id)}
                 hasHeadshot={opts.headshots.has(p.id)}
-                size={first ? 236 : 200}
+                size={first ? AVATAR_LIST_FIRST : AVATAR_LIST}
                 fontFamily={display}
-                fontSize={first ? 80 : 68}
-                border={`6px solid ${opts.colors[i]}`}
+                fontSize={first ? 86 : 72}
+                border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`}
               />
               <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 6, minWidth: 0 }}>
-                <div style={{ display: "flex", fontFamily: display, fontSize: first ? 52 : 46, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: first ? 470 : 520, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
+                <div style={{ display: "flex", fontFamily: display, fontSize: first ? 52 : 46, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: first ? 500 : 540, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
                   <div style={{ display: "flex", fontFamily: display, fontSize: first ? 72 : 62, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
                   <div style={{ display: "flex", fontFamily: display, fontSize: 26, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 6 }}>PTS</div>
                 </div>
                 {p.statLine ? <div style={{ display: "flex", fontSize: 27, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{p.statLine}</div> : null}
-                <TeamLine name={p.teamName} logo={logos[p.teamId]} size={34} fontSize={28} align="flex-start" />
+                <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE} fontSize={24} align="flex-start" />
               </div>
+              <TeamAccent teamId={p.teamId} />
             </div>
           );
         })}
+        {opts.players.length === 0 && <div style={{ display: "flex", color: OG.muted, fontSize: 28 }}>{opts.emptyMessage}</div>}
+      </div>
+    ),
+  });
+}
+
+// ---------------------------------------------------------------- 3 stars (one big first star, two smaller beneath)
+// Deliberately NOT a leaderboard: the 1st Star is the feature, the 2nd and 3rd sit side by side
+// under it, like the NHL's three-stars presentation.
+export async function renderPortraitThreeStars(opts: {
+  footer?: string;
+  title: string;
+  subtitle: string;
+  players: PortraitPlayer[];
+  labels: string[];
+  colors: string[];
+  emptyMessage: string;
+  logos?: Record<number, string>;
+  headshots: Set<number>;
+}) {
+  const logos = opts.logos ?? {};
+  const [star1, ...rest] = opts.players;
+  const runnersUp = rest.slice(0, 2);
+
+  return frame({
+    footer: opts.footer,
+    title: opts.title,
+    subtitle: opts.subtitle,
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 22 }}>
+        {star1 ? (
+          <div
+            style={{
+              display: "flex", position: "relative", overflow: "hidden", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1.45, gap: 6, padding: "10px 0 8px 0",
+              background: "#F1F8FF", border: `4px solid ${OG.gold}`, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: display, fontWeight: 700, fontSize: 32, letterSpacing: 6, color: OG.goldText }}>
+              <GoldStar size={30} />
+              <div style={{ display: "flex" }}>{(opts.labels[0] ?? "1ST STAR").toUpperCase()}</div>
+              <GoldStar size={30} />
+            </div>
+            <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={260} fontFamily={display} fontSize={90} border={`${AVATAR_BORDER + 2}px solid ${OG.gold}`} />
+            <div style={{ display: "flex", fontFamily: display, fontSize: 62, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 900, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{star1.name}</div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 88, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{star1.points.toFixed(2)}</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>PTS</div>
+            </div>
+            {star1.statLine ? <div style={{ display: "flex", fontSize: 28, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{star1.statLine}</div> : null}
+            <TeamLine name={star1.teamName} logo={logos[star1.teamId]} size={LOGO_SIZE} fontSize={24} />
+            <TeamAccent teamId={star1.teamId} />
+          </div>
+        ) : null}
+        {runnersUp.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "row", flex: 1, gap: 22 }}>
+            {runnersUp.map((p, k) => {
+              const i = k + 1;
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    display: "flex", position: "relative", overflow: "hidden", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 4, paddingBottom: 8,
+                    background: "#FFFFFF", border: CARD_BORDER, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW,
+                  }}
+                >
+                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: 4, color: medalText(opts.colors[i]) }}>{(opts.labels[i] ?? "").toUpperCase()}</div>
+                  <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={170} fontFamily={display} fontSize={58} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 40, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 5 }}>PTS</div>
+                  </div>
+                  {p.statLine ? <div style={{ display: "flex", fontSize: 23, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}
+                  <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE - 8} fontSize={21} />
+                  <TeamAccent teamId={p.teamId} />
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
         {opts.players.length === 0 && <div style={{ display: "flex", color: OG.muted, fontSize: 28 }}>{opts.emptyMessage}</div>}
       </div>
     ),
@@ -408,6 +521,7 @@ export async function renderPortraitTeamOfWeek(opts: {
   const other = opts.lineup.filter((l) => !known.has(l)); // any slot we don't recognise still shows
 
   const CARD_W = 314;
+  const HIGH_W = 330; // the Week High card is ~5% bigger than the rest
 
   return frame({
     title: "Team of the Week",
@@ -418,48 +532,56 @@ export async function renderPortraitTeamOfWeek(opts: {
       const card = (l: Slot, i: number) => {
         const p = l.player;
         const isHigh = p != null && high != null && p.points === high;
+        const w = isHigh ? HIGH_W : CARD_W;
+        const logoShown = p ? Boolean(logos[p.teamId]) : false;
         return (
           <div
             key={`${l.slot}-${i}`}
             style={{
-              display: "flex", flexDirection: "column", alignItems: "center", position: "relative",
-              width: CARD_W, padding: "50px 12px 16px 12px",
-              background: "#FFFFFF", boxShadow: "0 6px 16px rgba(18,58,97,0.10)", border: `3px solid ${isHigh ? OG.gold : OG.iceLine}`, borderRadius: 20,
+              display: "flex", flexDirection: "column", alignItems: "center", position: "relative", overflow: "hidden",
+              width: w, padding: "50px 12px 18px 12px",
+              background: "#FFFFFF", boxShadow: CARD_SHADOW, border: `${isHigh ? 4 : 3}px solid ${isHigh ? OG.gold : OG.iceLine}`, borderRadius: CARD_RADIUS,
             }}
           >
-            {/* position tag top-left, week-high marker top-right: both clear of the photo */}
-            <div style={{ position: "absolute", top: 12, left: 12, display: "flex", padding: "2px 14px", borderRadius: 8, background: OG.rink, color: "#FFFFFF", fontFamily: display, fontWeight: 700, fontSize: 22 }}>
+            {/* position tag top-left (gold on the Week High card, navy on the rest), week-high marker top-right: both clear of the photo */}
+            <div style={{ position: "absolute", top: 12, left: 12, display: "flex", padding: "2px 14px", borderRadius: 8, background: isHigh ? OG.gold : OG.rink, color: isHigh ? OG.rinkDeep : "#FFFFFF", fontFamily: display, fontWeight: 700, fontSize: 22 }}>
               {l.slot}
             </div>
             {isHigh ? (
-              <div style={{ position: "absolute", top: 14, right: 14, display: "flex", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 2, color: OG.goldText }}>WEEK HIGH</div>
+              <div style={{ position: "absolute", top: 14, right: 14, display: "flex", alignItems: "center", gap: 6, fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 2, color: OG.goldText }}>
+                <GoldStar size={22} />
+                <div style={{ display: "flex" }}>WEEK HIGH</div>
+              </div>
             ) : null}
             {p ? (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-                <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={112} fontFamily={display} fontSize={34} border={`5px solid ${isHigh ? OG.gold : OG.rink}`} />
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, lineHeight: 1.1, marginTop: 10, maxWidth: CARD_W - 24, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={isHigh ? 124 : 118} fontFamily={display} fontSize={36} border={`${isHigh ? 6 : 5}px solid ${isHigh ? OG.gold : OG.rink}`} />
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, lineHeight: 1.1, marginTop: 10, maxWidth: w - 24, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                   {p.name}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 6, minHeight: 30, maxWidth: CARD_W - 24, fontSize: p.teamName.length > 27 ? 19 : p.teamName.length > 22 ? 21 : 23, color: OG.muted }}>
-                  {logos[p.teamId] ? <TeamBadge name={p.teamName} logo={logos[p.teamId]} size={22} fontFamily={display} /> : null}
-                  <div style={{ display: "flex", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", maxWidth: logos[p.teamId] ? CARD_W - 74 : CARD_W - 24 }}>{p.teamName}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 6, minHeight: 34, maxWidth: w - 24, fontSize: p.teamName.length > 27 ? 18 : p.teamName.length > 22 ? 20 : 22, color: OG.muted }}>
+                  {logoShown ? <TeamBadge name={p.teamName} logo={logos[p.teamId]} size={TOTW_LOGO} fontFamily={display} /> : null}
+                  <div style={{ display: "flex", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", maxWidth: logoShown ? w - 24 - TOTW_LOGO - 8 : w - 24 }}>{p.teamName}</div>
                 </div>
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 46, lineHeight: 1, color: OG.centerRed, marginTop: 8 }}>{p.points.toFixed(2)}</div>
               </div>
             ) : (
               <div style={{ display: "flex", color: OG.muted, fontSize: 24, height: 150, alignItems: "center" }}>No data</div>
             )}
+            {p ? <TeamAccent teamId={p.teamId} /> : null}
           </div>
         );
       };
       const row = (items: Slot[], key: string) =>
         items.length === 0 ? null : (
-          <div key={key} style={{ display: "flex", justifyContent: "center", gap: 20 }}>
+          <div key={key} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 20 }}>
             {items.map(card)}
           </div>
         );
+      // Rows sit close together in the middle (instead of spreading to the edges) so the
+      // goalie reads as part of the formation, not a separate island.
       return (
-        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-around" }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center", gap: 34 }}>
           {row(forwards, "f")}
           {row(defence, "d")}
           {row(goalie, "g")}
@@ -482,37 +604,86 @@ export async function renderPortraitSpotlight(opts: {
 }) {
   const logos = opts.logos ?? {};
   const p = opts.player;
+  const logo = logos[p.teamId];
+  const teamColor = TEAM_COLOR[p.teamId];
+  const parts = p.name.trim().split(/\s+/);
+  const first = parts[0] ?? "";
+  const last = parts.slice(1).join(" ");
+  const longest = Math.max(first.length, last.length);
+  const nameSize = Math.max(44, Math.min(96, Math.floor(416 / (Math.max(longest, 1) * 0.5))));
+
+  // Layout numbers (body area is 1080 wide, ~1094 tall; this graphic runs edge to edge).
+  const HERO_H = 1000;
+  const PANEL_W = 590; // navy photo panel
+  const PHOTO_H = 780; // photo sits on the bottom of the panel
+  const TILE_H = 160;
+
   return frame({
     footer: opts.footer,
     title: "Player Spotlight",
     subtitle: opts.subtitle,
+    flush: true,
     body: ({ display }) => (
-      <div style={{ display: "flex", flexGrow: 1, alignItems: "center", justifyContent: "center" }}>
-        <div
-          style={{
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 18, width: "100%", padding: "56px 40px",
-            background: "#FFFFFF", boxShadow: "0 6px 16px rgba(18,58,97,0.10)", borderTop: `10px solid ${OG.gold}`, borderLeft: `1px solid #BCD5EA`, borderRight: `1px solid #BCD5EA`, borderBottom: `1px solid #BCD5EA`, borderRadius: 14,
-          }}
-        >
-          <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.hasHeadshot} size={330} fontFamily={display} fontSize={112} border={`8px solid ${OG.gold}`} />
-          <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, color: OG.goldText, letterSpacing: 4, marginTop: 10 }}>{opts.positionName.toUpperCase()}</div>
-          <div style={{ display: "flex", fontFamily: display, fontSize: 70, fontWeight: 700, color: OG.board, lineHeight: 1.1, textAlign: "center" }}>{p.name}</div>
-          <TeamLine name={p.teamName} logo={logos[p.teamId]} size={40} fontSize={30} />
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginTop: 6 }}>
-            <div style={{ display: "flex", fontFamily: display, fontSize: 96, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
-            <div style={{ display: "flex", fontFamily: display, fontSize: 34, fontWeight: 700, letterSpacing: 3, color: OG.muted, marginBottom: 10 }}>PTS</div>
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, position: "relative" }}>
+        <div style={{ display: "flex", position: "relative", width: 1080, height: HERO_H, overflow: "hidden" }}>
+          {/* faint team logo behind the name */}
+          {logo ? (
+            <div style={{ display: "flex", position: "absolute", left: 560, top: 150, width: 560, height: 560, alignItems: "center", justifyContent: "center", opacity: 0.08 }}>
+              <img src={logo} width={560} height={560} style={{ objectFit: "contain" }} />
+            </div>
+          ) : null}
+
+          {/* navy photo panel with a soft spotlight behind the head */}
+          <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: PANEL_W, height: HERO_H, backgroundImage: "radial-gradient(circle at 50% 38%, #24679F 0%, #123A61 55%, #0C2740 100%)" }} />
+          {logo ? (
+            <div style={{ display: "flex", position: "absolute", left: 95, top: 40, width: 400, height: 400, alignItems: "center", justifyContent: "center", opacity: 0.16 }}>
+              <img src={logo} width={400} height={400} style={{ objectFit: "contain" }} />
+            </div>
+          ) : null}
+          {/* restrained diagonal shapes behind the player: a wide lighter-navy band and one thin gold rule */}
+          <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: PANEL_W - 8, height: HERO_H, overflow: "hidden" }}>
+            <div style={{ display: "flex", position: "absolute", left: -120, top: 330, width: PANEL_W + 300, height: 150, background: "rgba(255,255,255,0.05)", transform: "rotate(-32deg)" }} />
+            <div style={{ display: "flex", position: "absolute", left: -120, top: 520, width: PANEL_W + 300, height: 7, background: "rgba(217,164,65,0.85)", transform: "rotate(-32deg)" }} />
           </div>
-          {opts.tiles.length > 0 && (
-            <div style={{ display: "flex", gap: 18, marginTop: 14 }}>
-              {opts.tiles.map((t) => (
-                <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 200, background: OG.rink, borderRadius: 12, padding: "16px 22px" }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 68, fontWeight: 700, lineHeight: 1.05, color: "#FFFFFF" }}>{t.value}</div>
-                  <div style={{ display: "flex", fontSize: 24, fontWeight: 600, color: "#C9D6E6", letterSpacing: 2 }}>{t.label}</div>
-                </div>
-              ))}
+          <div style={{ display: "flex", position: "absolute", left: PANEL_W - 8, top: 0, width: 8, height: HERO_H, background: OG.gold }} />
+          {opts.hasHeadshot ? (
+            // eslint-disable-next-line @next/next/no-img-element -- next/og JSX, not a browser page
+            <img src={headshotUrl(p.id)} width={PANEL_W - 8} height={PHOTO_H} style={{ position: "absolute", left: 0, top: HERO_H - PHOTO_H, width: PANEL_W - 8, height: PHOTO_H, objectFit: "cover", objectPosition: "50% 14%" }} />
+          ) : (
+            <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: PANEL_W - 8, height: HERO_H - 90, alignItems: "center", justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 210, color: "rgba(255,255,255,0.9)" }}>
+              {parts.map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
             </div>
           )}
+
+          {/* name / team / points */}
+          <div style={{ display: "flex", flexDirection: "column", position: "absolute", left: PANEL_W + 36, top: 0, width: 1080 - PANEL_W - 36 - 28, height: HERO_H - 90, justifyContent: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignSelf: "flex-start", padding: "4px 20px", borderRadius: 8, background: OG.gold, color: OG.rinkDeep, fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: 4 }}>
+              {opts.positionName.toUpperCase()}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", marginTop: 6 }}>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: nameSize, lineHeight: 1.0, color: OG.board, maxWidth: 416, overflow: "hidden", whiteSpace: "nowrap" }}>{first}</div>
+              {last ? <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: nameSize, lineHeight: 1.0, color: OG.board, maxWidth: 416, overflow: "hidden", whiteSpace: "nowrap" }}>{last}</div> : null}
+            </div>
+            <TeamLine name={p.teamName} logo={logo} size={LOGO_SIZE + 6} fontSize={28} align="flex-start" />
+            {teamColor ? <div style={{ display: "flex", width: 120, height: 5, borderRadius: 2, background: teamColor }} /> : null}
+            <div style={{ display: "flex", flexDirection: "column", marginTop: 16 }}>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 124, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 6, color: OG.muted }}>FANTASY PTS</div>
+            </div>
+          </div>
         </div>
+
+        {/* stat tiles overlap the bottom of the photo panel */}
+        {opts.tiles.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "row", gap: 18, padding: "0 40px", marginTop: -90 }}>
+            {opts.tiles.map((t) => (
+              <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, height: TILE_H, borderRadius: CARD_RADIUS, borderTop: `6px solid ${OG.gold}`, backgroundImage: "linear-gradient(180deg, #1A4C7E 0%, #0C2740 100%)", boxShadow: CARD_SHADOW }}>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 84, lineHeight: 1, color: "#FFFFFF" }}>{t.value}</div>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 4, color: "#C9D6E6", marginTop: 2 }}>{t.label}</div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     ),
   });
@@ -556,7 +727,7 @@ export async function renderPortraitPreview(opts: { games: PreviewGame[]; week: 
       return (
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-between", paddingBottom: 12 }}>
           {opts.games.map((g, i) => (
-            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", boxShadow: "0 6px 16px rgba(18,58,97,0.10)", border: `2px solid #BCD5EA`, borderRadius: 20 }}>
+            <div key={i} style={{ display: "flex", flexDirection: "column", height: cardH, background: "#FFFFFF", boxShadow: CARD_SHADOW, border: CARD_BORDER, borderRadius: CARD_RADIUS }}>
               {row(g.home)}
               <div style={{ display: "flex", alignItems: "center", height: DIV, padding: "0 28px" }}>
                 <div style={{ display: "flex", flex: 1, height: 2, background: OG.iceLine }} />

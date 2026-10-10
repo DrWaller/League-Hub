@@ -7,7 +7,7 @@ import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG, NO_CACHE } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
-import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
+import { isPortrait, renderPortraitThreeStars, seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 import { statLine } from "@/lib/espn-stats";
 
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (isPortrait(req.nextUrl.searchParams.get("format"))) {
-      return await renderPortraitPlayerList({
+      return await renderPortraitThreeStars({
         footer: seasonFooter(meta.name, seasonParam),
         title: "3 Stars of the Week",
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
