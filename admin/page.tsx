@@ -1,0 +1,83 @@
+import Link from "next/link";
+import { getLeagueMeta } from "@/lib/espn";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminDashboard() {
+  const meta = await getLeagueMeta();
+
+  const cards = [
+    { href: "/admin/import-season", label: "Import a Season", desc: "Bring in a season not played on ESPN (your 2025 Fantrax season): Fantrax CSV + NHL stats." },
+    { href: "/admin/player-cards", label: "Player Cards", desc: "Pick a player (search or from a team) and generate all of their cards." },
+    { href: "/admin/week-days", label: "Week Days", desc: "Tell the site how many days are in each matchup week (needed for player graphics)." },
+    { href: "/admin/keeper-import", label: "Import Keepers", desc: "Pull keepers from the Keeper History Google Sheet (preview first)." },
+    { href: "/admin/formula-test", label: "Formula Test", desc: "Backtest the power rankings formula against every past season." },
+    { href: "/admin/weekly", label: "Weekly Checklist", desc: "One page for the weekly routine: blurbs, awards, writeup, graphics, power rankings, luck chart." },
+    { href: "/admin/awards", label: "Weekly Awards", desc: "3 Stars, Forward/Defense/Goalie of the Week + runners-up." },
+    { href: "/admin/graphics", label: "Graphics", desc: "Auto-generated shareable images from real weekly stats." },
+    { href: "/admin/big-night-cards", label: "Big Night Cards", desc: "A shareable card, and a caption, for every player who had a big night." },
+    { href: "/admin/monthly-periods", label: "Monthly Periods", desc: "Define the week ranges Monthly Awards use." },
+    { href: "/admin/monthly-awards", label: "Monthly Awards", desc: "Player picks + an automatic Manager of the Month." },
+    { href: "/admin/newsletter", label: "Newsletter", desc: "Weekly recap and monthly wrap-up, AI-draftable." },
+    { href: "/admin/matchups", label: "Matchup Blurbs", desc: "Write a preview or recap for any matchup." },
+    { href: "/admin/keepers", label: "Keepers", desc: "Log who each team kept, season by season." },
+    { href: "/admin/managers", label: "Managers", desc: "Track each owner across team-name changes over the years." },
+    { href: "/admin/trades", label: "Trades", desc: "Log player movement between managers." },
+    { href: "/admin/history", label: "League History", desc: "Champions, runners-up, and notes for each past season." },
+    { href: "/admin/off-espn", label: "Fantrax Scores", desc: "Enter the weekly scores for the season played on Fantrax." },
+    { href: "/admin/season-rules", label: "Playoffs & Rules", desc: "Set when each season's playoffs began and mark games that don't count." },
+    { href: "/admin/link-managers", label: "Link Managers", desc: "Link each past team to its manager, for the Records page." },
+    { href: "/admin/logos", label: "Team Logos", desc: "Upload a logo image for each team." },
+    { href: "/admin/banner-looks", label: "Banner Looks", desc: "Set the logo and colours a team used in a past season, for its banners." },
+    { href: "/admin/espn-history", label: "ESPN History Explorer", desc: "Check what ESPN's API returns for a past season." },
+    { href: "/admin/roster-stats-probe", label: "Roster Stats Probe", desc: "Diagnose why Graphics might not find player stats for a past week." },
+    { href: "/admin/import-records", label: "Import Records", desc: "Pull real win-loss records from ESPN for a past season." },
+  ];
+
+  const weeklySteps = [
+    { href: "/admin/weekly", label: "Weekly Checklist", desc: "See what's done for the week and jump to what's left." },
+    { href: "/admin/matchups", label: "Matchup Blurbs", desc: "Recap last week's games (or preview next week's)." },
+    { href: "/admin/awards", label: "Weekly Awards", desc: `Suggest from stats, review, save week ${meta.currentWeek}.` },
+    { href: "/admin/graphics", label: "Graphics", desc: "Generate and share this week's images." },
+    { href: "/admin/newsletter", label: "Newsletter", desc: "Write or draft the intro, save." },
+  ];
+
+  return (
+    <div>
+      <h1 className="font-display text-3xl mb-1">Commissioner Dashboard</h1>
+      <p className="text-muted mb-8">
+        {meta.liveDataConnected ? `Live — currently week ${meta.currentWeek}.` : "Preview data — connect ESPN to go live."}
+      </p>
+
+      <div className="border border-ice-line p-5 mb-10">
+        <h2 className="font-display text-lg mb-1">This week</h2>
+        <p className="text-xs text-muted mb-4">The usual order, once a week's games are final.</p>
+        <ol className="space-y-2">
+          {weeklySteps.map((s, i) => (
+            <li key={s.href}>
+              <Link href={s.href} className="flex items-center gap-3 hover:text-rink">
+                <span className="w-6 h-6 rounded-full bg-rink text-ice flex items-center justify-center text-xs font-display shrink-0">
+                  {i + 1}
+                </span>
+                <span>
+                  <span className="font-body font-medium">{s.label}</span>
+                  <span className="text-muted"> — {s.desc}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <h2 className="font-display text-xl mb-4">Everything else</h2>
+      <div className="grid sm:grid-cols-2 gap-4">
+        {cards.map((c) => (
+          <Link key={c.href} href={c.href} className="border border-ice-line p-5 hover:border-rink-bright transition-colors">
+            <h2 className="font-display text-lg mb-1">{c.label}</h2>
+            <p className="text-sm text-muted">{c.desc}</p>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
