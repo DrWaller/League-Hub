@@ -3,6 +3,8 @@ import { getSeasonBundle } from "@/lib/season-data";
 import { getSeasonHistory, getManagers, getManagerSeasons } from "@/lib/content";
 import { getHistorySeasons } from "@/lib/seasons";
 import { seasonsPlayedElsewhere } from "@/lib/played-elsewhere";
+import { getTeamBanners } from "@/lib/banners";
+import BannerRafters from "@/components/BannerRafters";
 import SeasonHistoryCard, { HistoryRow, SeasonHistoryCardData } from "@/components/SeasonHistoryCard";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +79,8 @@ export default async function HistoryPage() {
     })
   );
 
+  const banners = await getTeamBanners().catch(() => []);
+
   return (
     <div>
       <h1 className="font-display text-3xl mb-1">League History</h1>
@@ -84,6 +88,8 @@ export default async function HistoryPage() {
         Every past season, newest first. Final standings come straight from ESPN; champions and
         notes on the odd seasons are added by the commissioner.
       </p>
+
+      <BannerRafters banners={banners} title="Banners" />
 
       {cards.length === 0 ? (
         <p className="text-muted">
