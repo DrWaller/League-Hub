@@ -228,5 +228,26 @@ export async function ensureSchema() {
     );
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_banner_colors (
+      team_id INTEGER PRIMARY KEY,
+      primary_color TEXT NOT NULL,
+      trim_color TEXT NOT NULL,
+      updated_at TIMESTAMP DEFAULT now()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_season_looks (
+      season INTEGER NOT NULL,
+      team_key TEXT NOT NULL,
+      logo_url TEXT,
+      primary_color TEXT,
+      trim_color TEXT,
+      updated_at TIMESTAMP DEFAULT now(),
+      PRIMARY KEY (season, team_key)
+    );
+  `;
+
   schemaReady = true;
 }

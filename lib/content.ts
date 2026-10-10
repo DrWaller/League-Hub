@@ -12,6 +12,7 @@ import { sql, ensureSchema } from "./db";
 import { sortKeepers } from "./keeper-order";
 import { hideEspnDataForSeasons, seasonsPlayedElsewhere } from "./played-elsewhere";
 import { EMPTY_RULES, SeasonRules } from "./season-rules";
+import type { BannerColors, TeamSeasonLook } from "./banner-types";
 import {
   AwardCategory,
   WeeklyAward,
@@ -49,6 +50,73 @@ export async function setTeamLogo(teamId: number, logoUrl: string) {
     VALUES (${teamId}, ${logoUrl}, now())
     ON CONFLICT (team_id) DO UPDATE SET logo_url = ${logoUrl}, updated_at = now();
   `;
+}
+
+// Banner colours per team (for the Regular Season / Champions banners).
+export async function getTeamBannerColors(): Promise<Record<number, BannerColors>> {
+  try {
+    await ensureSchema();
+    const { rows } = await sql`SELECT team_id, primary_color, trim_color FROM team_banner_colors;`;
+    const map: Record<number, BannerColors> = {};
+    for (const row of rows) {
+      map[row.team_id as number] = { primary: row.primary_color as string, trim: row.trim_color as string };
+    }
+    return map;
+  } catch (err) {
+    console.error("getTeamBannerColors failed (is Postgres connected?)", err);
+    return {};
+  }
+}
+
+export async function setTeamBannerColors(teamId: number, primary: string, trim: string) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO team_banner_colors (team_id, primary_color, trim_color, updated_at)
+    VALUES (${teamId}, ${primary}, ${trim}, now())
+    ON CONFLICT (team_id) DO UPDATE SET primary_color = ${primary}, trim_color = ${trim}, updated_at = now();
+  `;
+}
+
+// A team's look in one specific season (name changes often come with new logos
+// and colours), used by the banners so each one shows that year's team.
+export async function getTeamSeasonLooks(): Promise<TeamSeasonLook[]> {
+  try {
+    await ensureSchema();
+    const { rows } = await sql`SELECT season, team_key, logo_url, primary_color, trim_color FROM team_season_looks;`;
+    return rows.map((r) => ({
+      season: r.season as number,
+      teamKey: r.team_key as string,
+      logoUrl: (r.logo_url as string) || null,
+      primary: (r.primary_color as string) || null,
+      trim: (r.trim_color as string) || null,
+    }));
+  } catch (err) {
+    console.error("getTeamSeasonLooks failed (is Postgres connected?)", err);
+    return [];
+  }
+}
+
+export async function setTeamSeasonLogo(season: number, teamKey: string, logoUrl: string) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO team_season_looks (season, team_key, logo_url, updated_at)
+    VALUES (${season}, ${teamKey}, ${logoUrl}, now())
+    ON CONFLICT (season, team_key) DO UPDATE SET logo_url = ${logoUrl}, updated_at = now();
+  `;
+}
+
+export async function setTeamSeasonColors(season: number, teamKey: string, primary: string, trim: string) {
+  await ensureSchema();
+  await sql`
+    INSERT INTO team_season_looks (season, team_key, primary_color, trim_color, updated_at)
+    VALUES (${season}, ${teamKey}, ${primary}, ${trim}, now())
+    ON CONFLICT (season, team_key) DO UPDATE SET primary_color = ${primary}, trim_color = ${trim}, updated_at = now();
+  `;
+}
+
+export async function deleteTeamSeasonLook(season: number, teamKey: string) {
+  await ensureSchema();
+  await sql`DELETE FROM team_season_looks WHERE season = ${season} AND team_key = ${teamKey};`;
 }
 
 export async function getKeepers(season?: number): Promise<KeeperRecord[]> {
