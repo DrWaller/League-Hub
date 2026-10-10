@@ -14,11 +14,11 @@ export default function LogosManager({
 }: {
   teams: TeamOption[];
   initialLogos: Record<number, string>;
-  initialColors: Record<number, BannerColors>;
+  initialColors?: Record<number, BannerColors>;
 }) {
   const [logos, setLogos] = useState<Record<number, string>>(initialLogos);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
-  const [colors, setColors] = useState<Record<number, BannerColors>>(initialColors);
+  const [colors, setColors] = useState<Record<number, BannerColors>>(initialColors ?? {});
   const [colorStatus, setColorStatus] = useState<Record<number, string>>({});
 
   const colorsFor = (id: number): BannerColors => colors[id] ?? DEFAULT_BANNER_COLORS;
