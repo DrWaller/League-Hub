@@ -6,6 +6,7 @@ import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
 import { pts, ptsComma } from "@/lib/format";
+import { getWeekGamesPlayed, type WeekGamesPlayed } from "@/lib/games-played";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +28,15 @@ export default async function MatchupsPage({
 
   let matchups, live, teamById: (id: number) => { name: string } | undefined;
   let pastSource: "espn" | "manual" | null = null;
+  let gamesPlayed: WeekGamesPlayed | null = null;
 
   if (isCurrentSeason) {
-    const [matchupResult, standings] = await Promise.all([getMatchups(week), getStandings()]);
+    const [matchupResult, standings, gp] = await Promise.all([
+      getMatchups(week),
+      getStandings(),
+      getWeekGamesPlayed(week, season).catch(() => null),
+    ]);
+    gamesPlayed = gp;
     matchups = matchupResult.matchups;
     live = matchupResult.live;
     teamById = (id) => standings.teams.find((t) => t.id === id);
@@ -126,6 +133,31 @@ export default async function MatchupsPage({
                 </span>
                 <span className="font-display text-xl">{pts(m.awayScore)}</span>
               </div>
+              {gamesPlayed && gamesPlayed[m.homeTeamId] && gamesPlayed[m.awayTeamId] && (
+                <div className="mt-3 border-t border-ice-line pt-3 text-xs font-tabular text-muted space-y-1">
+                  {[
+                    { id: m.homeTeamId, name: home?.name },
+                    { id: m.awayTeamId, name: away?.name },
+                  ].map(({ id, name }) => {
+                    const g = gamesPlayed![id];
+                    return (
+                      <div key={id} className="flex items-center justify-between gap-3">
+                        <span className="truncate">{name ?? id} · games</span>
+                        <span className="whitespace-nowrap">
+                          {g.played} played
+                          {g.projected !== null && (
+                            <>
+                              {" · "}
+                              {g.projected} left{" · "}
+                              <span className="text-ice">{g.played + g.projected} proj</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <p className="text-xs text-muted mt-3">
                 {m.isExcluded ? "Final · doesn't count toward records" : m.isPlayoff ? "Final · playoff game" : m.isFinal ? "Final" : "In progress"}
               </p>
