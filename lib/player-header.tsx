@@ -1,6 +1,8 @@
 import { OG } from "./og-theme";
 import { PlayerAvatar } from "./og-avatar";
 import { headshotUrl } from "./headshots";
+import { TierPill } from "./og-tier";
+import type { Tier } from "./tier-style";
 
 // The header band of the player cards: the player himself (photo, name, position and team)
 // instead of a card-type title, with games played on the right.
@@ -17,6 +19,7 @@ export function PlayerHeader(p: {
   photoUrl?: string; // defaults to the ESPN headshot for playerId
   subtitle: string; // e.g. "Season to date - your league's categories"
   gp: number;
+  leagueTier?: Tier | null; // the league tier pill, shown beside the position
   notQualified?: string; // e.g. "NOT QUALIFIED - 2 of 3 GP"
 }) {
   // Long names step down so they stay on one line.
@@ -27,7 +30,10 @@ export function PlayerHeader(p: {
         <PlayerAvatar name={p.name} src={p.photoUrl ?? headshotUrl(p.playerId)} hasHeadshot={p.hasHeadshot} size={150} fontFamily={p.display} fontSize={54} border={`6px solid ${GOLD}`} />
         <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
           <div style={{ display: "flex", fontFamily: p.display, fontWeight: 700, fontSize: nameSize, lineHeight: 1, color: "#FFFFFF", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap", maxWidth: 640, overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-          <div style={{ display: "flex", fontSize: 30, color: "#C9D6E6", maxWidth: 640, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.teamName ? `${p.position} \u00b7 ${p.teamName}` : p.position}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ display: "flex", fontSize: 30, color: "#C9D6E6", maxWidth: 520, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.teamName ? `${p.position} \u00b7 ${p.teamName}` : p.position}</div>
+            <TierPill tier={p.leagueTier} size={22} />
+          </div>
           {p.notQualified ? (
             <div style={{ display: "flex", alignSelf: "flex-start", alignItems: "center", background: "#FFF1CF", border: `2px solid ${GOLD}`, borderRadius: 8, padding: "2px 12px", fontSize: 20, fontWeight: 700, letterSpacing: 1, color: OG.goldText }}>{p.notQualified}</div>
           ) : (

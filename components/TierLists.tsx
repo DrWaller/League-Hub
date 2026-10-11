@@ -46,8 +46,8 @@ function Row({ p }: { p: DirPlayer }) {
             <Badge tier={p.tier} />
             {p.goalie ? (
               <>
-                <div className="text-[11px] font-semibold font-tabular mt-0.5">≈ {p.goalie.pace} pt pace</div>
-                <div className="text-[11px] text-muted font-tabular">{f2(p.goalie.perTeamGame)} per team game</div>
+                <div className="text-[11px] font-semibold font-tabular mt-0.5">≈ {p.goalie.pace} pts projected</div>
+                <div className="text-[11px] text-muted font-tabular">{f2(p.goalie.perTeamGame)} per team game · {p.goalie.gamesLeft} left</div>
               </>
             ) : (
               <div className="text-[11px] text-muted font-tabular mt-0.5">{p.est === null ? "" : `${f2(p.est)} rating`}</div>

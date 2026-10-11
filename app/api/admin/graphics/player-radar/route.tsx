@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { loadProfile, loadExtras, debugJson, profileCaption, tierFor } from "@/lib/player-profile";
 import { renderPortraitRadar } from "@/lib/radar-image";
+import { graphicTiers } from "@/lib/og-tier";
 import { seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse } from "@/lib/captions";
 
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
       footer: seasonFooter(p.meta.name, p.seasonParam),
       subtitle: p.isPast ? `${p.seasonParam} season \u00b7 final \u00b7 your league's categories` : "Season to date \u00b7 your league's categories",
       playerId: p.me.id,
+      leagueTier: (await graphicTiers(p.isPast))[p.me.id] ?? null,
       name: p.me.name,
       position: p.position,
       teamName,

@@ -45,8 +45,8 @@ function Row({ p }: { p: MakeupPlayer }) {
             <Badge tier={p.tier} />
             {p.goalie ? (
               <>
-                <div className="text-[11px] font-semibold font-tabular mt-0.5">≈ {p.goalie.pace} pt pace</div>
-                <div className="text-[11px] text-muted font-tabular">{f2(p.goalie.perTeamGame)} per team game</div>
+                <div className="text-[11px] font-semibold font-tabular mt-0.5">≈ {p.goalie.pace} pts projected</div>
+                <div className="text-[11px] text-muted font-tabular">{f2(p.goalie.perTeamGame)} per team game · {p.goalie.gamesLeft} left</div>
               </>
             ) : (
               <div className="text-[11px] text-muted font-tabular mt-0.5">{p.est === null ? "no rating" : `${f2(p.est)} rating`}</div>
@@ -121,7 +121,7 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
     <div>
       <section className="mb-6">
         <h2 className="font-display text-xl mb-1">The cutoffs</h2>
-        <p className="text-xs text-muted mb-2">Average fantasy points per game, {basis}. Goalies are on points per team game (points per start × share of starts), with the 82-game pace underneath.</p>
+        <p className="text-xs text-muted mb-2">Average fantasy points per game, {basis}. Goalies are on points per team game (points per start × share of starts), with the full-season total underneath ({data.seasonGames} games).</p>
         <div className="border border-ice-line bg-white overflow-x-auto">
           <table className="w-full text-sm font-tabular">
             <thead>
@@ -142,7 +142,7 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
                   {(["depth", "elite", "superstar", "franchise"] as const).map((k) => (
                     <td key={k} className="text-center">
                       {f2(c[g][k])}+
-                      {g === "G" ? <div className="text-[10px] text-muted">≈ {Math.round(c[g][k] * 82)} pts</div> : null}
+                      {g === "G" ? <div className="text-[10px] text-muted">≈ {Math.round(c[g][k] * data.seasonGames)} pts</div> : null}
                     </td>
                   ))}
                 </tr>
@@ -212,7 +212,7 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
           <p className="text-xs text-muted max-w-prose">
             Skater rating = his average this season pulled toward last season&apos;s, so a few games don&apos;t swing it. L30 shows his last 30 days against the same cutoffs; an arrow means his form is a
             tier or more away from his rating. Core is Elite and above, Keep is Depth, and Drop candidate is Stream with no recent surge. Watch means the rating and the recent form disagree.
-            &quot;Available&quot; names the best free agent at his position who rates above him. Goalies are rated on points per team game: points per start (quality) times his share of his team&apos;s starts (security), so a goalie who starts more climbs; the pace is that × 82. A hurt goalie keeps his season share so his tier holds.
+            &quot;Available&quot; names the best free agent at his position who rates above him. Goalies are rated on points per team game: points per start (quality) times his share of his team&apos;s starts (security), so a goalie who starts more climbs; the projection is his points so far plus his team&apos;s real games left in the fantasy regular season at that rate, with his start share pulled toward last season&apos;s and capped. A hurt goalie keeps his season share so his tier holds.
           </p>
         </section>
       )}

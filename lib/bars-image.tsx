@@ -1,6 +1,7 @@
 import { OG } from "./og-theme";
 import { frame } from "./portrait-graphics";
 import { PlayerHeader } from "./player-header";
+import type { Tier } from "./tier-style";
 import { Group, PointsComparison, RadarAxis, scaleColor, sectionOf } from "./radar";
 import type { TierName } from "./tiers";
 import { HeroTiles, formatValue } from "./radar-image";
@@ -34,6 +35,7 @@ export async function renderPortraitBars(opts: {
   footer?: string;
   subtitle?: string;
   playerId: number;
+  leagueTier?: Tier | null;
   name: string;
   position: string;
   teamName?: string;
@@ -76,7 +78,7 @@ export async function renderPortraitBars(opts: {
     subtitle: "",
     plain: true,
     headerContent: ({ display }) => (
-      <PlayerHeader display={display} playerId={opts.playerId} name={opts.name} position={opts.position} teamName={opts.teamName} hasHeadshot={opts.hasHeadshot} photoUrl={opts.photoUrl} subtitle={opts.subtitle ?? "Season to date"} gp={opts.gp} notQualified={opts.smallSample} />
+      <PlayerHeader display={display} playerId={opts.playerId} name={opts.name} position={opts.position} teamName={opts.teamName} hasHeadshot={opts.hasHeadshot} photoUrl={opts.photoUrl} subtitle={opts.subtitle ?? "Season to date"} gp={opts.gp} notQualified={opts.smallSample} leagueTier={opts.leagueTier} />
     ),
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 16, justifyContent: "center" }}>

@@ -11,6 +11,7 @@ import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { fetchRosterDay } from "@/lib/games-played";
 import { getBestAvailable, NHL_ABBREV } from "@/lib/best-available";
 import { getLeagueTiers, loadPools, tierOf, tierRank, type LeagueTiers, type Tier } from "@/lib/league-tiers";
+import { getSeasonGames, type SeasonGames } from "@/lib/season-games";
 import { getGoalieUsage } from "@/lib/goalie-starts";
 import type { Group } from "@/lib/radar";
 
@@ -20,16 +21,19 @@ const ESPN_SWID = process.env.ESPN_SWID;
 const POS: Record<number, string> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
 const GROUP_OF: Record<number, Group> = { 1: "F", 2: "F", 3: "F", 4: "D", 5: "G" };
 const K_SKATER = 15; // games of last season's average blended into the rating
-const K_GOALIE = 10;
+const K_GOALIE = 25; // goalie games are noisy, so last season counts for more
+const K_SHARE = 25; // team games of last season's start share blended into this season's
+const SHARE_CAP = 0.82; // even a workhorse sits some back-to-backs
 
 // A goalie is rated on points per TEAM game: points per start (quality) x share of his team's starts (security).
 export interface GoalieRating {
-  perStart: number; // blended: this season pulled toward last
-  share: number; // 0-1, share of his team's starts
+  perStart: number; // blended: this season pulled toward last (hard, since a goalie's start is noisy)
+  share: number; // 0-1, share of his team's starts, pulled toward last season's and capped
   perTeamGame: number; // perStart x share: the number the tier is on
-  pace: number; // perTeamGame x 82
+  pace: number; // projected fantasy-season total: points so far + his team's real games left x perTeamGame
   starts: number | null; // starts so far / his team's games (null when the NHL data had no match)
   teamGames: number | null;
+  gamesLeft: number; // his team's games left in the fantasy regular season
 }
 
 export type Signal = "Core" | "Keep" | "Watch" | "Drop candidate" | "IR" | "Unrated";
@@ -64,6 +68,7 @@ export interface MakeupTeam {
 }
 
 export interface TeamMakeup {
+  seasonGames: number; // games a team plays in the fantasy regular season (for goalie projections)
   tiers: LeagueTiers;
   teams: MakeupTeam[];
 }
@@ -94,12 +99,13 @@ async function fetchWindows(ids: number[], season: number): Promise<Map<number, 
 
 type Win = { gp: number; avg: number } | null;
 
-// Rates goalies on points per team game. Injured goalies keep their season share (the last-10 share would
-// collapse while they are out and drop the tier). Early in the year, before his team has played 5 games,
-// last season's share stands in.
+// Rates goalies on points per team game. Start share is pulled toward last season's (so 5 starts in 5 games
+// doesn't read as 100%) and capped. Injured goalies keep their season share (the last-10 share would collapse
+// while they are out and drop the tier). The projected total is points so far plus his team's REAL games left
+// in the fantasy regular season at that rate.
 async function makeGoalieRater(season: number, leagueMaxGp: number) {
-  const [cur, prev] = await Promise.all([getGoalieUsage(season).catch(() => null), getGoalieUsage(season - 1).catch(() => null)]);
-  return (name: string, nhl: string, w: Win, priorAvg: number | null, injured: boolean, projBase: number | null): { est: number; info: GoalieRating } | null => {
+  const [cur, prev, sg] = await Promise.all([getGoalieUsage(season).catch(() => null), getGoalieUsage(season - 1).catch(() => null), getSeasonGames()]);
+  const rate = (name: string, nhl: string, w: Win, priorAvg: number | null, injured: boolean, projBase: number | null): { est: number; info: GoalieRating } | null => {
     let perStart: number | null = null;
     if (w && w.gp > 0 && priorAvg !== null) perStart = (w.gp * w.avg + K_GOALIE * priorAvg) / (w.gp + K_GOALIE);
     else if (w && w.gp >= 3) perStart = w.avg;
@@ -107,27 +113,26 @@ async function makeGoalieRater(season: number, leagueMaxGp: number) {
     else if (projBase !== null) perStart = projBase;
     if (perStart === null) return null;
     const u = cur?.lookup(name, nhl) ?? null;
-    let share: number | null = null;
-    let starts: number | null = null;
-    let teamGames: number | null = null;
-    if (u && u.teamGames >= 5) {
-      const season_ = u.starts / u.teamGames;
-      share = injured || u.games10 === 0 ? season_ : 0.5 * season_ + 0.5 * (u.starts10 / u.games10);
-      starts = u.starts;
-      teamGames = u.teamGames;
-    } else {
-      const pu = prev?.lookup(name, nhl) ?? null;
-      if (pu && pu.teamGames > 0) share = pu.starts / pu.teamGames;
-      if (u) {
-        starts = u.starts;
-        teamGames = u.teamGames;
-      }
-    }
-    if (share === null) share = w && leagueMaxGp > 0 ? Math.min(1, w.gp / leagueMaxGp) : 0;
-    share = Math.max(0, Math.min(1, share));
+    const pu = prev?.lookup(name, nhl) ?? null;
+    const priorShare = pu && pu.teamGames > 0 ? pu.starts / pu.teamGames : 0.5;
+    let share: number;
+    if (u && u.teamGames > 0) {
+      const base = (u.starts + K_SHARE * priorShare) / (u.teamGames + K_SHARE);
+      share = injured || u.games10 === 0 ? base : 0.5 * base + 0.5 * ((u.starts10 + 5 * base) / (u.games10 + 5));
+    } else if (w && leagueMaxGp > 0) share = (w.gp + K_SHARE * priorShare) / (leagueMaxGp + K_SHARE);
+    else share = priorShare;
+    share = Math.max(0, Math.min(SHARE_CAP, share));
     const perTeamGame = perStart * share;
-    return { est: perTeamGame, info: { perStart: r2(perStart), share: r2(share), perTeamGame: r2(perTeamGame), pace: Math.round(perTeamGame * 82), starts, teamGames } };
+    const played = u?.teamGames ?? leagueMaxGp;
+    const totalGames = sg?.total.get(nhl.toUpperCase()) ?? sg?.average ?? 82;
+    const gamesLeft = Math.max(0, totalGames - played);
+    const soFar = w ? w.gp * w.avg : 0;
+    return {
+      est: perTeamGame,
+      info: { perStart: r2(perStart), share: r2(share), perTeamGame: r2(perTeamGame), pace: Math.round(soFar + gamesLeft * perTeamGame), starts: u?.starts ?? null, teamGames: u?.teamGames ?? null, gamesLeft },
+    };
   };
+  return { rate, seasonGames: sg?.average ?? 82 };
 }
 
 function windowOf(stats: any[], prefix: string, season: number): { gp: number; avg: number } | null {
@@ -162,7 +167,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
   for (const t of roster.teams) for (const e of t.roster?.entries ?? []) if (e.playerPoolEntry?.player?.id != null) ids.push(e.playerPoolEntry.player.id);
   const windows = await fetchWindows(ids, season);
   const maxGp = Math.max(0, ...pools.G.map((g) => g.gp));
-  const rateG = await makeGoalieRater(season, Math.max(maxGp, ...Array.from(windows.values()).map((st) => windowOf(st, "00", season)?.gp ?? 0)));
+  const { rate: rateG, seasonGames } = await makeGoalieRater(season, Math.max(maxGp, ...Array.from(windows.values()).map((st) => windowOf(st, "00", season)?.gp ?? 0)));
 
   // Free agents rated the same way (this season pulled toward ESPN's projection), best first, by group.
   const faRated: Record<Group, { id: number; name: string; est: number; tier: Tier; team: string }[]> = { F: [], D: [], G: [] };
@@ -235,14 +240,14 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         why = "No games yet this season or last";
       } else if (tierRank(tier) >= 2) {
         signal = "Core";
-        why = `${tier}: a player you build around${goalie ? ` (${goalie.pace} pt pace)` : ""}`;
+        why = `${tier}: a player you build around${goalie ? ` (≈ ${goalie.pace} pts projected)` : ""}`;
       } else if (tier === "Depth") {
         if (form === "Stream" && l30 && l30.avg < cut.depth - 0.3) {
           signal = "Watch";
           why = `Depth, but ${r2(l30.avg)} over his last ${l30.gp} games`;
         } else {
           signal = "Keep";
-          why = goalie ? `Depth: starter level (${goalie.pace} pt pace)` : "Depth: starter level for this league";
+          why = goalie ? `Depth: starter level (≈ ${goalie.pace} pts projected)` : "Depth: starter level for this league";
         }
       } else if (form && tierRank(form) >= 1) {
         signal = "Watch";
@@ -286,7 +291,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
     teams.push({ id: t.id, name: names.get(t.id) ?? `Team ${t.id}`, players, counts });
   }
   teams.sort((a, b) => a.name.localeCompare(b.name));
-  return { tiers, teams };
+  return { seasonGames, tiers, teams };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -313,6 +318,7 @@ export interface DirPlayer {
 }
 
 export interface TierDirectory {
+  seasonGames: number;
   tiers: LeagueTiers;
   players: DirPlayer[];
 }
@@ -333,7 +339,7 @@ export async function getTierDirectory(): Promise<TierDirectory | null> {
     for (const g of ["F", "D", "G"] as Group[]) for (const p of pools[g]) if (p.gp > 0) prior.set(p.id, { gp: p.gp, avg: p.appliedTotal / p.gp });
     const seen = new Set(out.map((p) => p.id));
     const maxGp = Math.max(0, ...fa.players.map((x) => x.w.season?.gp ?? 0), ...out.filter((x) => x.group === "G").map((x) => x.gp));
-    const rateG = await makeGoalieRater(meta.season, maxGp);
+    const { rate: rateG } = await makeGoalieRater(meta.season, maxGp);
     for (const p of fa.players) {
       if (seen.has(p.id)) continue;
       const group: Group = p.position === "G" ? "G" : p.position === "D" ? "D" : "F";
@@ -379,5 +385,5 @@ export async function getTierDirectory(): Promise<TierDirectory | null> {
     }
   }
   out.sort((a, b) => (b.est ?? -1) - (a.est ?? -1));
-  return { tiers, players: out.filter((p) => p.tier !== null) };
+  return { seasonGames: makeup.seasonGames, tiers, players: out.filter((p) => p.tier !== null) };
 }
