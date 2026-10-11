@@ -10,7 +10,10 @@ export const PERIODS: { id: Window; label: string }[] = [
   { id: "l15", label: "L15" },
   { id: "l30", label: "L30" },
 ];
-const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+const mmss = (sec: number) => {
+  const t = Math.round(sec);
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+};
 const fmtStat = (c: StatCat, v: number | undefined) => {
   if (v === undefined) return "–";
   if (c.id === "11") return v.toFixed(3).replace(/^0/, ""); // SV%

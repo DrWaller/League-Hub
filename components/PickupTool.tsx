@@ -13,10 +13,13 @@ const ago = (iso: string) => {
   const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
 };
-const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+const mmss = (sec: number) => {
+  const t = Math.round(sec);
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+};
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
 
-function Card({ p, label, days, onOpen }: { p: Pickup; label: string; days: PickupData["days"]; onOpen: (p: Pickup) => void }) {
+function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen: (p: Pickup) => void }) {
   const nightList = days.filter((d) => p.nights.includes(d.offset));
   return (
     <div className={`border bg-white p-3 flex gap-3 ${p.hot ? "border-gold" : "border-ice-line"}`}>
@@ -39,13 +42,13 @@ function Card({ p, label, days, onOpen }: { p: Pickup; label: string; days: Pick
               {p.owned !== null ? ` · ${p.owned.toFixed(0)}% owned` : ""}
             </div>
           </div>
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 pl-1">
             <div className="font-display text-2xl leading-none text-center-red">{signed(p.net)}</div>
-            <div className="text-[11px] text-muted">pts · {label}</div>
+            <div className="text-[11px] text-muted">pts added</div>
           </div>
         </div>
         <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap gap-x-3 gap-y-1">
-          <span>{p.games} games</span>
+          <span>{p.games} {p.games === 1 ? "game" : "games"}</span>
           {nightList.length > 0 ? <span className="font-semibold text-rink">{nightList.map((d) => dayShort(d.label)).join(" ")}</span> : null}
           <span>{p.lightGames} on your open-slot days</span>
           <span>{p.lightDayGames} on light nights</span>
@@ -146,7 +149,8 @@ export default function PickupTool({ data }: { data: PickupData }) {
         <p className="text-muted">Pick your team to see who to add.</p>
       ) : (
         <>
-          <h2 className="font-display text-xl mb-2">The schedule: {data.teamName}</h2>
+          <h2 className="font-display text-xl">The schedule: {data.teamName}</h2>
+          <p className="text-xs text-muted mb-2">Showing {data.windowLabel}</p>
           <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
             {data.days.map((d) => (
               <div key={d.offset} className={`shrink-0 w-[84px] border p-2 text-center font-tabular ${"bg-white"} ${d.light ? "border-gold" : "border-ice-line"}`}>
@@ -183,7 +187,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
               <p className="text-xs text-muted mb-3">Performing at a standout level among available players, so they show up whatever your schedule looks like.</p>
               <div className="grid md:grid-cols-2 gap-3">
                 {data.hot.map((p) => (
-                  <Card key={p.id} p={p} label={data.windowLabel} days={data.days} onOpen={setOpen} />
+                  <Card key={p.id} p={p} days={data.days} onOpen={setOpen} />
                 ))}
               </div>
             </section>
@@ -205,7 +209,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
             ) : (
               <div className="grid md:grid-cols-2 gap-3">
                 {picks.map((p) => (
-                  <Card key={p.id} p={p} label={data.windowLabel} days={data.days} onOpen={setOpen} />
+                  <Card key={p.id} p={p} days={data.days} onOpen={setOpen} />
                 ))}
               </div>
             )}
