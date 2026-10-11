@@ -2,7 +2,11 @@
 // where each cutoff lands (rank, percentile), who is rostered at each tier, and how the points are spread.
 // Used to check hand-made cutoffs and to calibrate the ones the hub uses.
 
-import { getImportedSeason, type ImportedPlayer } from "@/lib/imported-seasons";
+import { getImportedSeason } from "@/lib/imported-seasons";
+import { getPlayerPool, getLeagueMeta } from "@/lib/espn";
+
+// One row per player, whichever source the season came from.
+type Row = { name: string; positionId: number; gp: number; appliedTotal: number; owner: string | null };
 
 export type Cutoffs = { depth: number; elite: number; superstar: number; franchise: number };
 export const TIER_NAMES = ["Stream", "Depth", "Elite", "Superstar", "Franchise"] as const;
@@ -16,19 +20,31 @@ export const HAND_CUTOFFS: Record<"F" | "D" | "G", Cutoffs> = {
 
 const tierIndex = (avg: number, c: Cutoffs) => (avg >= c.franchise ? 4 : avg >= c.superstar ? 3 : avg >= c.elite ? 2 : avg >= c.depth ? 1 : 0);
 const r2 = (n: number) => Math.round(n * 100) / 100;
-const groupOf = (p: ImportedPlayer) => (p.positionId === 5 ? "G" : p.positionId === 4 ? "D" : "F");
+const groupOf = (p: Row) => (p.positionId === 5 ? "G" : p.positionId === 4 ? "D" : "F");
 
 export async function runTierStudy(season: number, minGp: number) {
   const imp = await getImportedSeason(season);
-  if (!imp) return null;
-  const teams = new Set(imp.players.map((p) => p.owner).filter((o) => o && o !== "FA"));
-  const out: Record<string, unknown> = { season, minGp, teams: teams.size, players: imp.players.length };
+  let players: Row[];
+  let source = "fantrax import";
+  if (imp) {
+    players = imp.players.map((p) => ({ name: p.name, positionId: p.positionId, gp: p.gp, appliedTotal: p.appliedTotal, owner: p.owner }));
+  } else {
+    // An ESPN season: the league's own scoring applied to every player (ESPN doesn't say who was rostered).
+    const meta = await getLeagueMeta();
+    const pools = await Promise.all((["F", "D", "G"] as const).map((g) => getPlayerPool(g, season === meta.season ? undefined : season)));
+    players = pools.flat().map((p) => ({ name: p.name, positionId: p.positionId, gp: p.gp, appliedTotal: p.appliedTotal, owner: null }));
+    source = "espn";
+    if (players.length === 0) return null;
+  }
+  const teams = new Set(players.map((p) => p.owner).filter((o) => o && o !== "FA"));
+  const out: Record<string, unknown> = { season, source, minGp, teams: teams.size || null, players: players.length };
 
   for (const g of ["F", "D", "G"] as const) {
-    const all = imp.players.filter((p) => groupOf(p) === g && p.gp > 0);
+    const all = players.filter((p) => groupOf(p) === g && p.gp > 0);
     const q = all.filter((p) => p.gp >= minGp).map((p) => ({ p, avg: p.appliedTotal / p.gp })).sort((a, b) => b.avg - a.avg);
     const cut = HAND_CUTOFFS[g];
-    const rostered = (p: ImportedPlayer) => p.owner !== "FA" && p.owner !== "";
+    const hasOwners = players.some((p) => p.owner !== null);
+    const rostered = (p: Row) => p.owner !== null && p.owner !== "FA" && p.owner !== "";
     const totalPts = q.reduce((s, x) => s + x.p.appliedTotal, 0) || 1;
 
     const tiers = TIER_NAMES.map((name, i) => {
@@ -38,7 +54,7 @@ export async function runTierStudy(season: number, minGp: number) {
         from: i === 0 ? 0 : [cut.depth, cut.elite, cut.superstar, cut.franchise][i - 1],
         players: inTier.length,
         pctOfPlayers: r2((inTier.length / (q.length || 1)) * 100),
-        rosteredPct: inTier.length ? Math.round((inTier.filter((x) => rostered(x.p)).length / inTier.length) * 100) : null,
+        rosteredPct: hasOwners && inTier.length ? Math.round((inTier.filter((x) => rostered(x.p)).length / inTier.length) * 100) : null,
         avgGp: inTier.length ? Math.round(inTier.reduce((s, x) => s + x.p.gp, 0) / inTier.length) : null,
         pointsSharePct: r2((inTier.reduce((s, x) => s + x.p.appliedTotal, 0) / totalPts) * 100),
         examples: inTier.slice(0, 3).map((x) => `${x.p.name} ${r2(x.avg)}`),
@@ -77,11 +93,7 @@ export async function runTierStudy(season: number, minGp: number) {
       tiers,
       cutRank,
       atRank,
-      rosteredCount: ros.length,
-      rosteredMedian: median(ros.map((x) => x.avg)),
-      freeAgentMedian: median(fa.map((x) => x.avg)),
-      bestFreeAgents: faTop,
-      weakestRostered: rosLow,
+      ...(hasOwners ? { rosteredCount: ros.length, rosteredMedian: median(ros.map((x) => x.avg)), freeAgentMedian: median(fa.map((x) => x.avg)), bestFreeAgents: faTop, weakestRostered: rosLow } : {}),
       hist,
     };
   }
