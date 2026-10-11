@@ -17,6 +17,7 @@ export const maxDuration = 30;
 //   /api/admin/graphics/big-night?playerId=4697384            -> that player's card (latest saved night)
 //   /api/admin/graphics/big-night?date=2026-10-05&playerId=…  -> a specific night
 //   add &caption=1 for the ready-to-post text
+//   add &layout=editorial for the alternate layout (big headshot left, text right); &layout=classic for the default
 //   /api/admin/graphics/big-night?list=1                      -> JSON list of the night's players
 // Without a playerId it makes the night's top scorer. Portrait only.
 export async function GET(req: NextRequest) {
@@ -75,6 +76,7 @@ export async function GET(req: NextRequest) {
       logos,
       hasHeadshot: headshots.has(blurb.playerId),
       scoredIds,
+      layout: params.get("layout") === "editorial" ? "editorial" : params.get("layout") === "classic" ? "classic" : undefined,
     });
   } catch (err) {
     console.error("Big Night card failed", err);

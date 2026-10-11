@@ -81,6 +81,9 @@ export default async function BigNightCardsPage({ searchParams }: { searchParams
                     <a href={card} target="_blank" rel="noreferrer" className="text-rink hover:underline">
                       Open full size
                     </a>
+                    <a href={`${card}&layout=editorial`} target="_blank" rel="noreferrer" className="text-rink hover:underline">
+                      Editorial version
+                    </a>
                     <a href={`${card}&caption=1`} target="_blank" rel="noreferrer" className="text-rink hover:underline">
                       Caption
                     </a>

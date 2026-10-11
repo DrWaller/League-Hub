@@ -5,6 +5,7 @@ import { headshotUrl } from "./headshots";
 import { OG, TEAM_COLOR } from "./og-theme";
 import { STAT_META } from "./espn-stats";
 import { isMonsterNight, type NightlyBlurb } from "./nightly-blurbs";
+import { renderEditorialCard } from "./big-night-card-editorial";
 
 // One portrait (1080 x 1350) card for ONE player's big night, laid out like the
 // Player Spotlight: headshot with the gold ring, position, name, team, points,
@@ -32,6 +33,18 @@ export type LogoStyle =
 //   "x+watermark" = that logo placement plus a lighter watermark behind everything
 const LOGO_STYLE: LogoStyle = "topleft";
 
+// "classic" = the centered card. "editorial" = big headshot on the left, text on the right (lib/big-night-card-editorial.tsx).
+// The graphic route also accepts ?layout=editorial or ?layout=classic to try one without changing this.
+export type CardLayout = "classic" | "editorial";
+const CARD_LAYOUT: CardLayout = "classic";
+
+// Team colors for the cards: the shared ones (lib/og-theme.ts) plus two more used only here.
+const CARD_TEAM_COLOR: Record<number, string> = {
+  ...TEAM_COLOR,
+  3: "#E26A10", // Ottawa Angry Pylons
+  6: "#1A5FA8", // Farsta Strand Consiglieres
+};
+
 // Watermark strength (0 = invisible, 1 = solid). Busy or strongly colored logos get less so the
 // player's name and points stay easy to read. Keyed by ESPN team id; anything not listed uses the default.
 // Logo size (pixels) beside the team name in the "inline" layout: the tallest it gets. Wide logos may be
@@ -54,7 +67,7 @@ const TOP_LEFT_INSET = { top: 44, left: 52 };
 const TOP_LEFT_BESIDE: number | null = 44;
 
 // With the logo off to the side the team line is just text, so the headshot gets this much more room.
-const PHOTO_BONUS_TEXT_ONLY = 34;
+const PHOTO_BONUS_TEXT_ONLY = 52;
 
 // Stat tiles: "dark" (solid navy) or "light" (pale panel with navy numbers).
 const TILE_STYLE: "dark" | "light" = "dark";
@@ -128,6 +141,7 @@ export async function renderBigNightCard(opts: {
   hasHeadshot: boolean;
   scoredIds?: Set<string>; // stat ids the league scores points for (empty/missing = use the saved stat line)
   logoStyle?: LogoStyle;
+  layout?: CardLayout; // overrides CARD_LAYOUT
   watermarkOpacity?: number; // overrides the per-team strength (for testing)
   inlineLogoSize?: number; // overrides INLINE_LOGO_SIZE (for testing)
   tileStyle?: "dark" | "light"; // overrides TILE_STYLE (for testing)
@@ -147,12 +161,28 @@ export async function renderBigNightCard(opts: {
   // A plain gold line under the points when the night was a hat trick or a shutout.
   const special = b.kind === "HAT_TRICK" ? "HAT TRICK" : b.kind === "SHUTOUT" ? "SHUTOUT" : null;
   const { month, day } = dateParts(opts.date);
-  const teamColor = TEAM_COLOR[b.teamId] ?? OG.rink;
+  const teamColor = CARD_TEAM_COLOR[b.teamId] ?? OG.rink;
   const hasLogo = Boolean(logo);
   const inlineSize = opts.inlineLogoSize ?? INLINE_LOGO_SIZE;
   const tiles =
     b.stats && opts.scoredIds && opts.scoredIds.size > 0 ? tilesFromStats(b.stats, opts.scoredIds) : tilesFromLine(b.statLine);
   const nameSize = b.playerName.length > 20 ? 56 : 72;
+
+  if ((opts.layout ?? CARD_LAYOUT) === "editorial") {
+    return renderEditorialCard({
+      blurb: b,
+      footer: opts.footer,
+      logo,
+      hasHeadshot: opts.hasHeadshot,
+      tiles,
+      teamColor,
+      monster,
+      special,
+      positionName: POSITION_NAMES[b.position] ?? b.position,
+      month,
+      day,
+    });
+  }
 
   // More tiles than fit in one row: smaller photo and points, tiles wrap into a grid.
   const n = tiles.length;
@@ -387,7 +417,7 @@ export async function renderBigNightCard(opts: {
                       <div style={{ display: "flex", width: maxLogoW + 36 }} />
                     </div>
                   ) : (
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 38, fontWeight: 700, letterSpacing: 0.5, color: OG.rink }}>{b.teamName}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 38, fontWeight: 700, letterSpacing: 0.5, color: OG.rink, paddingBottom: 4, borderBottom: `5px solid ${teamColor}` }}>{b.teamName}</div>
                   )}
                 </div>
               )}
@@ -414,7 +444,7 @@ export async function renderBigNightCard(opts: {
           {n > 0 ? (
             <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: GAP, marginTop: compact ? 26 : 40, width: ROW_W }}>
               {tiles.map((t) => (
-                <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: tileW, background: light ? OG.icePanel : OG.rink, border: light ? `2px solid ${OG.iceLine}` : "none", borderRadius: 12, padding: compact ? "12px 8px" : "18px 12px" }}>
+                <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: tileW, background: light ? OG.icePanel : OG.rink, border: light ? `2px solid ${OG.iceLine}` : `2px solid ${OG.gold}`, borderRadius: 12, padding: compact ? "12px 8px" : "18px 12px" }}>
                   <div style={{ display: "flex", fontFamily: display, fontSize: tileValue, fontWeight: 700, color: light ? OG.rink : "#FFFFFF", lineHeight: 1.1 }}>{t.value}</div>
                   <div style={{ display: "flex", fontFamily: display, fontSize: tileLabel, fontWeight: 700, letterSpacing: 1.5, color: light ? OG.muted : "#C9D6E6" }}>{t.label}</div>
                 </div>
