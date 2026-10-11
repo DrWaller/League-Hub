@@ -41,6 +41,11 @@ export default async function TopPlayersPage({ searchParams }: { searchParams: {
         Value over replacement: each player&apos;s fantasy points for the week minus the score of the last player who would be
         starting at his position if every team started its best. It puts a goalie and a forward on one scale.
       </p>
+      <p className="mb-4 text-sm">
+        <Link href="/top-players/records" className="text-rink hover:underline">
+          Season records: biggest weeks &amp; months →
+        </Link>
+      </p>
       {vor && (
         <p className="text-xs text-muted mb-6 max-w-prose font-tabular">
           Replacement level this week: C {pts(vor.replacement.C)} · LW {pts(vor.replacement.LW)} · RW {pts(vor.replacement.RW)} · D{" "}
