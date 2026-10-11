@@ -160,6 +160,8 @@ export async function renderBigNightCard(opts: {
   const monster = isMonsterNight(b.points, b.position);
   // A plain gold line under the points when the night was a hat trick or a shutout.
   const special = b.kind === "HAT_TRICK" ? "HAT TRICK" : b.kind === "SHUTOUT" ? "SHUTOUT" : null;
+  // The count that goes with it: "3 GOALS" for a hat trick, "26 SAVES" for a shutout.
+  const specialDetail = special === "HAT TRICK" ? `${Number(b.stats?.["13"] ?? 0) || ""} GOALS`.trim() : special === "SHUTOUT" ? `${Number(b.stats?.["6"] ?? 0) || ""} SAVES`.trim() : "";
   const { month, day } = dateParts(opts.date);
   const teamColor = CARD_TEAM_COLOR[b.teamId] ?? OG.rink;
   const hasLogo = Boolean(logo);
@@ -178,6 +180,7 @@ export async function renderBigNightCard(opts: {
       teamColor,
       monster,
       special,
+      specialDetail: /^\d/.test(specialDetail) ? specialDetail : undefined,
       positionName: POSITION_NAMES[b.position] ?? b.position,
       month,
       day,
@@ -196,7 +199,7 @@ export async function renderBigNightCard(opts: {
   const tileStyle = opts.tileStyle ?? TILE_STYLE;
   const light = tileStyle === "light";
   // A benched player's card carries an extra note line, so the photo gives up some room for it.
-  const photo = (compact ? 256 : 316) + (placement === "topleft" ? PHOTO_BONUS_TEXT_ONLY : 0) - (b.active ? 0 : compact ? 34 : 40) - (special ? 30 : 0);
+  const photo = (compact ? 256 : 316) + (placement === "topleft" ? PHOTO_BONUS_TEXT_ONLY : 0) - (b.active ? 0 : compact ? 34 : 40) - (special ? 50 : 0);
 
   // Space (pixels) above each line, measured as margins: photo > position > name > team > points.
   const SP = compact ? { pos: 14, name: -8, team: 6, pts: -1 } : { pos: 18, name: -8, team: 6, pts: -6 };
@@ -432,10 +435,9 @@ export async function renderBigNightCard(opts: {
           </div>
           </div>
           {special ? (
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 18, marginTop: compact ? 10 : 14 }}>
-              <div style={{ display: "flex", width: 56, height: 4, borderRadius: 2, background: OG.gold }} />
-              <div style={{ display: "flex", paddingLeft: 6, fontFamily: display, fontSize: compact ? 28 : 32, fontWeight: 700, letterSpacing: 6, color: OG.goldText }}>{special}</div>
-              <div style={{ display: "flex", width: 56, height: 4, borderRadius: 2, background: OG.gold }} />
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 18, marginTop: compact ? 10 : 14, padding: compact ? "6px 34px 6px 40px" : "8px 38px 8px 44px", borderRadius: 10, background: monster ? OG.centerRed : OG.gold }}>
+              <div style={{ display: "flex", fontFamily: display, fontSize: compact ? 36 : 42, fontWeight: 700, letterSpacing: 7, color: monster ? "#FFFFFF" : OG.board }}>{special}</div>
+              {/^\d/.test(specialDetail) ? <div style={{ display: "flex", fontFamily: display, fontSize: compact ? 26 : 30, fontWeight: 700, letterSpacing: 3, color: monster ? "#FFFFFF" : OG.board, opacity: 0.8 }}>{specialDetail}</div> : null}
             </div>
           ) : null}
           {b.active ? null : (

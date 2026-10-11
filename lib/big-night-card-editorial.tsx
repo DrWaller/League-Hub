@@ -19,6 +19,7 @@ export type EditorialProps = {
   teamColor: string;
   monster: boolean;
   special: string | null; // "HAT TRICK" / "SHUTOUT"
+  specialDetail?: string; // "3 GOALS" / "26 SAVES"
   positionName: string;
   month: string;
   day: string;
@@ -68,6 +69,16 @@ export async function renderEditorialCard(p: EditorialProps) {
           <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: 984, height: 1040, backgroundImage: `linear-gradient(112deg, ${p.teamColor}70 0%, ${p.teamColor}70 6%, ${p.teamColor}30 6%, ${p.teamColor}22 30%, ${p.teamColor}00 52%)` }} />
           <div style={{ display: "flex", position: "absolute", left: 0, top: 0, width: 984, height: 1040, backgroundImage: `linear-gradient(112deg, ${accent}00 0%, ${accent}00 6%, ${accent}66 6%, ${accent}66 7.5%, ${accent}00 7.5%)` }} />
 
+          {/* hat trick / shutout: a banner across the top of the card */}
+          {p.special ? (
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 22, position: "absolute", left: 0, top: 0, width: 984, height: 62, background: accent }}>
+              <div style={{ display: "flex", width: 70, height: 4, background: monster ? "#FFFFFF" : OG.board, opacity: 0.55 }} />
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 40, letterSpacing: 8, color: monster ? "#FFFFFF" : OG.board }}>{p.special}</div>
+              {p.specialDetail ? <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: 3, color: monster ? "#FFFFFF" : OG.board, opacity: 0.8 }}>{p.specialDetail}</div> : null}
+              <div style={{ display: "flex", width: 70, height: 4, background: monster ? "#FFFFFF" : OG.board, opacity: 0.55 }} />
+            </div>
+          ) : null}
+
           {logo ? (
             <div style={{ display: "flex", position: "absolute", left: 40, top: 130, width: 470, height: 470, opacity: 0.14, alignItems: "center", justifyContent: "center" }}>
               <img src={logo} width={470} height={470} style={{ objectFit: "contain" }} />
@@ -84,7 +95,7 @@ export async function renderEditorialCard(p: EditorialProps) {
           )}
 
           {/* text block */}
-          <div style={{ display: "flex", flexDirection: "column", position: "absolute", left: 540, top: 70, width: 420 }}>
+          <div style={{ display: "flex", flexDirection: "column", position: "absolute", left: 540, top: p.special ? 92 : 70, width: 420 }}>
             <div style={{ display: "flex", alignSelf: "flex-start", padding: "6px 22px 6px 26px", borderRadius: 8, background: accent, fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: 5, color: monster ? "#FFFFFF" : OG.board }}>
               {p.positionName.toUpperCase()}
             </div>
@@ -101,9 +112,6 @@ export async function renderEditorialCard(p: EditorialProps) {
               <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: ptsSize, lineHeight: 1, color: OG.centerRed }}>{b.points.toFixed(2)}</div>
               <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 40, letterSpacing: 2, color: OG.muted, paddingLeft: 12, paddingBottom: rows === 1 ? 34 : 24 }}>PTS</div>
             </div>
-            {p.special ? (
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: 6, color: monster ? OG.centerRed : OG.goldText, marginTop: 4 }}>{p.special}</div>
-            ) : null}
             {b.active ? null : <div style={{ display: "flex", marginTop: 6, fontSize: 22, color: OG.muted }}>Not in the active lineup, so these points did not count</div>}
           </div>
 
