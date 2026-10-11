@@ -103,23 +103,21 @@ export async function renderCloseMatchupCard(opts: {
               <div style={{ display: "flex", justifyContent: "center", textAlign: "center", fontFamily: display, fontWeight: 700, fontSize: nameSize(name), lineHeight: 1.05, color: OG.board, textTransform: "uppercase" }}>{name}</div>
             </div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: text.length > 6 ? 112 : text.length > 5 ? 132 : 150, lineHeight: 1, marginTop: 0, color: tie || leader ? OG.centerRed : OG.rink }}>{text}</div>
-            {showProj && opts.projection ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 12 }}>
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 46, lineHeight: 1, letterSpacing: 2, color: opts.projection[s.id].win >= 50 ? OG.rink : "#7A8CA5" }}>{`${opts.projection[s.id].win}% TO WIN`}</div>
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: 3, marginTop: 6, color: "#7A8CA5" }}>{`PROJ ${opts.projection[s.id].final.toFixed(2)}`}</div>
-              </div>
-            ) : null}
           </div>
         );
       };
 
-      // "GAMES LEFT" cell for one team; gold when that team has more left than the other
-      const gamesCell = (n: number, edge: boolean) => (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 250 }}>
-          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 4, color: "#C9D6E6" }}>GAMES LEFT</div>
-          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 104, lineHeight: 1, marginTop: 4, color: edge ? OG.gold : "#FFFFFF" }}>{n}</div>
-        </div>
-      );
+      // "WIN CHANCE" cell for one team, gold when that team is the favourite
+      const winCell = (id: number) => {
+        const pr = opts.projection![id];
+        return (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 250 }}>
+            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 4, color: "#C9D6E6" }}>WIN CHANCE</div>
+            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 96, lineHeight: 1, marginTop: 4, color: pr.win >= 50 ? OG.gold : "#FFFFFF" }}>{`${pr.win}%`}</div>
+            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 3, marginTop: 6, color: "#C9D6E6" }}>{`PROJ ${pr.final.toFixed(2)}`}</div>
+          </div>
+        );
+      };
 
       return (
         <div style={{ display: "flex", flexGrow: 1, paddingBottom: 8 }}>
@@ -157,26 +155,29 @@ export async function renderCloseMatchupCard(opts: {
               VS
             </div>
 
-            {/* the gap, like a Big Night stat tile; on a live card the games each team has left flank it */}
+            {/* the gap, like a Big Night stat tile; on a live card each team's win chance flanks it */}
             <div
               style={{
                 display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", position: "absolute", left: 40, right: 40, bottom: 36,
-                background: OG.rink, borderTop: `6px solid ${OG.gold}`, borderRadius: 14, padding: "14px 0 18px",
+                background: OG.rink, borderTop: `6px solid ${OG.gold}`, borderRadius: 14, padding: "10px 0 14px",
               }}
             >
-              {gl ? gamesCell(gl.l, gl.l > gl.r) : null}
-              {gl ? <div style={{ display: "flex", width: 2, height: 170, background: "rgba(217,164,65,0.45)" }} /> : null}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: gl ? 400 : 904 }}>
+              {showProj ? winCell(left.id) : null}
+              {showProj ? <div style={{ display: "flex", width: 2, height: 170, background: "rgba(217,164,65,0.45)" }} /> : null}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: showProj ? 400 : 904 }}>
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 7, color: "#C9D6E6" }}>{tileLabel}</div>
                 <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", marginTop: 2 }}>
-                  {tie ? null : <div style={{ display: "flex", width: gl ? 80 : 132 }} />}
-                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 112, lineHeight: 1, color: "#FFFFFF", letterSpacing: tie ? 8 : 0 }}>{tie ? "TIED" : g.margin.toFixed(2)}</div>
-                  {tie ? null : <div style={{ display: "flex", width: gl ? 80 : 132, paddingLeft: 14, paddingBottom: 20, fontFamily: display, fontWeight: 700, fontSize: 36, letterSpacing: 2, color: "#C9D6E6" }}>PTS</div>}
+                  {tie ? null : <div style={{ display: "flex", width: showProj ? 80 : 132 }} />}
+                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 104, lineHeight: 1, color: "#FFFFFF", letterSpacing: tie ? 8 : 0 }}>{tie ? "TIED" : g.margin.toFixed(2)}</div>
+                  {tie ? null : <div style={{ display: "flex", width: showProj ? 80 : 132, paddingLeft: 14, paddingBottom: 20, fontFamily: display, fontWeight: 700, fontSize: 36, letterSpacing: 2, color: "#C9D6E6" }}>PTS</div>}
                 </div>
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 32, letterSpacing: 6, color: OG.gold, marginTop: 4 }}>{tileNote}</div>
+                {gl ? (
+                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 3, color: "#8FA3BD", marginTop: 4 }}>{`GAMES LEFT  ${gl.l} - ${gl.r}`}</div>
+                ) : null}
               </div>
-              {gl ? <div style={{ display: "flex", width: 2, height: 170, background: "rgba(217,164,65,0.45)" }} /> : null}
-              {gl ? gamesCell(gl.r, gl.r > gl.l) : null}
+              {showProj ? <div style={{ display: "flex", width: 2, height: 170, background: "rgba(217,164,65,0.45)" }} /> : null}
+              {showProj ? winCell(right.id) : null}
             </div>
           </div>
         </div>
