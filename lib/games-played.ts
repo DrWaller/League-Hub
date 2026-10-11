@@ -24,7 +24,41 @@ const NON_ACTIVE_SLOTS = new Set([7, 8]);
 export interface TeamGamesPlayed {
   played: number;
   projected: number | null; // null = couldn't load the NHL schedule, so no projection
+  // Fantasy points the remaining projected starter-games should add, and how uncertain that is
+  // (variance). null = no usable projections, so no win probability.
+  expectedPts: number | null;
+  variance: number | null;
 }
+
+// ---- Expected points per game (see getWeekGamesPlayed) ----
+// Each player's rate is ESPN's projection (the day's own projection, else the season projection,
+// else last season's per-game average) blended with this season's actual per-game average. The
+// blend leans on the projection like K games of evidence, so the actuals take over as games pile up.
+const K_SKATER = 15;
+const K_GOALIE = 10;
+// Hockey fantasy points are lumpy: variance of ONE game is roughly this many times the player's
+// mean points per game (goalies swing far more than skaters). Estimates, not fitted to your league.
+const GAME_VAR_PER_PT = { skater: 2.5, goalie: 6 };
+// How wrong a player's true rate might be, as a fraction of it (shared across all his games).
+const RATE_SD = 0.3;
+
+interface RateAcc {
+  teamId: number;
+  isG: boolean;
+  n: number; // remaining projected games this week
+  dailySum: number;
+  dailyCnt: number;
+  staticPrior: number | null;
+  ppgActual: number | null;
+  gpActual: number;
+}
+
+const statGames = (x: any) => Number(x?.stats?.["34"]) || Number(x?.stats?.["0"]) || 0;
+const perGame = (x: any) => {
+  const g = statGames(x);
+  const tot = Number(x?.appliedTotal);
+  return g > 0 && Number.isFinite(tot) ? tot / g : null;
+};
 
 export type WeekGamesPlayed = Record<number, TeamGamesPlayed>;
 
@@ -42,6 +76,27 @@ async function fetchRosterDay(season: number, sp: number, frozen: boolean) {
   } catch {
     return null;
   }
+}
+
+// Season-level stat buckets (this season's actuals, ESPN's projection, last season) for every rostered
+// player. ESPN only includes these when NO scoringPeriodId is asked for, so they come from their own call.
+async function fetchRosterAgg(season: number): Promise<Map<number, any[]>> {
+  const out = new Map<number, any[]>();
+  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mRoster&view=mTeam`;
+  try {
+    const res = await fetch(url, { headers: cookies(), next: { revalidate: 300 } });
+    if (!res.ok) return out;
+    const data = await res.json();
+    for (const t of data?.teams ?? []) {
+      for (const e of t.roster?.entries ?? []) {
+        const pl = e.playerPoolEntry?.player;
+        if (pl?.id != null && Array.isArray(pl.stats)) out.set(pl.id, pl.stats);
+      }
+    }
+  } catch {
+    /* projections just fall back to whatever the daily roster carries */
+  }
+  return out;
 }
 
 // proTeamId -> the scoring days that NHL team plays. ESPN publishes this on the
@@ -87,19 +142,26 @@ export async function getWeekGamesPlayed(week: number, season: number): Promise<
   if (current === null) return null;
 
   const needsSchedule = periods.some((p) => p >= current);
-  const [days, pro] = await Promise.all([
+  const [days, pro, agg] = await Promise.all([
     Promise.all(periods.map((sp) => fetchRosterDay(season, sp, sp < current).then((data) => ({ sp, data })))),
     needsSchedule ? fetchProSchedule(season) : Promise.resolve(null),
+    needsSchedule ? fetchRosterAgg(season) : Promise.resolve(new Map<number, any[]>()),
   ]);
 
   if (!days.some((d) => d.data?.teams)) return null;
 
   const result: WeekGamesPlayed = {};
+  const rates = new Map<string, RateAcc>();
   const projectionAvailable = !needsSchedule || pro !== null;
 
   for (const { sp, data } of days) {
     for (const t of data?.teams ?? []) {
-      const row = (result[t.id] ??= { played: 0, projected: projectionAvailable ? 0 : null });
+      const row = (result[t.id] ??= {
+        played: 0,
+        projected: projectionAvailable ? 0 : null,
+        expectedPts: projectionAvailable ? 0 : null,
+        variance: projectionAvailable ? 0 : null,
+      });
       for (const e of t.roster?.entries ?? []) {
         if (NON_ACTIVE_SLOTS.has(e.lineupSlotId)) continue;
         const player = e.playerPoolEntry?.player;
@@ -109,9 +171,74 @@ export async function getWeekGamesPlayed(week: number, season: number): Promise<
         if (hasStats) {
           row.played++;
         } else if (sp >= current && pro && row.projected !== null) {
-          if (pro.get(Number(player.proTeamId))?.has(sp)) row.projected++;
+          if (pro.get(Number(player.proTeamId))?.has(sp)) {
+            row.projected++;
+            const key = `${t.id}:${player.id}`;
+            let acc = rates.get(key);
+            if (!acc) {
+              const stats: any[] = [...(agg.get(player.id) ?? []), ...(player.stats ?? [])];
+              const seasonActual = stats.find(
+                (x) => x.statSourceId === 0 && x.statSplitTypeId === 0 && (String(x.id) === `00${season}` || x.seasonId === season)
+              );
+              const projSeason = stats.find((x) => x.statSourceId === 1 && x.statSplitTypeId === 0 && !x.scoringPeriodId);
+              const lastSeason = stats.find(
+                (x) => x.statSourceId === 0 && x.statSplitTypeId === 0 && (String(x.id) === `00${season - 1}` || x.seasonId === season - 1)
+              );
+              acc = {
+                teamId: t.id,
+                isG: player.defaultPositionId === 5,
+                n: 0,
+                dailySum: 0,
+                dailyCnt: 0,
+                staticPrior: perGame(projSeason) ?? perGame(lastSeason),
+                ppgActual: perGame(seasonActual),
+                gpActual: statGames(seasonActual),
+              };
+              rates.set(key, acc);
+            }
+            acc.n++;
+            const daily = (player.stats ?? []).find((x: any) => x.statSourceId === 1 && x.scoringPeriodId === sp);
+            const dv = Number(daily?.appliedTotal);
+            if (daily && Number.isFinite(dv)) {
+              acc.dailySum += dv;
+              acc.dailyCnt++;
+            }
+          }
         }
       }
+    }
+  }
+
+  // Turn each player's remaining games into expected points and variance for his team.
+  if (projectionAvailable && rates.size > 0) {
+    const priorOf = (a: RateAcc) => (a.dailyCnt > 0 ? a.dailySum / a.dailyCnt : a.staticPrior ?? a.ppgActual);
+    const mean = (g: boolean) => {
+      const v = [...rates.values()].filter((a) => a.isG === g).map(priorOf).filter((x): x is number => x != null && Number.isFinite(x));
+      return v.length ? v.reduce((p, c) => p + c, 0) / v.length : null;
+    };
+    const groupMean = { skater: mean(false), goalie: mean(true) };
+    let usable = true;
+    const exp: Record<number, number> = {};
+    const vr: Record<number, number> = {};
+
+    for (const a of rates.values()) {
+      const prior = priorOf(a) ?? (a.isG ? groupMean.goalie : groupMean.skater);
+      if (prior == null) {
+        usable = false;
+        break;
+      }
+      const k = a.isG ? K_GOALIE : K_SKATER;
+      const ppg = a.gpActual > 0 && a.ppgActual != null ? (a.gpActual * a.ppgActual + k * prior) / (a.gpActual + k) : prior;
+      const mu = Math.max(ppg, 0);
+      const perPt = a.isG ? GAME_VAR_PER_PT.goalie : GAME_VAR_PER_PT.skater;
+      exp[a.teamId] = (exp[a.teamId] ?? 0) + a.n * mu;
+      vr[a.teamId] = (vr[a.teamId] ?? 0) + a.n * perPt * mu + (a.n * RATE_SD * mu) ** 2;
+    }
+
+    for (const id of Object.keys(result)) {
+      const row = result[Number(id)];
+      row.expectedPts = usable ? exp[Number(id)] ?? 0 : null;
+      row.variance = usable ? vr[Number(id)] ?? 0 : null;
     }
   }
 

@@ -109,7 +109,8 @@ export function closeMatchupsCaption(
   games: CloseGame[],
   teamName: (id: number) => string,
   daysLeft: number | null,
-  gamesLeft?: Record<number, number> // live only: starter-games each team still has to play
+  gamesLeft?: Record<number, number>, // live only: starter-games each team still has to play
+  winPct?: Record<number, number> // live only: projected chance (0-100) each team wins, by fantasy team id
 ): string {
   const left = daysLeftText(daysLeft);
   const head =
@@ -126,9 +127,14 @@ export function closeMatchupsCaption(
       mode === "live" && gamesLeft && gamesLeft[topId] !== undefined && gamesLeft[botId] !== undefined
         ? ` | Games left: ${teamName(topId)} ${gamesLeft[topId]}, ${teamName(botId)} ${gamesLeft[botId]}`
         : "";
-    if (g.margin === 0) return `${teamName(topId)} ${top} - ${teamName(botId)} ${bot} (tied)${gl}`;
+    const wp =
+      mode === "live" && winPct && winPct[topId] !== undefined && winPct[botId] !== undefined
+        ? ` | Win chance: ${teamName(topId)} ${winPct[topId]}%, ${teamName(botId)} ${winPct[botId]}%`
+        : "";
+    const extra = gl + wp;
+    if (g.margin === 0) return `${teamName(topId)} ${top} - ${teamName(botId)} ${bot} (tied)${extra}`;
     return mode === "live"
-      ? `${teamName(topId)} ${top} leads ${teamName(botId)} ${bot} by ${g.margin.toFixed(2)}${gl}`
+      ? `${teamName(topId)} ${top} leads ${teamName(botId)} ${bot} by ${g.margin.toFixed(2)}${extra}`
       : `${teamName(topId)} ${top} def. ${teamName(botId)} ${bot} (by ${g.margin.toFixed(2)})`;
   });
   return [head, "", ...lines].join("\n");

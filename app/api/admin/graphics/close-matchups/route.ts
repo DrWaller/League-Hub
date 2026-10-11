@@ -6,6 +6,7 @@ import { seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { getWeekCalendar } from "@/lib/week-calendar";
 import { getWeekGamesPlayed } from "@/lib/games-played";
+import { projectMatchup } from "@/lib/win-probability";
 import { Matchup } from "@/lib/types";
 import { captionResponse } from "@/lib/captions";
 import { CloseMode, DEFAULT_MARGIN, TIER_LABELS, pickCloseMatchups, closeMatchupsCaption, daysLeftInWeek } from "@/lib/close-matchups";
@@ -114,18 +115,37 @@ export async function GET(req: NextRequest) {
 
     // Starter-games each team still has to play this week (live, current season only). Optional too.
     let gamesLeft: Record<number, number> | undefined;
+    let projection: Record<number, { win: number; final: number }> | undefined;
     if (mode === "live" && !isPast) {
       try {
         const gp = await getWeekGamesPlayed(week, meta.season);
         const h = gp?.[game.homeTeamId]?.projected;
         const a = gp?.[game.awayTeamId]?.projected;
         if (h != null && a != null) gamesLeft = { [game.homeTeamId]: h, [game.awayTeamId]: a };
+        const pr = projectMatchup(game.homeScore, game.awayScore, gp?.[game.homeTeamId], gp?.[game.awayTeamId]);
+        if (pr) {
+          projection = {
+            [game.homeTeamId]: { win: pr.homeWinPct, final: pr.homeFinal },
+            [game.awayTeamId]: { win: pr.awayWinPct, final: pr.awayFinal },
+          };
+        }
       } catch {
         /* a nice-to-have */
       }
     }
 
-    if (sp.get("caption")) return captionResponse(closeMatchupsCaption(week, mode, [game], teamName, daysLeft, gamesLeft));
+    if (sp.get("caption")) return captionResponse(closeMatchupsCaption(
+        week,
+        mode,
+        [game],
+        teamName,
+        daysLeft,
+        gamesLeft,
+        projection && {
+          [game.homeTeamId]: projection[game.homeTeamId].win,
+          [game.awayTeamId]: projection[game.awayTeamId].win,
+        }
+      ));
 
     return await renderCloseMatchupCard({
       game,
@@ -133,6 +153,7 @@ export async function GET(req: NextRequest) {
       mode,
       daysLeft,
       gamesLeft,
+      projection,
       teamName,
       logos: await loadLogoData(isPast),
       footer: seasonFooter(meta.name, seasonParam),

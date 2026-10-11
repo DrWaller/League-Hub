@@ -50,6 +50,7 @@ export async function renderCloseMatchupCard(opts: {
   mode: CloseMode;
   daysLeft: number | null;
   gamesLeft?: Record<number, number>; // live only: starter-games still to play, by fantasy team id (missing = leave it off)
+  projection?: Record<number, { win: number; final: number }>; // live only: win chance (0-100) and projected final score, by fantasy team id
   teamName: (id: number) => string;
   logos?: Record<number, string>;
   footer?: string;
@@ -77,6 +78,7 @@ export async function renderCloseMatchupCard(opts: {
   const tileNote = live ? dayText || "STILL IN PLAY" : "FINAL";
   const chipText = tie ? "" : live ? "LEADING" : "WINNER";
   // Games left for each side (live only, when both are known). The side with more left has the edge.
+  const showProj = live && opts.projection && opts.projection[left.id] !== undefined && opts.projection[right.id] !== undefined;
   const gl = live && opts.gamesLeft && opts.gamesLeft[left.id] !== undefined && opts.gamesLeft[right.id] !== undefined ? { l: opts.gamesLeft[left.id], r: opts.gamesLeft[right.id] } : null;
 
   return frame({
@@ -101,6 +103,12 @@ export async function renderCloseMatchupCard(opts: {
               <div style={{ display: "flex", justifyContent: "center", textAlign: "center", fontFamily: display, fontWeight: 700, fontSize: nameSize(name), lineHeight: 1.05, color: OG.board, textTransform: "uppercase" }}>{name}</div>
             </div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: text.length > 6 ? 112 : text.length > 5 ? 132 : 150, lineHeight: 1, marginTop: 0, color: tie || leader ? OG.centerRed : OG.rink }}>{text}</div>
+            {showProj && opts.projection ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 12 }}>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 46, lineHeight: 1, letterSpacing: 2, color: opts.projection[s.id].win >= 50 ? OG.rink : "#7A8CA5" }}>{`${opts.projection[s.id].win}% TO WIN`}</div>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: 3, marginTop: 6, color: "#7A8CA5" }}>{`PROJ ${opts.projection[s.id].final.toFixed(2)}`}</div>
+              </div>
+            ) : null}
           </div>
         );
       };

@@ -7,6 +7,7 @@ import { getAvailableSeasons } from "@/lib/seasons";
 import TeamLogo from "@/components/TeamLogo";
 import { pts, ptsComma } from "@/lib/format";
 import { getWeekGamesPlayed, type WeekGamesPlayed } from "@/lib/games-played";
+import { projectMatchup } from "@/lib/win-probability";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,10 @@ export default async function MatchupsPage({
           const homeWinning = m.homeScore > m.awayScore;
           const blurb = contentFor(m.homeTeamId, m.awayTeamId);
           const text = m.isFinal ? blurb?.summary : blurb?.preview;
+          const proj =
+            !m.isFinal && gamesPlayed
+              ? projectMatchup(m.homeScore, m.awayScore, gamesPlayed[m.homeTeamId], gamesPlayed[m.awayTeamId])
+              : null;
           return (
             <div key={i} className="border border-ice-line p-5">
               <div className="flex items-center justify-between font-tabular">
@@ -156,6 +161,21 @@ export default async function MatchupsPage({
                       </div>
                     );
                   })}
+                  {proj && (
+                    <div className="pt-2 mt-1 border-t border-ice-line space-y-1">
+                      {[
+                        { id: m.homeTeamId, name: home?.name, final: proj.homeFinal, win: proj.homeWinPct },
+                        { id: m.awayTeamId, name: away?.name, final: proj.awayFinal, win: proj.awayWinPct },
+                      ].map((r) => (
+                        <div key={r.id} className="flex items-center justify-between gap-3">
+                          <span className="truncate">{r.name ?? r.id} · projected</span>
+                          <span className="whitespace-nowrap">
+                            {pts(r.final)} · <span className={r.win >= 50 ? "text-ice font-semibold" : ""}>{r.win}% win</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               <p className="text-xs text-muted mt-3">
