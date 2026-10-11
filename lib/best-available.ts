@@ -20,7 +20,7 @@ const POS_BY_ID: Record<number, Pos> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G
 const DAYS_AHEAD = 14;
 
 // ESPN's NHL team ids, used only when ESPN's schedule response doesn't carry abbreviations.
-const NHL_ABBREV: Record<number, string> = {
+export const NHL_ABBREV: Record<number, string> = {
   1: "BOS", 2: "BUF", 3: "CGY", 4: "CHI", 5: "DET", 6: "EDM", 7: "CAR", 8: "LA", 9: "DAL", 10: "MTL", 11: "NJ", 12: "NYI", 13: "NYR", 14: "OTT",
   15: "PHI", 16: "PIT", 17: "COL", 18: "SJ", 19: "STL", 20: "TB", 21: "TOR", 22: "VAN", 23: "WSH", 24: "WPG", 25: "FLA", 26: "CBJ", 27: "MIN",
   28: "NSH", 29: "ANA", 30: "UTA", 37: "VGK", 124292: "SEA", 129764: "UTA",
