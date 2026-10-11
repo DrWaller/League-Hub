@@ -32,12 +32,12 @@ export default function GameGrid({ data }: { data: GridData }) {
       if (data.teamId) localStorage.setItem(KEY, String(data.teamId));
       else {
         const saved = localStorage.getItem(KEY);
-        if (saved) window.location.replace(`/game-grid?days=${data.span}&shift=${data.shift}&team=${encodeURIComponent(saved)}`);
+        if (saved) window.location.replace(`/game-grid?week=${data.week}&team=${encodeURIComponent(saved)}`);
       }
     } catch {
       /* private mode: fine */
     }
-  }, [data.teamId, data.span, data.shift]);
+  }, [data.teamId, data.week]);
 
   const rows = useMemo(() => {
     const r = [...data.teams];
@@ -72,8 +72,7 @@ export default function GameGrid({ data }: { data: GridData }) {
   return (
     <div>
       <form method="get" className="flex flex-wrap items-end gap-3 mb-4">
-        <input type="hidden" name="days" value={data.span} />
-        <input type="hidden" name="shift" value={data.shift} />
+        <input type="hidden" name="week" value={data.week} />
         <label className="text-xs text-muted flex flex-col gap-1">
           Sync to my team
           <select name="team" defaultValue={data.teamId || ""} className="border border-ice-line bg-white px-2 py-1.5 text-sm" onChange={(e) => e.currentTarget.form?.submit()}>

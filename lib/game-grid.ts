@@ -1,7 +1,7 @@
 // Server-side only. The NHL game grid: every NHL team by day, which nights are light (8 or fewer games
 // league-wide, Frozen Pool's rule), each team's games and off-night games, and the free agents on each team.
 
-import { getLeagueMeta } from "@/lib/espn";
+import { getLeagueMeta, getScoringPeriodsForWeek } from "@/lib/espn";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { getBestAvailable, NHL_ABBREV } from "@/lib/best-available";
 import { getOpenSlots, type OpenSlots } from "@/lib/pickups";
@@ -44,8 +44,8 @@ export interface GridData {
   days: GridDay[];
   teams: GridTeam[];
   players: GridPlayer[];
-  span: number;
-  shift: number;
+  week: number;
+  maxWeek: number;
   from: string;
   to: string;
   teamId: number;
@@ -54,11 +54,22 @@ export interface GridData {
   open: OpenSlots[] | null; // my empty starting slots per day, when a team is chosen
 }
 
-export async function getGameGrid(span: number, shift: number, teamId: number | null): Promise<GridData | null> {
+// One fantasy matchup week: the scoring days ESPN's matchup schedule assigns to it.
+export async function getGameGrid(week: number | null, teamId: number | null): Promise<GridData | null> {
   const meta = await getLeagueMeta();
   const season = meta.season;
   const status = await getCurrentScoringPeriod();
   if (status.current === null) return null;
+  const maxWeek = 30;
+  const wk = Math.max(1, Math.min(maxWeek, week ?? meta.currentWeek));
+  let periods: number[];
+  try {
+    periods = (await getScoringPeriodsForWeek(wk)).periods;
+  } catch {
+    return null;
+  }
+  if (periods.length === 0) return null;
+  const span = periods.length;
 
   let data: any;
   try {
@@ -79,13 +90,14 @@ export async function getGameGrid(span: number, shift: number, teamId: number | 
 
   const todayET = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
   const t0 = new Date(`${todayET}T00:00:00Z`).getTime();
-  const dateOf = (i: number) => new Date(t0 + (shift + i) * 86400000);
+  // Scoring day N is `current` today, so any other day's date follows from the difference.
+  const dateOf = (i: number) => new Date(t0 + (periods[i] - (status.current as number)) * 86400000);
 
   const rows: GridTeam[] = proTeams.map((t) => {
     const id = Number(t.id);
     const cells: GridCell[] = [];
     for (let i = 0; i < span; i++) {
-      const games = t.proGamesByScoringPeriod?.[String((status.current as number) + shift + i)];
+      const games = t.proGamesByScoringPeriod?.[String(periods[i])];
       const g = Array.isArray(games) && games.length > 0 ? games[0] : null;
       if (!g) {
         cells.push({ game: false });
@@ -120,7 +132,7 @@ export async function getGameGrid(span: number, shift: number, teamId: number | 
 
   // My team's open slots per day.
   const teamOptions = (await getStandings().catch(() => null))?.teams.map((t) => ({ id: t.id, name: t.name })) ?? [];
-  const mine = teamId && teamOptions.some((t) => t.id === teamId) ? await getOpenSlots(teamId, span, shift).catch(() => null) : null;
+  const mine = teamId && teamOptions.some((t) => t.id === teamId) ? await getOpenSlots(teamId, periods).catch(() => null) : null;
   const canFill = (pos: string, o: OpenSlots) =>
     pos === "G" ? o.G > 0 : pos === "D" ? o.D > 0 || o.UTIL > 0 : pos === "C" ? o.C > 0 || o.F > 0 || o.UTIL > 0 : pos === "LW" ? o.LW > 0 || o.F > 0 || o.UTIL > 0 : o.RW > 0 || o.F > 0 || o.UTIL > 0;
   const cellsOf = new Map(rows.map((r) => [r.abbrev, r.cells] as const));
@@ -144,5 +156,5 @@ export async function getGameGrid(span: number, shift: number, teamId: number | 
 
   const first = dateOf(0).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   const last = dateOf(span - 1).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  return { days, teams: rows, players, span, shift, from: first, to: last, teamId: mine ? (teamId as number) : 0, teamName: mine?.teamName ?? "", teamOptions, open: mine?.open ?? null };
+  return { days, teams: rows, players, week: wk, maxWeek, from: first, to: last, teamId: mine ? (teamId as number) : 0, teamName: mine?.teamName ?? "", teamOptions, open: mine?.open ?? null };
 }

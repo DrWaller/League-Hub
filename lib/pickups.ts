@@ -263,9 +263,9 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
   return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, horizon: H, days, picks, hot };
 }
 
-// Which starting slots are empty on each of the next `span` days (from `shift` days out) for one team.
+// Which starting slots are empty on each of the given scoring days for one team.
 // A slot is empty when none of the team's healthy players who have a game that night can fill it.
-export async function getOpenSlots(teamId: number, span: number, shift: number): Promise<{ open: OpenSlots[]; teamName: string } | null> {
+export async function getOpenSlots(teamId: number, periods: number[]): Promise<{ open: OpenSlots[]; teamName: string } | null> {
   const meta = await getLeagueMeta();
   const season = meta.season;
   const [standings, status, counts, pro] = await Promise.all([getStandings(), getCurrentScoringPeriod(), fetchLineupSlots(season), fetchProSchedule(season)]);
@@ -285,8 +285,7 @@ export async function getOpenSlots(teamId: number, span: number, shift: number):
     roster.push({ id: pl.id, pos, proTeam: Number(pl.proTeamId) });
   }
   const open: OpenSlots[] = [];
-  for (let i = 0; i < span; i++) {
-    const day = current + shift + i;
+  for (const day of periods) {
     const players: P[] = roster.filter((r) => pro.get(r.proTeam)?.has(day)).map((r) => ({ id: r.id, pos: r.pos, v: 1 }));
     open.push(bestLineup(players, counts).open);
   }
