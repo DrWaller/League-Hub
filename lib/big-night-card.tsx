@@ -36,7 +36,7 @@ const LOGO_STYLE: LogoStyle = "topleft";
 // "classic" = the centered card. "editorial" = big headshot on the left, text on the right (lib/big-night-card-editorial.tsx).
 // The graphic route also accepts ?layout=editorial or ?layout=classic to try one without changing this.
 export type CardLayout = "classic" | "editorial";
-const CARD_LAYOUT: CardLayout = "classic";
+const CARD_LAYOUT: CardLayout = "editorial";
 
 // Team colors for the cards: the shared ones (lib/og-theme.ts) plus two more used only here.
 const CARD_TEAM_COLOR: Record<number, string> = {
