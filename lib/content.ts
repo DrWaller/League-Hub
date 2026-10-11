@@ -56,10 +56,14 @@ export async function setTeamLogo(teamId: number, logoUrl: string) {
 export async function getTeamBannerColors(): Promise<Record<number, BannerColors>> {
   try {
     await ensureSchema();
-    const { rows } = await sql`SELECT team_id, primary_color, trim_color FROM team_banner_colors;`;
+    const { rows } = await sql`SELECT team_id, primary_color, trim_color, text_color FROM team_banner_colors;`;
     const map: Record<number, BannerColors> = {};
     for (const row of rows) {
-      map[row.team_id as number] = { primary: row.primary_color as string, trim: row.trim_color as string };
+      map[row.team_id as number] = {
+        primary: row.primary_color as string,
+        trim: row.trim_color as string,
+        text: (row.text_color as string) || null,
+      };
     }
     return map;
   } catch (err) {
@@ -68,12 +72,12 @@ export async function getTeamBannerColors(): Promise<Record<number, BannerColors
   }
 }
 
-export async function setTeamBannerColors(teamId: number, primary: string, trim: string) {
+export async function setTeamBannerColors(teamId: number, primary: string, trim: string, text: string | null = null) {
   await ensureSchema();
   await sql`
-    INSERT INTO team_banner_colors (team_id, primary_color, trim_color, updated_at)
-    VALUES (${teamId}, ${primary}, ${trim}, now())
-    ON CONFLICT (team_id) DO UPDATE SET primary_color = ${primary}, trim_color = ${trim}, updated_at = now();
+    INSERT INTO team_banner_colors (team_id, primary_color, trim_color, text_color, updated_at)
+    VALUES (${teamId}, ${primary}, ${trim}, ${text}, now())
+    ON CONFLICT (team_id) DO UPDATE SET primary_color = ${primary}, trim_color = ${trim}, text_color = ${text}, updated_at = now();
   `;
 }
 
@@ -82,13 +86,14 @@ export async function setTeamBannerColors(teamId: number, primary: string, trim:
 export async function getTeamSeasonLooks(): Promise<TeamSeasonLook[]> {
   try {
     await ensureSchema();
-    const { rows } = await sql`SELECT season, team_key, logo_url, primary_color, trim_color FROM team_season_looks;`;
+    const { rows } = await sql`SELECT season, team_key, logo_url, primary_color, trim_color, text_color FROM team_season_looks;`;
     return rows.map((r) => ({
       season: r.season as number,
       teamKey: r.team_key as string,
       logoUrl: (r.logo_url as string) || null,
       primary: (r.primary_color as string) || null,
       trim: (r.trim_color as string) || null,
+      text: (r.text_color as string) || null,
     }));
   } catch (err) {
     console.error("getTeamSeasonLooks failed (is Postgres connected?)", err);
@@ -105,12 +110,12 @@ export async function setTeamSeasonLogo(season: number, teamKey: string, logoUrl
   `;
 }
 
-export async function setTeamSeasonColors(season: number, teamKey: string, primary: string, trim: string) {
+export async function setTeamSeasonColors(season: number, teamKey: string, primary: string, trim: string, text: string | null = null) {
   await ensureSchema();
   await sql`
-    INSERT INTO team_season_looks (season, team_key, primary_color, trim_color, updated_at)
-    VALUES (${season}, ${teamKey}, ${primary}, ${trim}, now())
-    ON CONFLICT (season, team_key) DO UPDATE SET primary_color = ${primary}, trim_color = ${trim}, updated_at = now();
+    INSERT INTO team_season_looks (season, team_key, primary_color, trim_color, text_color, updated_at)
+    VALUES (${season}, ${teamKey}, ${primary}, ${trim}, ${text}, now())
+    ON CONFLICT (season, team_key) DO UPDATE SET primary_color = ${primary}, trim_color = ${trim}, text_color = ${text}, updated_at = now();
   `;
 }
 

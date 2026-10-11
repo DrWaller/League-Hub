@@ -15,7 +15,8 @@ export interface TeamBanner {
   hasSeasonLook: boolean; // true when this season's logo/colours were set specifically for it
   logoUrl: string | null;
   primary: string; // banner fabric colour
-  trim: string; // border / accent colour
+  trim: string; // outline / accent colour
+  text: string | null; // lettering colour; null = pick white or near-black automatically
 }
 
 // A team's look for one specific season (a franchise can change its name,
@@ -27,6 +28,7 @@ export interface TeamSeasonLook {
   logoUrl: string | null;
   primary: string | null;
   trim: string | null;
+  text: string | null;
 }
 
 export const teamKey = (name: string) => name.replace(/\s+/g, " ").trim().toLowerCase();
@@ -34,6 +36,7 @@ export const teamKey = (name: string) => name.replace(/\s+/g, " ").trim().toLowe
 export interface BannerColors {
   primary: string;
   trim: string;
+  text?: string | null; // null / missing = automatic
 }
 
 // Used for any team the commissioner hasn't picked colours for yet.
@@ -52,4 +55,9 @@ export function readableOn(hex: string): "#FFFFFF" | "#111111" {
   });
   const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   return luminance > 0.4 ? "#111111" : "#FFFFFF";
+}
+
+// The lettering colour a banner actually uses: the one chosen, or white/near-black.
+export function textOn(primary: string, chosen?: string | null): string {
+  return chosen && isHexColor(chosen) ? chosen : readableOn(primary);
 }

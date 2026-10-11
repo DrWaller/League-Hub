@@ -48,10 +48,11 @@ export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
     const season = Number(body?.season);
-    if (!season || !validKey(body?.teamKey) || !isHexColor(body?.primary) || !isHexColor(body?.trim)) {
+    const text: string | null = body?.text ? String(body.text) : null; // empty = automatic
+    if (!season || !validKey(body?.teamKey) || !isHexColor(body?.primary) || !isHexColor(body?.trim) || (text !== null && !isHexColor(text))) {
       return NextResponse.json({ error: "season, teamKey and two colours like #123A61 are required" }, { status: 400 });
     }
-    await setTeamSeasonColors(season, body.teamKey, body.primary, body.trim);
+    await setTeamSeasonColors(season, body.teamKey, body.primary, body.trim, text);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BannerColors, BannerKind, TeamBanner } from "@/lib/banner-types";
+import { BannerColors, BannerKind, readableOn, TeamBanner } from "@/lib/banner-types";
 import { suggestColorsFromImage } from "@/lib/logo-colors";
 import TeamBannerPennant from "./TeamBannerPennant";
 
@@ -15,6 +15,7 @@ export interface BannerLookItem {
   logoUrl: string | null;
   primary: string;
   trim: string;
+  text: string | null; // lettering colour; null = automatic
   custom: boolean; // a look was saved specifically for this season
 }
 
@@ -33,7 +34,7 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
       const res = await fetch("/api/admin/banner-looks", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ season: row.season, teamKey: row.teamKey, primary: c.primary, trim: c.trim }),
+        body: JSON.stringify({ season: row.season, teamKey: row.teamKey, primary: c.primary, trim: c.trim, text: row.text }),
       });
       const data = await res.json();
       if (data.ok) patch(row.id, { ...c, custom: true });
@@ -109,6 +110,7 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
           logoUrl: r.logoUrl,
           primary: r.primary,
           trim: r.trim,
+          text: r.text,
         };
         return (
           <div key={r.id} className="border border-ice-line p-4 flex gap-4">
@@ -138,12 +140,21 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
               <div className="flex items-center gap-2 text-xs text-muted flex-wrap">
                 <label className="flex items-center gap-1">
                   <input type="color" value={r.primary} onChange={(e) => patch(r.id, { primary: e.target.value })} aria-label="banner colour" />
-                  colour
+                  banner
                 </label>
                 <label className="flex items-center gap-1">
                   <input type="color" value={r.trim} onChange={(e) => patch(r.id, { trim: e.target.value })} aria-label="trim colour" />
-                  trim
+                  outline
                 </label>
+                <label className="flex items-center gap-1">
+                  <input type="color" value={r.text ?? readableOn(r.primary)} onChange={(e) => patch(r.id, { text: e.target.value })} aria-label="text colour" />
+                  {r.text ? "text" : "text (auto)"}
+                </label>
+                {r.text && (
+                  <button type="button" onClick={() => patch(r.id, { text: null })} className="border border-ice-line px-2 py-0.5 rounded hover:bg-ice-panel">
+                    Auto
+                  </button>
+                )}
                 <button type="button" onClick={() => saveColors(r)} className="border border-ice-line px-2 py-0.5 rounded hover:bg-ice-panel">
                   Save
                 </button>

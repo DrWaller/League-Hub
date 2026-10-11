@@ -24,6 +24,7 @@ export default async function AdminBannerLooksPage() {
         logoUrl: b.logoUrl,
         primary: b.primary,
         trim: b.trim,
+        text: b.text,
         custom: b.hasSeasonLook,
       });
     }

@@ -249,5 +249,8 @@ export async function ensureSchema() {
     );
   `;
 
+  await sql`ALTER TABLE team_banner_colors ADD COLUMN IF NOT EXISTS text_color TEXT;`;
+  await sql`ALTER TABLE team_season_looks ADD COLUMN IF NOT EXISTS text_color TEXT;`;
+
   schemaReady = true;
 }

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { BannerColors, DEFAULT_BANNER_COLORS } from "@/lib/banner-types";
+import { BannerColors, DEFAULT_BANNER_COLORS, readableOn, TeamBanner } from "@/lib/banner-types";
 import { suggestColorsFromImage } from "@/lib/logo-colors";
+import TeamBannerPennant from "./TeamBannerPennant";
 
 type TeamOption = { id: number; name: string };
 
@@ -23,7 +24,26 @@ export default function LogosManager({
 
   const colorsFor = (id: number): BannerColors => colors[id] ?? DEFAULT_BANNER_COLORS;
 
-  function pickColor(teamId: number, field: keyof BannerColors, value: string) {
+  // A sample banner with this team's logo and the colours currently picked.
+  const previewFor = (t: TeamOption): TeamBanner => {
+    const c = colorsFor(t.id);
+    return {
+      key: `preview-${t.id}`,
+      season: 2026,
+      kind: "champion",
+      teamName: t.name,
+      managerId: null,
+      managerName: null,
+      teamKey: "",
+      hasSeasonLook: false,
+      logoUrl: logos[t.id] ?? null,
+      primary: c.primary,
+      trim: c.trim,
+      text: c.text ?? null,
+    };
+  };
+
+  function pickColor(teamId: number, field: keyof BannerColors, value: string | null) {
     setColors((prev) => ({ ...prev, [teamId]: { ...colorsFor(teamId), [field]: value } }));
     setColorStatus((prev) => ({ ...prev, [teamId]: "" }));
   }
@@ -35,7 +55,7 @@ export default function LogosManager({
       const res = await fetch("/api/admin/logos", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId, primary: c.primary, trim: c.trim }),
+        body: JSON.stringify({ teamId, primary: c.primary, trim: c.trim, text: c.text ?? null }),
       });
       const data = await res.json();
       setColorStatus((prev) => ({ ...prev, [teamId]: data.ok ? "Saved" : data.error ?? "Couldn't save" }));
@@ -50,8 +70,10 @@ export default function LogosManager({
       setColorStatus((prev) => ({ ...prev, [teamId]: "Couldn't read the logo colours — pick them below" }));
       return;
     }
-    setColors((prev) => ({ ...prev, [teamId]: found }));
-    await saveColors(teamId, found);
+    // New colours from the logo; a lettering colour already chosen is kept.
+    const merged: BannerColors = { ...found, text: colorsFor(teamId).text ?? null };
+    setColors((prev) => ({ ...prev, [teamId]: merged }));
+    await saveColors(teamId, merged);
   }
 
   async function handleUpload(teamId: number, file: File) {
@@ -97,7 +119,7 @@ export default function LogosManager({
             />
             {uploadingId === t.id && <p className="text-xs text-muted mt-1">Uploading…</p>}
             <div className="flex items-center gap-2 mt-3 text-xs text-muted flex-wrap">
-              <span>Banner</span>
+              <span>Colours</span>
               <label className="flex items-center gap-1">
                 <input
                   type="color"
@@ -105,7 +127,7 @@ export default function LogosManager({
                   onChange={(e) => pickColor(t.id, "primary", e.target.value)}
                   aria-label={`${t.name} banner colour`}
                 />
-                colour
+                banner
               </label>
               <label className="flex items-center gap-1">
                 <input
@@ -114,8 +136,22 @@ export default function LogosManager({
                   onChange={(e) => pickColor(t.id, "trim", e.target.value)}
                   aria-label={`${t.name} banner trim colour`}
                 />
-                trim
+                outline
               </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="color"
+                  value={colorsFor(t.id).text ?? readableOn(colorsFor(t.id).primary)}
+                  onChange={(e) => pickColor(t.id, "text", e.target.value)}
+                  aria-label={`${t.name} banner text colour`}
+                />
+                {colorsFor(t.id).text ? "text" : "text (auto)"}
+              </label>
+              {colorsFor(t.id).text && (
+                <button type="button" onClick={() => pickColor(t.id, "text", null)} className="border border-ice-line px-2 py-0.5 rounded hover:bg-ice-panel">
+                  Auto
+                </button>
+              )}
               <button type="button" onClick={() => saveColors(t.id)} className="border border-ice-line px-2 py-0.5 rounded hover:bg-ice-panel">
                 Save
               </button>
@@ -126,6 +162,9 @@ export default function LogosManager({
               )}
               {colorStatus[t.id] && <span>{colorStatus[t.id]}</span>}
             </div>
+          </div>
+          <div className="w-14 shrink-0 bg-board rounded p-1.5" title="Banner preview">
+            <TeamBannerPennant banner={previewFor(t)} />
           </div>
         </div>
       ))}

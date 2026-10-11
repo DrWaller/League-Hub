@@ -1,10 +1,10 @@
-import { readableOn, TeamBanner } from "@/lib/banner-types";
+import { textOn, TeamBanner } from "@/lib/banner-types";
 
 // One hanging pennant, drawn as SVG so it stays sharp at any size. Colours come
 // from the team's banner colours; the logo is the team's uploaded logo.
 export default function TeamBannerPennant({ banner }: { banner: TeamBanner }) {
   const { kind, season, teamName, logoUrl, primary, trim } = banner;
-  const text = readableOn(primary);
+  const text = textOn(primary, banner.text);
   const initials = teamName
     .split(" ")
     .filter(Boolean)

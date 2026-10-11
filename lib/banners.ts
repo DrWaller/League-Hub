@@ -66,7 +66,7 @@ export async function getTeamBanners(): Promise<TeamBanner[]> {
     const key = teamKey(teamName);
     const look = seasonLooks.find((l) => l.season === season && l.teamKey === key);
     const general: BannerColors = lookup(colors, teamId, managerId) ?? DEFAULT_BANNER_COLORS;
-    const c: BannerColors = look?.primary && look.trim ? { primary: look.primary, trim: look.trim } : general;
+    const c: BannerColors = look?.primary && look.trim ? { primary: look.primary, trim: look.trim, text: look.text } : general;
     return {
       key: `${season}-${kind}`,
       season,
@@ -79,6 +79,7 @@ export async function getTeamBanners(): Promise<TeamBanner[]> {
       logoUrl: look?.logoUrl ?? lookup(logos, teamId, managerId),
       primary: c.primary,
       trim: c.trim,
+      text: c.text ?? null,
     };
   }
 

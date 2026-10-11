@@ -58,10 +58,11 @@ export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
     const teamId = Number(body?.teamId);
-    if (!teamId || !isHexColor(body?.primary) || !isHexColor(body?.trim)) {
+    const text: string | null = body?.text ? String(body.text) : null; // empty = automatic
+    if (!teamId || !isHexColor(body?.primary) || !isHexColor(body?.trim) || (text !== null && !isHexColor(text))) {
       return NextResponse.json({ error: "teamId and two colours like #123A61 are required" }, { status: 400 });
     }
-    await setTeamBannerColors(teamId, body.primary, body.trim);
+    await setTeamBannerColors(teamId, body.primary, body.trim, text);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
