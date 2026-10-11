@@ -3,7 +3,8 @@
 // Used to check hand-made cutoffs and to calibrate the ones the hub uses.
 
 import { getImportedSeason } from "@/lib/imported-seasons";
-import { getPlayerPool, getLeagueMeta } from "@/lib/espn";
+import { getPlayerPool, getLeagueMeta, getPastSeasonTeams } from "@/lib/espn";
+import { fetchLineupSlots, SLOT } from "@/lib/vor";
 
 // One row per player, whichever source the season came from.
 type Row = { name: string; positionId: number; gp: number; appliedTotal: number; owner: string | null };
@@ -36,8 +37,18 @@ export async function runTierStudy(season: number, minGp: number) {
     source = "espn";
     if (players.length === 0) return null;
   }
-  const teams = new Set(players.map((p) => p.owner).filter((o) => o && o !== "FA"));
-  const out: Record<string, unknown> = { season, source, minGp, teams: teams.size || null, players: players.length };
+  const owners = new Set(players.map((p) => p.owner).filter((o) => o && o !== "FA"));
+  let teamCount = owners.size || 0;
+  let slots: Record<number, number> | null = null;
+  if (source === "espn") {
+    teamCount = (await getPastSeasonTeams(season).catch(() => null))?.length ?? 0;
+    slots = await fetchLineupSlots(season).catch(() => null);
+  }
+  const out: Record<string, unknown> = { season, source, minGp, teams: teamCount || null, players: players.length, lineupSlots: slots };
+  // Starting slots per group (forwards: C + LW + RW + F; the utility slot is shared, so it is counted apart).
+  const starters = slots
+    ? { F: (slots[SLOT.C] ?? 0) + (slots[SLOT.LW] ?? 0) + (slots[SLOT.RW] ?? 0) + (slots[SLOT.F] ?? 0), D: slots[SLOT.D] ?? 0, G: slots[SLOT.G] ?? 0, util: slots[SLOT.UTIL] ?? 0 }
+    : null;
 
   for (const g of ["F", "D", "G"] as const) {
     const all = players.filter((p) => groupOf(p) === g && p.gp > 0);
@@ -87,7 +98,15 @@ export async function runTierStudy(season: number, minGp: number) {
     const faTop = [...fa].sort((a, b) => b.avg - a.avg).slice(0, 5).map((x) => `${x.p.name} ${r2(x.avg)} (${x.p.gp} gp)`);
     const rosLow = [...ros].sort((a, b) => a.avg - b.avg).slice(0, 3).map((x) => `${x.p.name} ${r2(x.avg)} (${x.p.gp} gp)`);
 
+    // The league's starter line: the average of the last player who would start in every lineup (teams x slots).
+    const starterRank = starters && teamCount ? starters[g] * teamCount : null;
+    const starterLine = starterRank && q[starterRank - 1] ? { rank: starterRank, avg: r2(q[starterRank - 1].avg) } : null;
+    const deepRank = starterRank ? Math.round(starterRank * 1.5) : null;
+    const deepLine = deepRank && q[deepRank - 1] ? { rank: deepRank, avg: r2(q[deepRank - 1].avg) } : null;
+
     out[g] = {
+      starterLine,
+      deepLine,
       qualified: q.length,
       anyGames: all.length,
       tiers,
