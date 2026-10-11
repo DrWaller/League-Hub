@@ -189,9 +189,9 @@ export default function BestAvailable({ data }: { data: Data }) {
           <table className="w-full text-sm font-tabular">
             <thead>
               <tr className="text-left text-muted border-b border-ice-line">
-                <th className="px-3 py-2 w-10 min-w-[2.5rem] sticky left-0 z-10 bg-white">#</th>
-                <th className="px-3 py-2 min-w-[210px] sticky left-10 z-10 bg-white shadow-[2px_0_0_0_#CBD6E2]">Player</th>
-                <th className="px-3 py-2">Pos</th>
+                <th className="hidden sm:table-cell px-3 py-2 w-10 min-w-[2.5rem] sticky left-0 z-10 bg-white">#</th>
+                <th className="px-2 sm:px-3 py-2 w-[116px] max-w-[116px] sm:w-auto sm:max-w-none sm:min-w-[210px] sticky left-0 sm:left-10 z-10 bg-white shadow-[2px_0_0_0_#CBD6E2]">Player</th>
+                <th className="hidden sm:table-cell px-3 py-2">Pos</th>
                 <th className="px-3 py-2 text-right">GP</th>
                 {th("pts", "PTS")}
                 {th("avg", "AVG")}
@@ -207,21 +207,26 @@ export default function BestAvailable({ data }: { data: Data }) {
                 const next7 = p.games.filter((g) => g < 7).length;
                 return (
                   <tr key={p.id} className="border-b border-ice-line last:border-0">
-                    <td className="px-3 py-2 text-muted sticky left-0 z-10 bg-white">{i + 1}</td>
-                    <td className="px-3 py-2 sticky left-10 z-10 bg-white shadow-[2px_0_0_0_#CBD6E2]">
-                      <div className="flex items-center gap-3">
-                        <PlayerPhoto playerId={p.id} name={p.name} size={36} />
+                    <td className="hidden sm:table-cell px-3 py-2 text-muted sticky left-0 z-10 bg-white">{i + 1}</td>
+                    <td className="px-2 sm:px-3 py-2 w-[116px] max-w-[116px] sm:w-auto sm:max-w-none sticky left-0 sm:left-10 z-10 bg-white shadow-[2px_0_0_0_#CBD6E2]">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="hidden sm:block shrink-0">
+                          <PlayerPhoto playerId={p.id} name={p.name} size={36} />
+                        </span>
                         <div className="min-w-0">
-                          <div className="font-body font-semibold truncate">{p.name}</div>
-                          <div className="text-xs text-muted flex gap-2 items-center">
-                            <span>{p.team}</span>
+                          <div className="font-body font-semibold truncate text-xs sm:text-sm">
+                            <span className="text-muted sm:hidden">{i + 1}. </span>
+                            {p.name}
+                          </div>
+                          <div className="text-[11px] sm:text-xs text-muted flex gap-1.5 sm:gap-2 items-center">
+                            <span>{p.team} · {p.position}</span>
                             {p.status === "W" ? <span className="px-1.5 border border-ice-line">waivers</span> : null}
                             {p.injury ? <span className="text-center-red">{p.injury}</span> : null}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-2">{p.position}</td>
+                    <td className="hidden sm:table-cell px-3 py-2">{p.position}</td>
                     <td className="px-3 py-2 text-right">{s.gp}</td>
                     <td className={`px-3 py-2 text-right ${sort === "pts" ? "font-semibold" : ""}`}>{f2(s.pts)}</td>
                     <td className={`px-3 py-2 text-right ${sort === "avg" ? "font-semibold" : ""}`}>{f2(s.avg)}</td>
