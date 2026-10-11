@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
-import type { BestAvailable as Data, AvailablePlayer, Window } from "@/lib/best-available";
+import type { BestAvailable as Data, AvailablePlayer, StatCat, Window } from "@/lib/best-available";
 
-type SortKey = "vor" | "pts" | "avg";
+type SortKey = string; // "vor" | "pts" | "avg" | "s:<stat id>"
 
 const PERIODS: { id: Window; label: string }[] = [
   { id: "season", label: "Season" },
@@ -12,12 +12,28 @@ const PERIODS: { id: Window; label: string }[] = [
   { id: "l15", label: "L15" },
   { id: "l30", label: "L30" },
 ];
-const SORTS: { id: SortKey; label: string }[] = [
+const SORTS: { id: string; label: string }[] = [
   { id: "vor", label: "VOR" },
   { id: "pts", label: "Total PTS" },
   { id: "avg", label: "AVG" },
 ];
-const POSITIONS = ["ALL", "F", "C", "LW", "RW", "D", "G"];
+const POSITIONS: { id: string; label: string }[] = [
+  { id: "ALL", label: "All" },
+  { id: "SK", label: "Skaters" },
+  { id: "F", label: "F" },
+  { id: "D", label: "D" },
+  { id: "C", label: "C" },
+  { id: "LW", label: "LW" },
+  { id: "RW", label: "RW" },
+  { id: "G", label: "G" },
+];
+const SKATERS = ["C", "LW", "RW", "D"];
+const FORWARDS = ["C", "LW", "RW"];
+const fmtStat = (c: StatCat, v: number | undefined) => {
+  if (v === undefined) return "–";
+  if (c.id === "11") return v.toFixed(3).replace(/^0/, ""); // SV%
+  return c.rate ? v.toFixed(2) : String(Math.round(v * 100) / 100);
+};
 
 const f2 = (n: number) => n.toFixed(2);
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
@@ -54,22 +70,29 @@ export default function BestAvailable({ data }: { data: Data }) {
     const list = data.players.filter((p) => {
       const s = p.w[period];
       if (!s || s.gp < minGp) return false;
-      if (pos === "F" ? !["C", "LW", "RW"].includes(p.position) : pos !== "ALL" && p.position !== pos) return false;
+      if (pos === "SK" ? !SKATERS.includes(p.position) : pos === "F" ? !FORWARDS.includes(p.position) : pos !== "ALL" && p.position !== pos) return false;
       if (team !== "ALL" && p.team !== team) return false;
       if (date !== "ANY" && !p.games.includes(Number(date))) return false;
       if (hideInjured && p.injury) return false;
       if (needle && !p.name.toLowerCase().includes(needle)) return false;
       return true;
     });
+    const cat = sort.startsWith("s:") ? data.cats.find((c) => c.id === sort.slice(2)) : undefined;
+    const dir = cat && !cat.higherIsBetter ? -1 : 1; // stats that cost points (GA, PIM...) sort fewest first
     const key = (p: AvailablePlayer) => {
       const s = p.w[period]!;
+      if (cat) return (s.st[cat.id] ?? 0) * dir;
       return sort === "vor" ? s.vor ?? -Infinity : sort === "pts" ? s.pts : s.avg;
     };
     return list.sort((a, b) => key(b) - key(a) || b.w[period]!.pts - a.w[period]!.pts);
-  }, [data.players, period, sort, pos, team, date, minGp, hideInjured, q]);
+  }, [data.players, data.cats, period, sort, pos, team, date, minGp, hideInjured, q]);
+
+  // Stat columns: the goalie set when only goalies are showing, the skater set otherwise (goalies show a dash).
+  const statCols = useMemo(() => data.cats.filter((c) => c.goalie === (pos === "G")), [data.cats, pos]);
+  const [showStats, setShowStats] = useState(true);
 
   const hasVor = data.rates !== null;
-  const th = (k: SortKey, label: string) => (
+  const th = (k: string, label: string) => (
     <th className="px-3 py-2 text-right">
       <button type="button" onClick={() => setSort(k)} className={`${sort === k ? "text-rink font-semibold" : "hover:text-rink"}`}>
         {label}
@@ -87,11 +110,16 @@ export default function BestAvailable({ data }: { data: Data }) {
         </label>
         <label className="text-xs text-muted flex flex-col gap-1">
           Sort by
-          <Chips<SortKey> value={sort} onChange={setSort} options={hasVor ? SORTS : SORTS.filter((s) => s.id !== "vor")} />
+          <Chips<string> value={SORTS.some((x) => x.id === sort) ? sort : ""} onChange={setSort} options={hasVor ? SORTS : SORTS.filter((s) => s.id !== "vor")} />
         </label>
         <label className="text-xs text-muted flex flex-col gap-1">
           Position
-          <Chips value={pos} onChange={setPos} options={POSITIONS.map((p) => ({ id: p, label: p === "ALL" ? "All" : p }))} />
+          <Chips<string> value={pos} onChange={(v) => {
+              setPos(v);
+              // A stat sort only makes sense for that position group: fall back to the default sort.
+              const c = sort.startsWith("s:") ? data.cats.find((x) => x.id === sort.slice(2)) : undefined;
+              if (c && c.goalie !== (v === "G")) setSort(data.rates ? "vor" : "pts");
+            }} options={POSITIONS} />
         </label>
       </div>
 
@@ -138,6 +166,10 @@ export default function BestAvailable({ data }: { data: Data }) {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Player name" className="border border-ice-line bg-white px-2 py-1.5 text-sm w-44" />
         </label>
         <label className="text-sm flex items-center gap-2 pb-1.5">
+          <input type="checkbox" checked={showStats} onChange={(e) => setShowStats(e.target.checked)} />
+          Stat columns
+        </label>
+        <label className="text-sm flex items-center gap-2 pb-1.5">
           <input type="checkbox" checked={hideInjured} onChange={(e) => setHideInjured(e.target.checked)} />
           Hide injured
         </label>
@@ -164,6 +196,7 @@ export default function BestAvailable({ data }: { data: Data }) {
                 {th("pts", "PTS")}
                 {th("avg", "AVG")}
                 {hasVor && th("vor", "VOR")}
+                {showStats && statCols.map((c) => th(`s:${c.id}`, c.label))}
                 <th className="px-3 py-2 text-right">Games 7d</th>
                 <th className="px-3 py-2 text-right">Own %</th>
               </tr>
@@ -195,6 +228,12 @@ export default function BestAvailable({ data }: { data: Data }) {
                     {hasVor && (
                       <td className={`px-3 py-2 text-right font-display text-base ${sort === "vor" ? "text-center-red" : ""}`}>{s.vor === null ? "–" : signed(s.vor)}</td>
                     )}
+                    {showStats &&
+                      statCols.map((c) => (
+                        <td key={c.id} className={`px-3 py-2 text-right ${sort === `s:${c.id}` ? "font-semibold" : "text-muted"}`}>
+                          {c.goalie === (p.position === "G") ? fmtStat(c, s.st[c.id] ?? (c.rate ? undefined : 0)) : "–"}
+                        </td>
+                      ))}
                     <td className="px-3 py-2 text-right text-muted">{data.scheduleKnown ? next7 : "–"}</td>
                     <td className="px-3 py-2 text-right text-muted">{p.owned === null ? "–" : p.owned.toFixed(1)}</td>
                   </tr>

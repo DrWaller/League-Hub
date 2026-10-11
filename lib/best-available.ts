@@ -7,7 +7,8 @@
 // VOR for any stretch of games = points - (replacement points per game at his position x games played),
 // the same bar the weekly VOR uses (see lib/vor.ts).
 
-import { getLeagueMeta } from "@/lib/espn";
+import { getLeagueMeta, getScoringItems } from "@/lib/espn";
+import { STAT_META } from "@/lib/espn-stats";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { getReplacementRates, type Pos } from "@/lib/vor";
 
@@ -33,7 +34,21 @@ export interface WindowStat {
   gp: number;
   avg: number;
   vor: number | null; // null when replacement level couldn't be worked out
+  st: Record<string, number>; // raw counts for each scoring stat (only the non-zero ones)
 }
+
+// A stat the league scores for, shown as a column.
+export interface StatCat {
+  id: string;
+  label: string;
+  goalie: boolean;
+  rate: boolean; // already a rate (SV%, GAA, ATOI), so shown as-is
+  higherIsBetter: boolean;
+}
+
+// Column order: scoring, then physical, then the rest; goalies after.
+const ORDER = ["13", "14", "37", "38", "18", "19", "39", "20", "21", "29", "31", "32", "22", "28", "15", "17", "35", "36", "33", "23", "24", "27", "0", "1", "2", "6", "3", "4", "11", "10", "7", "9", "8"];
+const rank = (id: string) => (ORDER.indexOf(id) === -1 ? 999 : ORDER.indexOf(id));
 
 export interface AvailablePlayer {
   id: number;
@@ -54,6 +69,7 @@ export interface BestAvailable {
   days: { offset: number; date: string; label: string }[];
   teams: string[];
   players: AvailablePlayer[];
+  cats: StatCat[]; // the league's scoring stats
 }
 
 const cookies = () => ({ Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` });
@@ -113,7 +129,7 @@ async function fetchProTeams(season: number): Promise<Map<number, { abbrev: stri
   }
 }
 
-function windowStat(stats: any[], prefix: string, season: number, pos: Pos, rates: Record<Pos, number> | null): WindowStat | null {
+function windowStat(stats: any[], prefix: string, season: number, pos: Pos, rates: Record<Pos, number> | null, catIds: string[]): WindowStat | null {
   const x = stats.find((s) => s.statSourceId === 0 && String(s.id) === `${prefix}${season}`);
   if (!x) return null;
   const pts = Number(x.appliedTotal);
@@ -126,6 +142,7 @@ function windowStat(stats: any[], prefix: string, season: number, pos: Pos, rate
     gp,
     avg: gp > 0 ? Math.round((pts / gp) * 100) / 100 : 0,
     vor: rates ? Math.round((pts - rates[pos] * gp) * 100) / 100 : null,
+    st: Object.fromEntries(catIds.map((id) => [id, Number(x.stats?.[id])] as const).filter(([, v]) => Number.isFinite(v) && v !== 0)),
   };
 }
 
@@ -134,11 +151,12 @@ export async function getBestAvailable(): Promise<BestAvailable | null> {
   const meta = await getLeagueMeta();
   const season = meta.season;
 
-  const [raw, pro, status, rates] = await Promise.all([
+  const [raw, pro, status, rates, items] = await Promise.all([
     fetchFreeAgents(season),
     fetchProTeams(season),
     getCurrentScoringPeriod(),
     getReplacementRates(season, meta.currentWeek).catch(() => null),
+    getScoringItems().catch(() => []),
   ]);
   if (!raw) return null;
 
@@ -159,6 +177,17 @@ export async function getBestAvailable(): Promise<BestAvailable | null> {
   }
   const scheduleKnown = pro !== null && current !== null;
 
+  // The league's scoring stats (games played, id 34, isn't one to show: GP has its own column).
+  const cats: StatCat[] = [];
+  for (const it of items) {
+    const id = String(it.statId);
+    if (!it.points || id === "34" || cats.some((c) => c.id === id)) continue;
+    const meta2 = STAT_META[id];
+    cats.push({ id, label: meta2?.label ?? `Stat ${id}`, goalie: Boolean(meta2?.goalie), rate: Boolean(meta2?.rate), higherIsBetter: it.points > 0 });
+  }
+  cats.sort((a, b) => rank(a.id) - rank(b.id));
+  const catIds = cats.map((c) => c.id);
+
   const players: AvailablePlayer[] = [];
   for (const e of raw) {
     const pl = e?.player ?? e?.playerPoolEntry?.player;
@@ -166,7 +195,7 @@ export async function getBestAvailable(): Promise<BestAvailable | null> {
     if (!pl || pl.id == null || !pos) continue;
     const stats: any[] = pl.stats ?? [];
     const w = {} as Record<Window, WindowStat | null>;
-    for (const k of Object.keys(WINDOW_PREFIX) as Window[]) w[k] = windowStat(stats, WINDOW_PREFIX[k], season, pos, rates);
+    for (const k of Object.keys(WINDOW_PREFIX) as Window[]) w[k] = windowStat(stats, WINDOW_PREFIX[k], season, pos, rates, catIds);
     const proId = Number(pl.proTeamId);
     const team = pro?.get(proId)?.abbrev ?? NHL_ABBREV[proId] ?? "FA";
     const games: number[] = [];
@@ -193,5 +222,5 @@ export async function getBestAvailable(): Promise<BestAvailable | null> {
   const played = players.filter((p) => (p.w.season?.gp ?? 0) > 0 || (p.w.l30?.gp ?? 0) > 0);
   const list = played.length > 0 ? played : players;
   const teams = Array.from(new Set(list.map((p) => p.team))).sort();
-  return { season, rates, scheduleKnown, days, teams, players: list };
+  return { season, rates, scheduleKnown, days, teams, players: list, cats };
 }
