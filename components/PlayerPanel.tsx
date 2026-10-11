@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import TierBadge from "@/components/TierBadge";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import type { AvailablePlayer, BestAvailable as Data, StatCat, Window } from "@/lib/best-available";
 
@@ -33,7 +34,9 @@ export default function PlayerPanel({ p, data, period, onClose }: { p: Available
         <div className="flex items-start gap-3 p-4 border-b border-ice-line sticky top-0 bg-white">
           <PlayerPhoto playerId={p.id} name={p.name} size={56} />
           <div className="min-w-0 flex-1">
-            <div className="font-display text-xl leading-tight">{p.name}</div>
+            <div className="font-display text-xl leading-tight">
+              {p.name} <TierBadge tier={p.tier} />
+            </div>
             <div className="text-xs text-muted">
               {p.team} · {p.position}
               {p.status === "W" ? " · waivers" : " · free agent"}

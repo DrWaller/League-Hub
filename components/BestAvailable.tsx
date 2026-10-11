@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import TierBadge from "@/components/TierBadge";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import PlayerPanel, { PERIODS } from "@/components/PlayerPanel";
 import { dayShort } from "@/lib/nights";
@@ -273,6 +274,7 @@ export default function BestAvailable({ data }: { data: Data }) {
                           </button>
                           <div className="text-[11px] sm:text-xs text-muted flex gap-1.5 sm:gap-2 items-center">
                             <span>{p.team} · {p.position}</span>
+                            <TierBadge tier={p.tier} />
                             {p.status === "W" ? <span className="px-1.5 border border-ice-line">waivers</span> : null}
                             {p.injury ? <span className="text-center-red">{p.injury}</span> : null}
                           </div>

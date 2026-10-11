@@ -1,5 +1,6 @@
 import { getZeroG } from "@/lib/goalie-starts";
 import { PICKUP_WINDOWS, type PickupWindow } from "@/lib/windows";
+import { getTierIndex } from "@/lib/tier-index";
 import ZeroG from "@/components/ZeroG";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,10 @@ export default async function ZeroGPage({ searchParams }: { searchParams: { wind
     console.error("Zero G failed", e);
     return null;
   });
+  if (data) {
+    const tierIdx = await getTierIndex();
+    for (const g of data.goalies) g.player.tier = tierIdx[g.player.id] ?? null;
+  }
   return (
     <div>
       <h1 className="font-display text-3xl mb-1">Zero G</h1>

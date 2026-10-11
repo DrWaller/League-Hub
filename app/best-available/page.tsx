@@ -2,6 +2,7 @@ import { getBestAvailable } from "@/lib/best-available";
 import { getLines } from "@/lib/lines";
 import { recentChanges, syncLines } from "@/lib/lines-store";
 import { getNhlUsage } from "@/lib/nhl-usage";
+import { getTierIndex } from "@/lib/tier-index";
 import BestAvailable from "@/components/BestAvailable";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export default async function BestAvailablePage() {
   const data = await getBestAvailable().catch(() => null);
   // Line, power-play unit and ice time for each skater (real lines from Daily Faceoff).
   if (data) {
+    const tierIdx = await getTierIndex();
+    for (const p of data.players) p.tier = tierIdx[p.id] ?? null;
     const lines = await getLines().catch(() => null);
     if (lines) await syncLines(lines).catch(() => 0);
     const changes = await recentChanges(3).catch(() => []);

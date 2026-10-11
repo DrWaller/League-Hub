@@ -7,6 +7,7 @@
 // VOR for any stretch of games = points - (replacement points per game at his position x games played),
 // the same bar the weekly VOR uses (see lib/vor.ts).
 
+import type { Tier } from "@/lib/tier-style";
 import { getLeagueMeta, getScoringItems } from "@/lib/espn";
 import { STAT_META } from "@/lib/espn-stats";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
@@ -52,6 +53,7 @@ const ORDER = ["13", "14", "37", "38", "18", "19", "39", "20", "21", "29", "31",
 const rank = (id: string) => (ORDER.indexOf(id) === -1 ? 999 : ORDER.indexOf(id));
 
 export interface AvailablePlayer {
+  tier?: Tier | null; // league tier (added by the page from lib/tier-index)
   id: number;
   name: string;
   position: Pos;

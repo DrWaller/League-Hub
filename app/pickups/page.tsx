@@ -1,4 +1,5 @@
 import { getPickups, PICKUP_WINDOWS, type PickupWindow } from "@/lib/pickups";
+import { getTierIndex } from "@/lib/tier-index";
 import PickupTool from "@/components/PickupTool";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,10 @@ export default async function PickupsPage({ searchParams }: { searchParams: { te
     console.error("Pickups failed", e);
     return null;
   });
+  if (data) {
+    const tierIdx = await getTierIndex();
+    for (const x of [...data.picks, ...data.hot]) x.player.tier = tierIdx[x.id] ?? null;
+  }
   return (
     <div>
       <h1 className="font-display text-3xl mb-1">Pickup Targets</h1>

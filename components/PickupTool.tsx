@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import TierBadge from "@/components/TierBadge";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import type { Pickup, PickupData } from "@/lib/pickups";
 import PlayerPanel from "@/components/PlayerPanel";
@@ -37,7 +38,7 @@ function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen
             </div>
             <div className="text-xs text-muted">
               {p.team} · {p.position}
-              {p.status === "W" ? " · waivers" : ""}
+              {p.status === "W" ? " · waivers" : ""} <TierBadge tier={p.player.tier} />
               {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
               {p.owned !== null ? ` · ${p.owned.toFixed(0)}% owned` : ""}
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import TierBadge from "@/components/TierBadge";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import PlayerPanel from "@/components/PlayerPanel";
 import { dayShort } from "@/lib/nights";
@@ -47,7 +48,7 @@ function Card({ g, onOpen, sort }: { g: ZeroGoalie; onOpen: (g: ZeroGoalie) => v
               </button>
             </div>
             <div className="text-xs text-muted">
-              {p.team} · G{p.status === "W" ? " · waivers" : ""}
+              {p.team} · G{p.status === "W" ? " · waivers" : ""} <TierBadge tier={p.tier} />
               {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
               {p.owned !== null ? ` · ${p.owned.toFixed(0)}% owned` : ""}
             </div>
