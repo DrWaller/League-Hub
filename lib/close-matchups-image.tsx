@@ -49,6 +49,7 @@ export async function renderCloseMatchupCard(opts: {
   week: number;
   mode: CloseMode;
   daysLeft: number | null;
+  gamesLeft?: Record<number, number>; // live only: starter-games still to play, by fantasy team id (missing = leave it off)
   teamName: (id: number) => string;
   logos?: Record<number, string>;
   footer?: string;
@@ -75,6 +76,8 @@ export async function renderCloseMatchupCard(opts: {
   const tileLabel = tie ? (live ? "ALL SQUARE" : "NO WINNER") : live ? "LEADS BY" : "WON BY";
   const tileNote = live ? dayText || "STILL IN PLAY" : "FINAL";
   const chipText = tie ? "" : live ? "LEADING" : "WINNER";
+  // Games left for each side (live only, when both are known). The side with more left has the edge.
+  const gl = live && opts.gamesLeft && opts.gamesLeft[left.id] !== undefined && opts.gamesLeft[right.id] !== undefined ? { l: opts.gamesLeft[left.id], r: opts.gamesLeft[right.id] } : null;
 
   return frame({
     footer: opts.footer,
@@ -101,6 +104,14 @@ export async function renderCloseMatchupCard(opts: {
           </div>
         );
       };
+
+      // "GAMES LEFT" cell for one team; gold when that team has more left than the other
+      const gamesCell = (n: number, edge: boolean) => (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 250 }}>
+          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 4, color: "#C9D6E6" }}>GAMES LEFT</div>
+          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 104, lineHeight: 1, marginTop: 4, color: edge ? OG.gold : "#FFFFFF" }}>{n}</div>
+        </div>
+      );
 
       return (
         <div style={{ display: "flex", flexGrow: 1, paddingBottom: 8 }}>
@@ -138,20 +149,26 @@ export async function renderCloseMatchupCard(opts: {
               VS
             </div>
 
-            {/* the gap, like a Big Night stat tile */}
+            {/* the gap, like a Big Night stat tile; on a live card the games each team has left flank it */}
             <div
               style={{
-                display: "flex", flexDirection: "column", alignItems: "center", position: "absolute", left: 40, right: 40, bottom: 36,
+                display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center", position: "absolute", left: 40, right: 40, bottom: 36,
                 background: OG.rink, borderTop: `6px solid ${OG.gold}`, borderRadius: 14, padding: "14px 0 18px",
               }}
             >
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 7, color: "#C9D6E6" }}>{tileLabel}</div>
-              <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", marginTop: 2 }}>
-                {tie ? null : <div style={{ display: "flex", width: 132 }} />}
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 112, lineHeight: 1, color: "#FFFFFF", letterSpacing: tie ? 8 : 0 }}>{tie ? "TIED" : g.margin.toFixed(2)}</div>
-                {tie ? null : <div style={{ display: "flex", width: 132, paddingLeft: 14, paddingBottom: 20, fontFamily: display, fontWeight: 700, fontSize: 36, letterSpacing: 2, color: "#C9D6E6" }}>PTS</div>}
+              {gl ? gamesCell(gl.l, gl.l > gl.r) : null}
+              {gl ? <div style={{ display: "flex", width: 2, height: 170, background: "rgba(217,164,65,0.45)" }} /> : null}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: gl ? 400 : 904 }}>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 7, color: "#C9D6E6" }}>{tileLabel}</div>
+                <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", marginTop: 2 }}>
+                  {tie ? null : <div style={{ display: "flex", width: gl ? 80 : 132 }} />}
+                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 112, lineHeight: 1, color: "#FFFFFF", letterSpacing: tie ? 8 : 0 }}>{tie ? "TIED" : g.margin.toFixed(2)}</div>
+                  {tie ? null : <div style={{ display: "flex", width: gl ? 80 : 132, paddingLeft: 14, paddingBottom: 20, fontFamily: display, fontWeight: 700, fontSize: 36, letterSpacing: 2, color: "#C9D6E6" }}>PTS</div>}
+                </div>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 32, letterSpacing: 6, color: OG.gold, marginTop: 4 }}>{tileNote}</div>
               </div>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 32, letterSpacing: 6, color: OG.gold, marginTop: 4 }}>{tileNote}</div>
+              {gl ? <div style={{ display: "flex", width: 2, height: 170, background: "rgba(217,164,65,0.45)" }} /> : null}
+              {gl ? gamesCell(gl.r, gl.r > gl.l) : null}
             </div>
           </div>
         </div>

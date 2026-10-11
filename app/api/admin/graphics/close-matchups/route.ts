@@ -5,6 +5,7 @@ import { getSeasonBundle } from "@/lib/season-data";
 import { seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { getWeekCalendar } from "@/lib/week-calendar";
+import { getWeekGamesPlayed } from "@/lib/games-played";
 import { Matchup } from "@/lib/types";
 import { captionResponse } from "@/lib/captions";
 import { CloseMode, DEFAULT_MARGIN, TIER_LABELS, pickCloseMatchups, closeMatchupsCaption, daysLeftInWeek } from "@/lib/close-matchups";
@@ -111,13 +112,27 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (sp.get("caption")) return captionResponse(closeMatchupsCaption(week, mode, [game], teamName, daysLeft));
+    // Starter-games each team still has to play this week (live, current season only). Optional too.
+    let gamesLeft: Record<number, number> | undefined;
+    if (mode === "live" && !isPast) {
+      try {
+        const gp = await getWeekGamesPlayed(week, meta.season);
+        const h = gp?.[game.homeTeamId]?.projected;
+        const a = gp?.[game.awayTeamId]?.projected;
+        if (h != null && a != null) gamesLeft = { [game.homeTeamId]: h, [game.awayTeamId]: a };
+      } catch {
+        /* a nice-to-have */
+      }
+    }
+
+    if (sp.get("caption")) return captionResponse(closeMatchupsCaption(week, mode, [game], teamName, daysLeft, gamesLeft));
 
     return await renderCloseMatchupCard({
       game,
       week,
       mode,
       daysLeft,
+      gamesLeft,
       teamName,
       logos: await loadLogoData(isPast),
       footer: seasonFooter(meta.name, seasonParam),

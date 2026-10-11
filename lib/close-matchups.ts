@@ -108,7 +108,8 @@ export function closeMatchupsCaption(
   mode: CloseMode,
   games: CloseGame[],
   teamName: (id: number) => string,
-  daysLeft: number | null
+  daysLeft: number | null,
+  gamesLeft?: Record<number, number> // live only: starter-games each team still has to play
 ): string {
   const left = daysLeftText(daysLeft);
   const head =
@@ -121,9 +122,13 @@ export function closeMatchupsCaption(
     const botId = homeLeads ? g.awayTeamId : g.homeTeamId;
     const top = (homeLeads ? g.homeScore : g.awayScore).toFixed(2);
     const bot = (homeLeads ? g.awayScore : g.homeScore).toFixed(2);
-    if (g.margin === 0) return `${teamName(topId)} ${top} - ${teamName(botId)} ${bot} (tied)`;
+    const gl =
+      mode === "live" && gamesLeft && gamesLeft[topId] !== undefined && gamesLeft[botId] !== undefined
+        ? ` | Games left: ${teamName(topId)} ${gamesLeft[topId]}, ${teamName(botId)} ${gamesLeft[botId]}`
+        : "";
+    if (g.margin === 0) return `${teamName(topId)} ${top} - ${teamName(botId)} ${bot} (tied)${gl}`;
     return mode === "live"
-      ? `${teamName(topId)} ${top} leads ${teamName(botId)} ${bot} by ${g.margin.toFixed(2)}`
+      ? `${teamName(topId)} ${top} leads ${teamName(botId)} ${bot} by ${g.margin.toFixed(2)}${gl}`
       : `${teamName(topId)} ${top} def. ${teamName(botId)} ${bot} (by ${g.margin.toFixed(2)})`;
   });
   return [head, "", ...lines].join("\n");
