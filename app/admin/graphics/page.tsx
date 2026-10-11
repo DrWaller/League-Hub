@@ -37,13 +37,26 @@ export default function AdminGraphicsPage() {
   }, [radarQuery]);
   const [format, setFormat] = useState<"landscape" | "portrait">("portrait");
 
-  // Open with the week chosen on the Weekly Checklist (?week=N).
+  // Open on the current season and week, or on the week chosen on the Weekly Checklist (?week=N).
+  const [currentSeason, setCurrentSeason] = useState<number | null>(null);
   useEffect(() => {
     const w = Number(new URLSearchParams(window.location.search).get("week"));
     if (w >= 1) setWeek(w);
+    fetch("/api/admin/league-meta")
+      .then((r) => r.json())
+      .then((m) => {
+        if (Number.isFinite(m?.season)) setCurrentSeason(Number(m.season));
+        if (!(w >= 1) && m?.live && Number(m?.week) >= 1) setWeek(Number(m.week));
+      })
+      .catch(() => {
+        /* stay on week 1 / blank season */
+      });
   }, []);
 
-  const seasonQS = weekSeason ? `&season=${encodeURIComponent(weekSeason)}` : "";
+  // The season box shows the current season; the graphics only get a season param for a DIFFERENT
+  // season, so the current one keeps using the live (not day-cached) ESPN data.
+  const pastWeekSeason = weekSeason && Number(weekSeason) !== currentSeason ? weekSeason : "";
+  const seasonQS = pastWeekSeason ? `&season=${encodeURIComponent(pastWeekSeason)}` : "";
 
   const fmtQS = `&format=${format}`;
 
@@ -110,13 +123,13 @@ export default function AdminGraphicsPage() {
           <input
             type="number"
             placeholder="e.g. 2026"
-            value={weekSeason}
+            value={weekSeason || (currentSeason ?? "")}
             onChange={(e) => setWeekSeason(e.target.value)}
             className="border border-ice-line px-3 py-2 w-36"
           />
           <div className="text-xs text-muted mt-1 max-w-[16rem]">
-            Applies to the week-based graphics above. Leave blank for the current season --
-            useful before this season has any stats posted yet, e.g. to check real players&apos;
+            Applies to the week-based graphics above. Opens on the current season --
+            change it to look at another one, e.g. before this season has any stats posted yet, e.g. to check real players&apos;
             photos show up correctly.
           </div>
         </label>
@@ -205,7 +218,7 @@ export default function AdminGraphicsPage() {
             {c.title === "Weekly Scoreboard" && (
               <>
                 <CloseMatchupCards week={week} mode="live" title="Close Matchups - live (going into the weekend)" />
-                <CloseMatchupCards week={week} mode="final" season={weekSeason} title="Close Matchups - final scores" />
+                <CloseMatchupCards week={week} mode="final" season={pastWeekSeason} title="Close Matchups - final scores" />
               </>
             )}
           </Fragment>
