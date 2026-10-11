@@ -60,6 +60,18 @@ export default function AdminGraphicsPage() {
     { title: "Standings", url: `/api/admin/graphics/standings?week=${week}${seasonQS}` },
     { title: "Matchup Preview (upcoming week)", url: `/api/admin/graphics/matchup-preview?week=${week}` },
     { title: "Weekly Scoreboard", url: `/api/admin/graphics/scoreboard?week=${week}${seasonQS}` },
+    // Close Matchups: portrait only. "Live" is the going-into-Saturday/Sunday version (current season);
+    // "Final" is the really-close-finishes version (works for a past season too).
+    {
+      title: "Close Matchups - live (going into the weekend)",
+      url: `/api/admin/graphics/close-matchups?week=${week}&mode=live`,
+      alwaysPortrait: true,
+    },
+    {
+      title: "Close Matchups - final scores",
+      url: `/api/admin/graphics/close-matchups?week=${week}&mode=final${seasonQS}`,
+      alwaysPortrait: true,
+    },
     { title: "Power Rankings", url: `/api/admin/graphics/power-rankings?week=${week}` },
     { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}${seasonQS}` },
     {
