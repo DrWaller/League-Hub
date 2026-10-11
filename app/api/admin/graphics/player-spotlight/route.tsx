@@ -5,6 +5,7 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
+import { graphicTiers, TierPill } from "@/lib/og-tier";
 import { OG, NO_CACHE } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
     }
 
     // The spotlight is the most valuable player over replacement (raw points if VOR isn't available).
+    const tierIdx = await graphicTiers(isPast);
     const vorWeek = await getWeekVor(week, seasonParam, meta.season).catch(() => null);
     type Pick = { id: number; name: string; position: string; teamId: number; points: number; stats?: Record<string, number>; vor?: number; gamesPlayed?: number };
     const all: Pick[] = vorWeek ? vorWeek.players : players;
@@ -123,7 +125,7 @@ export async function GET(req: NextRequest) {
         footer: seasonFooter(meta.name, seasonParam),
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
         positionName: POSITION_NAMES[player.position] ?? player.position,
-        player: { id: player.id, name: player.name, teamId: player.teamId, teamName: team, points: player.points, vor: player.vor, avg },
+        player: { id: player.id, name: player.name, teamId: player.teamId, teamName: team, points: player.points, vor: player.vor, avg, tier: tierIdx[player.id] ?? null },
         tiles,
         logos,
         hasHeadshot: availableHeadshots.has(player.id),
@@ -173,6 +175,7 @@ export async function GET(req: NextRequest) {
                   {player.name}
                 </div>
                 <TeamLine name={team} logo={logos[player.teamId]} size={26} fontSize={20} align="flex-start" />
+                <TierPill tier={tierIdx[player.id] ?? null} size={18} align="flex-start" mt={4} />
                 <div style={{ display: "flex", fontFamily: display, fontSize: 36, fontWeight: 700, color: OG.centerRed, marginTop: 10 }}>
                   {player.points.toFixed(2)} pts
                 </div>

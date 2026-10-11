@@ -4,6 +4,7 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { getPeriodVor } from "@/lib/vor";
 import { checkHeadshots } from "@/lib/headshots";
 import { loadLogoData } from "@/lib/og-team-logo";
+import { graphicTiers, TierPill } from "@/lib/og-tier";
 import { OG } from "@/lib/og-theme";
 import { renderPortraitThreeStars, seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse } from "@/lib/captions";
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const tierIdx = await graphicTiers(isPast);
     const teamName = (id: number) => teams.find((t) => t.id === id)?.name ?? "";
     const top3 = period.players.slice(0, 3);
     const weeksText = startWeek === endWeek ? `week ${startWeek}` : `weeks ${startWeek}-${endWeek}`;
@@ -71,6 +73,7 @@ export async function GET(req: NextRequest) {
         statLine: statLine(p.position, p.stats),
         vor: p.vor,
         avg: p.gamesPlayed ? p.points / p.gamesPlayed : undefined,
+        tier: tierIdx[p.id] ?? null,
       })),
       labels: ["1ST STAR", "2ND STAR", "3RD STAR"],
       colors: [OG.gold, OG.silver, OG.bronze],

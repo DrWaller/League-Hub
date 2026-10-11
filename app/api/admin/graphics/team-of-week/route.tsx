@@ -5,6 +5,7 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
+import { graphicTiers, TierPill } from "@/lib/og-tier";
 import { OG, NO_CACHE } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
@@ -46,6 +47,7 @@ export async function GET(req: NextRequest) {
     }
 
     const logos = await loadLogoData(isPast);
+    const tierIdx = await graphicTiers(isPast);
     const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
     // Best at each position by value over replacement (raw points if VOR can't be worked out).
     const vorWeek = await getWeekVor(week, seasonParam, meta.season).catch(() => null);
@@ -94,7 +96,7 @@ export async function GET(req: NextRequest) {
         lineup: lineup.map((l) => ({
           slot: l.slot,
           player: l.player
-            ? { id: l.player.id, name: l.player.name, teamId: l.player.teamId, teamName: teamName(l.player.teamId), points: l.player.points, vor: l.player.vor, avg: avgOf(l.player) }
+            ? { id: l.player.id, name: l.player.name, teamId: l.player.teamId, teamName: teamName(l.player.teamId), points: l.player.points, vor: l.player.vor, avg: avgOf(l.player), tier: tierIdx[l.player.id] ?? null }
             : undefined,
         })),
         logos,
@@ -156,6 +158,7 @@ export async function GET(req: NextRequest) {
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <div style={{ fontFamily: display, fontSize: 19, fontWeight: 700, color: OG.board }}>{slot.player.name}</div>
                       <TeamLine name={teamName(slot.player.teamId)} logo={logos[slot.player.teamId]} size={16} fontSize={13} />
+                      <TierPill tier={tierIdx[slot.player.id] ?? null} size={12} mt={3} />
                     </div>
                     <div style={{ display: "flex", fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.centerRed }}>
                       {slot.player.points.toFixed(2)} pts

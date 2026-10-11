@@ -5,6 +5,7 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
+import { graphicTiers, TierPill } from "@/lib/og-tier";
 import { OG, NO_CACHE } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitThreeStars, seasonFooter } from "@/lib/portrait-graphics";
@@ -48,6 +49,7 @@ export async function GET(req: NextRequest) {
     }
 
     const logos = await loadLogoData(isPast);
+    const tierIdx = await graphicTiers(isPast);
     const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
     // The stars are the most valuable players over replacement, so a goalie and a forward compete fairly.
     // (If VOR can't be worked out, fall back to raw points.)
@@ -80,7 +82,7 @@ export async function GET(req: NextRequest) {
         footer: seasonFooter(meta.name, seasonParam),
         title: "3 Stars of the Week",
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
-        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: statLine(p.position, p.stats), vor: p.vor, avg: avgOf(p) })),
+        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: statLine(p.position, p.stats), vor: p.vor, avg: avgOf(p), tier: tierIdx[p.id] ?? null })),
         labels,
         colors: medalColors,
         emptyMessage: "No stats posted for this week yet.",
@@ -130,6 +132,7 @@ export async function GET(req: NextRequest) {
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div style={{ fontFamily: display, fontSize: 21, fontWeight: 700, color: OG.board }}>{p.name}</div>
                   <TeamLine name={teamName(p.teamId)} logo={logos[p.teamId]} size={16} fontSize={13} />
+                  <TierPill tier={tierIdx[p.id] ?? null} size={12} mt={3} />
                 </div>
                 <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, color: OG.centerRed }}>{p.points.toFixed(2)} pts</div>
               </div>

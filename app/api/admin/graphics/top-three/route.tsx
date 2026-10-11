@@ -5,6 +5,7 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { loadGraphicFonts, getFontFamilies } from "@/lib/og-fonts";
 import { checkHeadshots, headshotUrl } from "@/lib/headshots";
 import { PlayerAvatar } from "@/lib/og-avatar";
+import { graphicTiers, TierPill } from "@/lib/og-tier";
 import { OG, NO_CACHE } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
@@ -62,6 +63,7 @@ export async function GET(req: NextRequest) {
     }
 
     const logos = await loadLogoData(isPast);
+    const tierIdx = await graphicTiers(isPast);
     const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
     // Ranked by value over replacement (falls back to raw points if VOR can't be worked out).
     const vorWeek = await getWeekVor(week, seasonParam, meta.season).catch(() => null);
@@ -97,7 +99,7 @@ export async function GET(req: NextRequest) {
         footer: seasonFooter(meta.name, seasonParam),
         title: `Top 3 ${POSITION_LABELS[position]}`,
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
-        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: statLine(p.position, p.stats), vor: p.vor, avg: avgOf(p) })),
+        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: statLine(p.position, p.stats), vor: p.vor, avg: avgOf(p), tier: tierIdx[p.id] ?? null })),
         labels: rankLabels,
         colors: medalColors,
         emptyMessage: "No stats posted for this position/week yet.",
@@ -148,6 +150,7 @@ export async function GET(req: NextRequest) {
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div style={{ fontFamily: display, fontSize: 22, fontWeight: 700, color: OG.board }}>{p.name}</div>
                   <TeamLine name={teamName(p.teamId)} logo={logos[p.teamId]} size={18} fontSize={14} />
+                  <TierPill tier={tierIdx[p.id] ?? null} size={13} mt={3} />
                 </div>
                 <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, color: OG.centerRed }}>{p.points.toFixed(2)} pts</div>
               </div>

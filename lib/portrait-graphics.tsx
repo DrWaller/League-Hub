@@ -6,6 +6,8 @@ import { OG, NO_CACHE, TEAM_COLOR } from "./og-theme";
 import { getFontFamilies, loadGraphicFonts } from "./og-fonts";
 import { TeamBadge, TeamLine } from "./og-team-logo";
 import { PlayerAvatar } from "./og-avatar";
+import { TierPill } from "./og-tier";
+import type { Tier } from "./tier-style";
 import { headshotUrl } from "./headshots";
 import { getLeagueMeta } from "./espn";
 import { getWeekCalendar } from "./week-calendar";
@@ -356,6 +358,7 @@ export interface PortraitPlayer {
   statLine?: string | null; // e.g. "4 G \u00b7 4 A \u00b7 10 SOG"
   vor?: number; // value over replacement: the big number when set
   avg?: number; // points per game played: shown small, under the big number
+  tier?: Tier | null; // league tier, shown as a coloured pill
 }
 
 // Under a VOR hero number: "14.55 PTS   \u00b7   3.64 AVG", one line, one size, one colour.
@@ -426,6 +429,7 @@ export async function renderPortraitPlayerList(opts: {
                 <SecondaryLine p={p} display={display} size={first ? 30 : 28} />
                 {p.statLine ? <div style={{ display: "flex", fontSize: 27, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{p.statLine}</div> : null}
                 <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE} fontSize={24} align="flex-start" />
+                <TierPill tier={p.tier} size={22} align="flex-start" />
               </div>
               <TeamAccent teamId={p.teamId} />
             </div>
@@ -482,6 +486,7 @@ export async function renderPortraitThreeStars(opts: {
             <SecondaryLine p={star1} display={display} size={36} />
             {star1.statLine ? <div style={{ display: "flex", fontSize: 28, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{star1.statLine}</div> : null}
             <TeamLine name={star1.teamName} logo={logos[star1.teamId]} size={LOGO_SIZE} fontSize={24} />
+            <TierPill tier={star1.tier} size={26} />
             <TeamAccent teamId={star1.teamId} />
           </div>
         ) : null}
@@ -507,6 +512,7 @@ export async function renderPortraitThreeStars(opts: {
                   <SecondaryLine p={p} display={display} size={26} />
                   {p.statLine ? <div style={{ display: "flex", fontSize: 23, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}
                   <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE - 8} fontSize={21} />
+                  <TierPill tier={p.tier} size={20} />
                   <TeamAccent teamId={p.teamId} />
                 </div>
               );
@@ -585,6 +591,7 @@ export async function renderPortraitTeamOfWeek(opts: {
                 <div style={{ display: "flex", marginTop: 6 }}>
                   <SecondaryLine p={p} display={display} size={20} />
                 </div>
+                <TierPill tier={p.tier} size={17} mt={6} />
               </div>
             ) : (
               <div style={{ display: "flex", color: OG.muted, fontSize: 24, height: 150, alignItems: "center" }}>No data</div>
@@ -686,6 +693,7 @@ export async function renderPortraitSpotlight(opts: {
               {last ? <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: nameSize, lineHeight: 1.0, color: OG.board, maxWidth: 416, overflow: "hidden", whiteSpace: "nowrap" }}>{last}</div> : null}
             </div>
             <TeamLine name={p.teamName} logo={logo} size={LOGO_SIZE + 6} fontSize={28} align="flex-start" />
+            <TierPill tier={p.tier} size={28} align="flex-start" />
             {teamColor ? <div style={{ display: "flex", width: 120, height: 5, borderRadius: 2, background: teamColor }} /> : null}
             <div style={{ display: "flex", flexDirection: "column", marginTop: 16 }}>
               <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 124, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>

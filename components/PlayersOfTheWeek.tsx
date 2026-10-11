@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getWeeklyPlayerStats, getLeagueMeta } from "@/lib/espn";
 import { getWeekVor } from "@/lib/vor";
+import TierBadge from "@/components/TierBadge";
+import { getTierIndex } from "@/lib/tier-index";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import CardImage from "@/components/CardImage";
 import { pts } from "@/lib/format";
@@ -21,6 +23,7 @@ export default async function PlayersOfTheWeek({ week, teamNames }: { week: numb
     /* leave empty: the section just doesn't appear */
   }
   if (top3.length === 0) return null;
+  const tierIdx = await getTierIndex();
 
   const ordinal = ["1st", "2nd", "3rd"];
   return (
@@ -42,7 +45,7 @@ export default async function PlayersOfTheWeek({ week, teamNames }: { week: numb
                 <div className="min-w-0 flex-1">
                   <div className="font-display text-xl leading-tight truncate">{p.name}</div>
                   <div className="text-sm text-muted truncate">
-                    {p.position} · {teamNames[p.teamId] ?? ""}
+                    {p.position} · {teamNames[p.teamId] ?? ""} <TierBadge tier={tierIdx[p.id]} />
                   </div>
                 </div>
                 <div className="text-right">
