@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { setTeamLogo, getTeamLogos } from "@/lib/content";
+import { setTeamLogo, getTeamLogos, setTeamBannerColors } from "@/lib/content";
+import { isHexColor } from "@/lib/banner-types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -49,5 +50,22 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Logo upload failed", err);
     return NextResponse.json({ error: `Logo upload failed: ${message}` }, { status: 500 });
+  }
+}
+
+// Saves a team's banner colours (used for its Regular Season / Champions banners).
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const teamId = Number(body?.teamId);
+    if (!teamId || !isHexColor(body?.primary) || !isHexColor(body?.trim)) {
+      return NextResponse.json({ error: "teamId and two colours like #123A61 are required" }, { status: 400 });
+    }
+    await setTeamBannerColors(teamId, body.primary, body.trim);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Saving banner colours failed", err);
+    return NextResponse.json({ error: `Saving colours failed: ${message}` }, { status: 500 });
   }
 }
