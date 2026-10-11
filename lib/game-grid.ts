@@ -4,6 +4,8 @@
 import { getLeagueMeta } from "@/lib/espn";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { getBestAvailable, NHL_ABBREV } from "@/lib/best-available";
+import { getOpenSlots, type OpenSlots } from "@/lib/pickups";
+import { getStandings } from "@/lib/espn";
 
 const LIGHT_DAY_GAMES = 8;
 
@@ -36,6 +38,7 @@ export interface GridPlayer {
   pts: number;
   avg: number;
   vor: number | null;
+  fits: number[]; // day columns where he plays and fills a spot that's open on my team
 }
 export interface GridData {
   days: GridDay[];
@@ -45,9 +48,13 @@ export interface GridData {
   shift: number;
   from: string;
   to: string;
+  teamId: number;
+  teamName: string;
+  teamOptions: { id: number; name: string }[];
+  open: OpenSlots[] | null; // my empty starting slots per day, when a team is chosen
 }
 
-export async function getGameGrid(span: number, shift: number): Promise<GridData | null> {
+export async function getGameGrid(span: number, shift: number, teamId: number | null): Promise<GridData | null> {
   const meta = await getLeagueMeta();
   const season = meta.season;
   const status = await getCurrentScoringPeriod();
@@ -111,6 +118,13 @@ export async function getGameGrid(span: number, shift: number): Promise<GridData
   // Interim schedule rating: games above the league average count most, off-night games count half as much.
   for (const r of rows) r.score = Math.round(((r.gp - avgGp) + 0.5 * (r.off - avgOff)) * 100) / 100;
 
+  // My team's open slots per day.
+  const teamOptions = (await getStandings().catch(() => null))?.teams.map((t) => ({ id: t.id, name: t.name })) ?? [];
+  const mine = teamId && teamOptions.some((t) => t.id === teamId) ? await getOpenSlots(teamId, span, shift).catch(() => null) : null;
+  const canFill = (pos: string, o: OpenSlots) =>
+    pos === "G" ? o.G > 0 : pos === "D" ? o.D > 0 || o.UTIL > 0 : pos === "C" ? o.C > 0 || o.F > 0 || o.UTIL > 0 : pos === "LW" ? o.LW > 0 || o.F > 0 || o.UTIL > 0 : o.RW > 0 || o.F > 0 || o.UTIL > 0;
+  const cellsOf = new Map(rows.map((r) => [r.abbrev, r.cells] as const));
+
   // Free agents on each team, for the "who can I pick up from this team" panel.
   const avail = await getBestAvailable().catch(() => null);
   const players: GridPlayer[] = (avail?.players ?? []).map((p) => ({
@@ -125,9 +139,10 @@ export async function getGameGrid(span: number, shift: number): Promise<GridData
     pts: p.w.season?.pts ?? 0,
     avg: p.w.season?.avg ?? 0,
     vor: p.w.season?.vor ?? null,
+    fits: mine ? (cellsOf.get(p.team) ?? []).map((c, i) => (c.game && canFill(p.position, mine.open[i]) ? i : -1)).filter((i) => i >= 0) : [],
   }));
 
   const first = dateOf(0).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   const last = dateOf(span - 1).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  return { days, teams: rows, players, span, shift, from: first, to: last };
+  return { days, teams: rows, players, span, shift, from: first, to: last, teamId: mine ? (teamId as number) : 0, teamName: mine?.teamName ?? "", teamOptions, open: mine?.open ?? null };
 }

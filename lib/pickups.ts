@@ -64,12 +64,15 @@ export interface PickupData {
 
 type P = { id: number; pos: Pos; v: number };
 
-function bestLineup(players: P[], counts: Record<number, number>): { sum: number; filled: number } {
+export type OpenSlots = Record<"C" | "LW" | "RW" | "F" | "D" | "G" | "UTIL", number>;
+
+function bestLineup(players: P[], counts: Record<number, number>): { sum: number; filled: number; open: OpenSlots } {
   const sorted = [...players].sort((a, b) => b.v - a.v);
   const used = new Set<number>();
   let sum = 0;
   let filled = 0;
-  const take = (ok: (p: P) => boolean, n: number) => {
+  const open = {} as OpenSlots;
+  const take = (ok: (p: P) => boolean, n: number, key: keyof OpenSlots) => {
     let got = 0;
     for (const p of sorted) {
       if (got >= n) break;
@@ -79,15 +82,16 @@ function bestLineup(players: P[], counts: Record<number, number>): { sum: number
       filled++;
       got++;
     }
+    open[key] = Math.max(0, n - got);
   };
-  take((p) => p.pos === "C", counts[SLOT.C] ?? 0);
-  take((p) => p.pos === "LW", counts[SLOT.LW] ?? 0);
-  take((p) => p.pos === "RW", counts[SLOT.RW] ?? 0);
-  take((p) => p.pos === "D", counts[SLOT.D] ?? 0);
-  take((p) => p.pos === "G", counts[SLOT.G] ?? 0);
-  take((p) => p.pos === "C" || p.pos === "LW" || p.pos === "RW", counts[SLOT.F] ?? 0);
-  take((p) => p.pos !== "G", counts[SLOT.UTIL] ?? 0);
-  return { sum, filled };
+  take((p) => p.pos === "C", counts[SLOT.C] ?? 0, "C");
+  take((p) => p.pos === "LW", counts[SLOT.LW] ?? 0, "LW");
+  take((p) => p.pos === "RW", counts[SLOT.RW] ?? 0, "RW");
+  take((p) => p.pos === "D", counts[SLOT.D] ?? 0, "D");
+  take((p) => p.pos === "G", counts[SLOT.G] ?? 0, "G");
+  take((p) => p.pos === "C" || p.pos === "LW" || p.pos === "RW", counts[SLOT.F] ?? 0, "F");
+  take((p) => p.pos !== "G", counts[SLOT.UTIL] ?? 0, "UTIL");
+  return { sum, filled, open };
 }
 
 const estimate = (pos: Pos, gp: number, avg: number, prior: number | null) => {
@@ -257,4 +261,34 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
   const picks = [...all].sort((a, b) => b.net - a.net || b.added - a.added).slice(0, SHOWN);
   const hot = all.filter((p) => p.hot).sort((a, b) => (b.vorSeason ?? 0) - (a.vorSeason ?? 0));
   return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, horizon: H, days, picks, hot };
+}
+
+// Which starting slots are empty on each of the next `span` days (from `shift` days out) for one team.
+// A slot is empty when none of the team's healthy players who have a game that night can fill it.
+export async function getOpenSlots(teamId: number, span: number, shift: number): Promise<{ open: OpenSlots[]; teamName: string } | null> {
+  const meta = await getLeagueMeta();
+  const season = meta.season;
+  const [standings, status, counts, pro] = await Promise.all([getStandings(), getCurrentScoringPeriod(), fetchLineupSlots(season), fetchProSchedule(season)]);
+  if (!counts || !pro || status.current === null) return null;
+  const current = status.current;
+  const rosterData = await fetchRosterDay(season, current, false);
+  const myTeam = (rosterData?.teams ?? []).find((t: any) => t.id === teamId);
+  if (!myTeam) return null;
+  const roster: { id: number; pos: Pos; proTeam: number }[] = [];
+  for (const e of myTeam.roster?.entries ?? []) {
+    if (e.lineupSlotId === 8) continue; // IR
+    const pl = e.playerPoolEntry?.player;
+    const pos = POS_BY_ID[pl?.defaultPositionId];
+    if (!pl || !pos) continue;
+    const inj = String(pl.injuryStatus ?? "ACTIVE");
+    if (inj === "OUT" || inj === "INJURY_RESERVE") continue;
+    roster.push({ id: pl.id, pos, proTeam: Number(pl.proTeamId) });
+  }
+  const open: OpenSlots[] = [];
+  for (let i = 0; i < span; i++) {
+    const day = current + shift + i;
+    const players: P[] = roster.filter((r) => pro.get(r.proTeam)?.has(day)).map((r) => ({ id: r.id, pos: r.pos, v: 1 }));
+    open.push(bestLineup(players, counts).open);
+  }
+  return { open, teamName: standings.teams.find((t) => t.id === teamId)?.name ?? "" };
 }

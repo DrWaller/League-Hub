@@ -5,14 +5,15 @@ import GameGrid from "@/components/GameGrid";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Game Grid" };
 
-export default async function GameGridPage({ searchParams }: { searchParams: { days?: string; shift?: string } }) {
+export default async function GameGridPage({ searchParams }: { searchParams: { days?: string; shift?: string; team?: string } }) {
   const span = Number(searchParams.days) === 10 ? 10 : 7;
   const shift = Math.max(-28, Math.min(56, Math.round(Number(searchParams.shift) || 0)));
-  const data = await getGameGrid(span, shift).catch((e) => {
+  const data = await getGameGrid(span, shift, Number(searchParams.team) || null).catch((e) => {
     console.error("Game grid failed", e);
     return null;
   });
-  const q = (d: number, s: number) => `/game-grid?days=${d}&shift=${s}`;
+  const team = Number(searchParams.team) || 0;
+  const q = (d: number, s: number) => `/game-grid?days=${d}&shift=${s}${team ? `&team=${team}` : ""}`;
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1">

@@ -1,10 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import type { GridData } from "@/lib/game-grid";
 
 type SortKey = "team" | "gp" | "off" | "score";
+const KEY = "pickups-team";
+const SLOT_ORDER = ["C", "LW", "RW", "F", "D", "G", "UTIL"] as const;
+const openLabel = (o: Record<string, number>) => {
+  const parts = SLOT_ORDER.filter((k) => o[k] > 0).map((k) => `${k === "UTIL" ? "Util" : k}${o[k] > 1 ? `×${o[k]}` : ""}`);
+  return parts;
+};
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
 
 // Top 10 green, bottom 10 red, the middle gold: the same read as a heat map.
@@ -18,6 +24,20 @@ export default function GameGrid({ data }: { data: GridData }) {
   const [sort, setSort] = useState<SortKey>("score");
   const [picked, setPicked] = useState<string | null>(null);
   const [pos, setPos] = useState("All");
+  const [fitFirst, setFitFirst] = useState(true);
+
+  // Remember my team (shared with Pickup Targets) so the page opens synced to it.
+  useEffect(() => {
+    try {
+      if (data.teamId) localStorage.setItem(KEY, String(data.teamId));
+      else {
+        const saved = localStorage.getItem(KEY);
+        if (saved) window.location.replace(`/game-grid?days=${data.span}&shift=${data.shift}&team=${encodeURIComponent(saved)}`);
+      }
+    } catch {
+      /* private mode: fine */
+    }
+  }, [data.teamId, data.span, data.shift]);
 
   const rows = useMemo(() => {
     const r = [...data.teams];
@@ -37,8 +57,8 @@ export default function GameGrid({ data }: { data: GridData }) {
     if (!picked) return [];
     return data.players
       .filter((p) => p.team === picked && (pos === "All" ? true : pos === "F" ? ["C", "LW", "RW"].includes(p.position) : p.position === pos))
-      .sort((a, b) => (b.vor ?? -Infinity) - (a.vor ?? -Infinity) || b.pts - a.pts);
-  }, [data.players, picked, pos]);
+      .sort((a, b) => (fitFirst && data.open ? Number(b.fits.length > 0) - Number(a.fits.length > 0) : 0) || (b.vor ?? -Infinity) - (a.vor ?? -Infinity) || b.pts - a.pts);
+  }, [data.players, data.open, picked, pos, fitFirst]);
 
   const th = (k: SortKey, label: string) => (
     <th className="px-2 py-2 text-center">
@@ -51,6 +71,23 @@ export default function GameGrid({ data }: { data: GridData }) {
 
   return (
     <div>
+      <form method="get" className="flex flex-wrap items-end gap-3 mb-4">
+        <input type="hidden" name="days" value={data.span} />
+        <input type="hidden" name="shift" value={data.shift} />
+        <label className="text-xs text-muted flex flex-col gap-1">
+          Sync to my team
+          <select name="team" defaultValue={data.teamId || ""} className="border border-ice-line bg-white px-2 py-1.5 text-sm" onChange={(e) => e.currentTarget.form?.submit()}>
+            <option value="">Not synced</option>
+            {data.teamOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {data.open ? <span className="text-xs text-muted pb-2">Showing open spots for {data.teamName}</span> : null}
+      </form>
+
       <div className="border border-ice-line overflow-x-auto mb-3">
         <table className="w-full text-sm font-tabular">
           <thead>
@@ -74,6 +111,20 @@ export default function GameGrid({ data }: { data: GridData }) {
             </tr>
           </thead>
           <tbody>
+            {data.open ? (
+              <tr className="border-b-2 border-gold bg-ice-panel">
+                <td className="px-2 py-2 font-semibold sticky left-0 z-10 bg-ice-panel shadow-[2px_0_0_0_#CBD6E2] whitespace-nowrap">My open</td>
+                <td colSpan={3} className="px-2 py-2 text-[11px] text-muted text-center">empty slots</td>
+                {data.open.map((o, i) => {
+                  const parts = openLabel(o);
+                  return (
+                    <td key={i} className={`px-2 py-1.5 text-center text-xs align-top ${parts.length ? "text-center-red font-semibold" : "text-muted"}`}>
+                      {parts.length ? parts.map((x) => <div key={x}>{x}</div>) : "full"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ) : null}
             {rows.map((t) => (
               <tr key={t.abbrev} onClick={() => setPicked(picked === t.abbrev ? null : t.abbrev)} className={`border-b border-ice-line last:border-0 cursor-pointer ${picked === t.abbrev ? "bg-ice-panel" : ""}`}>
                 <td className={`px-2 py-1.5 font-semibold sticky left-0 z-10 shadow-[2px_0_0_0_#CBD6E2] ${picked === t.abbrev ? "bg-ice-panel" : "bg-white"}`}>{t.abbrev}</td>
@@ -105,6 +156,12 @@ export default function GameGrid({ data }: { data: GridData }) {
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <h2 className="font-display text-xl">Available from {picked}</h2>
+            {data.open ? (
+              <label className="text-sm flex items-center gap-2">
+                <input type="checkbox" checked={fitFirst} onChange={(e) => setFitFirst(e.target.checked)} />
+                Fits my open spots first
+              </label>
+            ) : null}
             <div className="inline-flex border border-ice-line">
               {["All", "F", "D", "G"].map((x) => (
                 <button key={x} type="button" onClick={() => setPos(x)} className={`px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${pos === x ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
@@ -128,6 +185,11 @@ export default function GameGrid({ data }: { data: GridData }) {
                       {p.status === "W" ? " · waivers" : ""}
                       {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
                     </div>
+                    {data.open ? (
+                      <div className={`text-xs mt-0.5 ${p.fits.length ? "text-green-700 font-semibold" : "text-muted"}`}>
+                        {p.fits.length ? `Fills an open spot ${p.fits.map((i) => data.days[i].label.split(",")[0] + " " + data.days[i].label.split(" ").slice(-1)[0]).join(", ")}` : "No open spot on his game days"}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="text-right font-display text-xl text-center-red">{p.vor === null ? "–" : signed(p.vor)}</div>
                 </div>
