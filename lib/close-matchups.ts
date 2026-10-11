@@ -18,11 +18,11 @@ export interface CloseGame {
   tier: 0 | 1 | 2; // 0 = tightest
 }
 
-// Default "how close is close" in fantasy points. Override with ?margin=N on the route.
-export const DEFAULT_MARGIN: Record<CloseMode, number> = { final: 10, live: 20 };
+// "Close" = within 3 points, in both modes. Override with ?margin=N on the route.
+export const DEFAULT_MARGIN: Record<CloseMode, number> = { final: 3, live: 3 };
 
-// Tier cut-offs (points): tier 0 is under 1, tier 1 is under 3, everything else is tier 2.
-const TIER_LIMITS: [number, number] = [1, 3];
+// Tiers are "within" limits (inclusive): tier 0 is within 1 point, tier 1 within 2, tier 2 up to the margin (3).
+const TIER_LIMITS: [number, number] = [1, 2];
 
 export const TIER_LABELS: Record<CloseMode, [string, string, string]> = {
   final: ["PHOTO FINISH", "NAIL-BITER", "CLOSE ONE"],
@@ -47,7 +47,7 @@ export function pickCloseMatchups(matchups: Matchup[], mode: CloseMode, margin: 
       awayScore: m.awayScore,
       margin: diff,
       leaderId: diff === 0 ? null : m.homeScore > m.awayScore ? m.homeTeamId : m.awayTeamId,
-      tier: diff < TIER_LIMITS[0] ? 0 : diff < TIER_LIMITS[1] ? 1 : 2,
+      tier: diff <= TIER_LIMITS[0] ? 0 : diff <= TIER_LIMITS[1] ? 1 : 2,
     });
   }
   games.sort((a, b) => a.margin - b.margin);

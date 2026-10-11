@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 //   ?mode=live    games still in play that are close right now (going into Saturday / Sunday)
 //   ?mode=final   finished games decided by a small margin
 //                 (default: "final" once every game in the week is final, otherwise "live")
-//   ?margin=N     how close counts as close, in points (default 20 live / 10 final)
+//   ?margin=N     how close counts as close, in points (default 3, both modes)
 //   ?season=YYYY  a past season (final mode)
 //   ?caption=1    ready-to-post text instead of the image
 export async function GET(req: NextRequest) {
