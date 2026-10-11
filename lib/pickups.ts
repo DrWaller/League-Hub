@@ -21,11 +21,12 @@ const K_GOALIE = 10;
 const GOALIE_START = 0.6; // a goalie's team plays more games than he starts
 const MAX_CANDIDATES = 90;
 const SHOWN = 40;
+const LIGHT_DAY_GAMES = 8; // Frozen Pool's default: a night with 8 or fewer NHL games is a light day
 
 export interface PickupDay {
   offset: number;
   label: string;
-  nhlTeams: number; // NHL teams playing that day
+  nhlGames: number; // NHL games that night (league-wide)
   open: number; // empty starting slots on my team that day
   light: boolean;
 }
@@ -41,6 +42,7 @@ export interface Pickup {
   est: number; // expected points per game
   games: number; // his team's games in the window
   lightGames: number; // of those, games on days my lineup has an open slot for him
+  lightDayGames: number; // of those, games on league light days (few NHL games that night)
   added: number; // extra points over the window if I had a free roster spot
   net: number; // extra points after dropping the best drop
   drop: { id: number; name: string } | null;
@@ -161,11 +163,9 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
       const b = bestLineup(dayRoster(d.offset), counts);
       return Math.max(0, totalSlots - b.filled);
     })();
-    return { offset: d.offset, label: d.label, nhlTeams: n, open, light: false };
+    return { offset: d.offset, label: d.label, nhlGames: Math.round(n / 2), open, light: Math.round(n / 2) <= LIGHT_DAY_GAMES };
   });
-  const sortedCounts = days.map((d) => d.nhlTeams).sort((a, b) => a - b);
-  const lightCut = sortedCounts.length ? sortedCounts[Math.floor(sortedCounts.length / 3)] : 0;
-  for (const d of days) d.light = d.nhlTeams <= lightCut && d.nhlTeams < 0.5 * pro.size;
+  const lightOffsets = new Set(days.filter((d) => d.light).map((d) => d.offset));
 
   // Who can't be missed: top of the available pool by VOR over the season, last 15 days and last 7 days.
   const hotWhy = new Map<number, string>();
@@ -198,6 +198,7 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
     let added = 0;
     let games = 0;
     let lightGames = 0;
+    let lightDayGames = 0;
     const gainDay: number[] = [];
     for (let d = 0; d < H; d++) {
       const playsToday = c.a.games.includes(d);
@@ -206,6 +207,7 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
         continue;
       }
       games++;
+      if (lightOffsets.has(d)) lightDayGames++;
       const g = bestLineup([...dayRoster(d), { id: -1, pos: c.a.position, v: c.v }], counts).sum - baseDay[d];
       gainDay.push(g);
       added += g;
@@ -240,6 +242,7 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
       est: r2(c.est),
       games,
       lightGames,
+      lightDayGames,
       added: r2(added),
       net: r2(Number.isFinite(bestNet) ? bestNet : added),
       drop,

@@ -34,7 +34,8 @@ function Card({ p, horizon }: { p: Pickup; horizon: number }) {
         </div>
         <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap gap-x-3 gap-y-1">
           <span>{p.games} games</span>
-          <span>{p.lightGames} on open-slot days</span>
+          <span>{p.lightGames} on your open-slot days</span>
+          <span>{p.lightDayGames} on light nights</span>
           <span>{f1(p.est)} exp/gm</span>
           {p.avgL15 !== null ? <span>L15 {f1(p.avgL15)} avg ({p.gpL15} gp)</span> : null}
           {p.vorSeason !== null ? <span>season VOR {signed(p.vorSeason)}</span> : null}
@@ -107,7 +108,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
             {data.days.map((d) => (
               <div key={d.offset} className={`shrink-0 w-[84px] border p-2 text-center font-tabular ${d.offset < data.horizon ? "bg-white" : "bg-ice-panel opacity-70"} ${d.light ? "border-gold" : "border-ice-line"}`}>
                 <div className="text-xs text-muted">{d.label}</div>
-                <div className="text-sm">{d.nhlTeams} teams</div>
+                <div className="text-sm">{d.nhlGames} games</div>
                 <div className={`text-xs ${d.open > 0 ? "text-center-red font-semibold" : "text-muted"}`}>{d.open} open</div>
                 {d.light ? <div className="text-[10px] text-gold">light day</div> : null}
               </div>
