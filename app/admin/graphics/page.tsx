@@ -85,6 +85,7 @@ export default function AdminGraphicsPage() {
       url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}${seasonQS}`,
     })),
     { title: "Team of the Week", url: `/api/admin/graphics/team-of-week?week=${week}${seasonQS}` },
+    { title: "Top Players by VOR", url: `/api/admin/graphics/top-vor?week=${week}${seasonQS}`, alwaysPortrait: true },
     luckSeason
       ? {
           title: `Luck Chart — end of ${luckSeason}`,

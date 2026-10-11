@@ -67,7 +67,7 @@ function cookies() {
 }
 
 // Roster for one scoring day. Days before today are frozen, so cache them long.
-async function fetchRosterDay(season: number, sp: number, frozen: boolean) {
+export async function fetchRosterDay(season: number, sp: number, frozen: boolean) {
   const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mRoster&view=mTeam&scoringPeriodId=${sp}`;
   try {
     const res = await fetch(url, { headers: cookies(), next: { revalidate: frozen ? 86400 : 300 } });
