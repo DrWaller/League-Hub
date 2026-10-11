@@ -46,6 +46,14 @@ function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen
           <div className="text-right shrink-0 pl-1">
             <div className="font-display text-2xl leading-none text-center-red">{signed(p.net)}</div>
             <div className="text-[11px] text-muted">pts added</div>
+            {p.verdict ? (
+              <div
+                className={`mt-1 inline-block px-1.5 py-0.5 text-[11px] font-semibold ${p.verdict.label === "Hold" ? "bg-rink text-ice" : p.verdict.label === "Stream" ? "bg-gold/25 text-rink" : "border border-ice-line text-muted"}`}
+                title={p.verdict.label === "Hold" ? "An upgrade on the player he replaces for the rest of the season" : p.verdict.label === "Stream" ? "Helps in this window, but not a long-term upgrade" : "Little gain now or later"}
+              >
+                {p.verdict.label}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap gap-x-3 gap-y-1">
@@ -97,7 +105,13 @@ function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen
         {p.drop ? (
           <div className="mt-1 text-xs">
             Drop <span className="font-semibold">{p.drop.name}</span>
+            {p.verdict?.dropTier ? <> <TierBadge tier={p.verdict.dropTier} /></> : null}
+            {p.verdict?.tier && p.verdict.dropTier ? <span className="text-muted"> → </span> : null}
+            {p.verdict?.tier && p.verdict.dropTier ? <TierBadge tier={p.verdict.tier} /> : null}
             <span className="text-muted"> · {signed(p.added)} if you have a free spot</span>
+            {p.verdict?.restGain !== null && p.verdict?.restGain !== undefined ? (
+              <span className={p.verdict.restGain >= 0 ? " text-green-700" : " text-center-red"}> · {signed(p.verdict.restGain)} rest of season</span>
+            ) : null}
           </div>
         ) : null}
       </div>

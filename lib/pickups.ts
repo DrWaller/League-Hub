@@ -16,7 +16,10 @@ export type { PickupWindow };
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { fetchProSchedule, fetchRosterAgg, fetchRosterDay } from "@/lib/games-played";
 import { fetchLineupSlots, SLOT, type Pos } from "@/lib/vor";
-import { getBestAvailable, type AvailablePlayer, type BestAvailable, type StatCat } from "@/lib/best-available";
+import { getTierDetail } from "@/lib/tier-index";
+import { getSeasonGames } from "@/lib/season-games";
+import type { Tier } from "@/lib/tier-style";
+import { getBestAvailable, NHL_ABBREV, type AvailablePlayer, type BestAvailable, type StatCat } from "@/lib/best-available";
 import { getNhlUsage, type Usage } from "@/lib/nhl-usage";
 import { getLines, norm as normName, ESPN_TO_NHL } from "@/lib/lines";
 import { describeChange, recentChanges, syncLines } from "@/lib/lines-store";
@@ -61,6 +64,16 @@ export interface Pickup {
   hot: string | null; // why he can't be missed, if he can't
   role: Usage | null; // how the NHL uses him (ice time, power play, line), null for goalies or no match
   player: AvailablePlayer; // full stat lines for the click-through panel
+  verdict?: Verdict; // is he a one-window stream, or an upgrade worth keeping
+}
+
+// Stream = helps in this window only. Hold = an upgrade on the player he replaces for the rest of the season.
+export interface Verdict {
+  label: "Hold" | "Stream" | "Marginal";
+  tier: Tier | null;
+  dropTier: Tier | null;
+  restGain: number | null; // expected extra points to the end of the regular season over the player he replaces
+  gamesLeft: number | null;
 }
 
 export interface PickupData {
@@ -303,6 +316,19 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
   }
 
   const all = Array.from(pool.values()).map(evaluate);
+  // Stream or Hold: compare his rating with the player he would replace over the games that are really left.
+  const [detail, sg] = await Promise.all([getTierDetail(), getSeasonGames(current)]);
+  const teamOf = new Map(roster.map((r) => [r.id, NHL_ABBREV[r.proTeam] ?? ""] as const));
+  const HOLD_MIN = 10; // expected points over the rest of the season for a pickup to count as an upgrade
+  for (const p of all) {
+    const a = detail[p.id];
+    const d = p.drop ? detail[p.drop.id] : undefined;
+    const left = sg?.remaining.get(p.team.toUpperCase()) ?? null;
+    const dLeft = p.drop ? sg?.remaining.get((teamOf.get(p.drop.id) ?? "").toUpperCase()) ?? left : left;
+    const restGain = a && d && left !== null && dLeft !== null ? Math.round((a.est * left - d.est * dLeft) * 10) / 10 : null;
+    const label: Verdict["label"] = restGain !== null && restGain >= HOLD_MIN ? "Hold" : p.net >= 1 ? "Stream" : "Marginal";
+    p.verdict = { label, tier: a?.tier ?? null, dropTier: d?.tier ?? null, restGain, gamesLeft: left };
+  }
   const picks = [...all].sort((a, b) => b.net - a.net || b.added - a.added).slice(0, SHOWN);
   const hot = all.filter((p) => p.hot).sort((a, b) => (b.vorSeason ?? 0) - (a.vorSeason ?? 0));
   return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel, dayCount: offs.length, days, picks, hot, lineChanges, linesUpdated: lines?.updatedAt ?? null, linesLive: lines !== null, panel: { cats: avail.cats, days: avail.days, scheduleKnown: avail.scheduleKnown } };

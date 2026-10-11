@@ -22,7 +22,7 @@ export default async function PickupsPage({ searchParams }: { searchParams: { te
       <p className="text-muted mb-5 max-w-prose">
         Which available player adds the most points to <em>your</em> lineup. It fills your starting slots day by day, so a player whose
         team plays on a light day, when you have empty slots, is worth his full points. Anyone performing at a standout level is
-        flagged too, whatever the schedule.
+        flagged too, whatever the schedule. Each card is labelled Hold (an upgrade on the player he replaces for the rest of the season), Stream (helps in this window only) or Marginal, with the tier change and the rest-of-season points gain.
       </p>
       {data ? <PickupTool data={data} /> : <p className="text-muted">Couldn&apos;t load the schedule or rosters from ESPN right now.</p>}
     </div>

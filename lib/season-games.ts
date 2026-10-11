@@ -10,6 +10,7 @@ export interface SeasonGames {
   endPeriod: number | null; // last scoring day of the fantasy regular season (null: the whole NHL schedule)
   total: Map<string, number>; // team abbreviation -> games in the fantasy season
   average: number; // typical team's games in the fantasy season
+  remaining: Map<string, number>; // team abbreviation -> games left from the given scoring day (today included) to the end
 }
 
 async function matchupCount(season: number): Promise<number | null> {
@@ -23,7 +24,7 @@ async function matchupCount(season: number): Promise<number | null> {
   }
 }
 
-export async function getSeasonGames(): Promise<SeasonGames | null> {
+export async function getSeasonGames(fromPeriod?: number | null): Promise<SeasonGames | null> {
   const season = (await getLeagueMeta()).season;
   try {
     const [res, cal, count] = await Promise.all([
@@ -38,16 +39,22 @@ export async function getSeasonGames(): Promise<SeasonGames | null> {
     let endPeriod: number | null = null;
     if (cal && cal.lengths.length > 0 && count && count <= cal.lengths.length) endPeriod = cal.lengths.slice(0, count).reduce((a, b) => a + b, 0);
     const total = new Map<string, number>();
+    const remaining = new Map<string, number>();
     for (const t of teams) {
       let n = 0;
+      let left = 0;
       for (const [k, v] of Object.entries(t.proGamesByScoringPeriod ?? {})) {
-        if (Array.isArray(v) && v.length > 0 && (endPeriod === null || Number(k) <= endPeriod)) n++;
+        if (Array.isArray(v) && v.length > 0 && (endPeriod === null || Number(k) <= endPeriod)) {
+          n++;
+          if (fromPeriod != null && Number(k) >= fromPeriod) left++;
+        }
       }
       total.set(String(t.abbrev ?? "").toUpperCase(), n);
+      remaining.set(String(t.abbrev ?? "").toUpperCase(), left);
     }
     const vals = Array.from(total.values()).filter((n) => n > 0);
     if (vals.length === 0) return null;
-    return { endPeriod, total, average: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) };
+    return { endPeriod, total, average: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length), remaining };
   } catch {
     return null;
   }
