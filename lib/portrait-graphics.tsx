@@ -420,9 +420,10 @@ export async function renderPortraitPlayerList(opts: {
               <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 6, minWidth: 0 }}>
                 <div style={{ display: "flex", fontFamily: display, fontSize: first ? 52 : 46, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: first ? 500 : 540, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: first ? 72 : 62, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 26, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 6 }}>PTS</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: first ? 72 : 62, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 26, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 6 }}>{heroLabel(p)}</div>
                 </div>
+                <SecondaryLine p={p} display={display} size={first ? 30 : 28} />
                 {p.statLine ? <div style={{ display: "flex", fontSize: 27, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{p.statLine}</div> : null}
                 <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE} fontSize={24} align="flex-start" />
               </div>
@@ -684,8 +685,11 @@ export async function renderPortraitSpotlight(opts: {
             <TeamLine name={p.teamName} logo={logo} size={LOGO_SIZE + 6} fontSize={28} align="flex-start" />
             {teamColor ? <div style={{ display: "flex", width: 120, height: 5, borderRadius: 2, background: teamColor }} /> : null}
             <div style={{ display: "flex", flexDirection: "column", marginTop: 16 }}>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 124, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 6, color: OG.muted }}>FANTASY PTS</div>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 124, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 6, color: OG.muted }}>{p.vor !== undefined ? "VOR" : "FANTASY PTS"}</div>
+              <div style={{ display: "flex", marginTop: 14 }}>
+                <SecondaryLine p={p} display={display} size={34} />
+              </div>
             </div>
           </div>
         </div>

@@ -11,6 +11,7 @@ import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderP
 import { spotlightTiles } from "@/lib/espn-stats";
 import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 import { statLine } from "@/lib/espn-stats";
+import { getWeekVor } from "@/lib/vor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,10 +69,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const pool = players
+    // The spotlight is the most valuable player over replacement (raw points if VOR isn't available).
+    const vorWeek = await getWeekVor(week, seasonParam, meta.season).catch(() => null);
+    type Pick = { id: number; name: string; position: string; teamId: number; points: number; stats?: Record<string, number>; vor?: number; gamesPlayed?: number };
+    const all: Pick[] = vorWeek ? vorWeek.players : players;
+    const pool = all
       .filter((p) => POSITION_GROUPS[position].includes(p.position))
-      .sort((a, b) => b.points - a.points);
-    const player = playerId ? players.find((p) => p.id === playerId) : pool[0];
+      .sort((a, b) => (b.vor ?? b.points) - (a.vor ?? a.points) || b.points - a.points);
+    const player: Pick | undefined = playerId ? all.find((p) => p.id === playerId) : pool[0];
+    const avg = player?.gamesPlayed ? player.points / player.gamesPlayed : undefined;
 
     if (!player) {
       return new Response(
@@ -100,7 +106,15 @@ export async function GET(req: NextRequest) {
     if (params.get("caption")) {
       const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
       return captionResponse(
-        playersCaption("Player Spotlight", when, [{ name: player.name, team, points: player.points, line: statLine(player.position, player.stats) }], false)
+        player.vor !== undefined
+          ? [
+              "PLAYER SPOTLIGHT",
+              when,
+              "",
+              `${player.name} (${team}) - ${player.vor >= 0 ? "+" : ""}${player.vor.toFixed(2)} VOR (${player.points.toFixed(2)} pts${avg !== undefined ? `, ${avg.toFixed(2)} avg` : ""})`,
+              ...(statLine(player.position, player.stats) ? [`    ${statLine(player.position, player.stats)}`] : []),
+            ].join("\n")
+          : playersCaption("Player Spotlight", when, [{ name: player.name, team, points: player.points, line: statLine(player.position, player.stats) }], false)
       );
     }
 
@@ -109,7 +123,7 @@ export async function GET(req: NextRequest) {
         footer: seasonFooter(meta.name, seasonParam),
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
         positionName: POSITION_NAMES[player.position] ?? player.position,
-        player: { id: player.id, name: player.name, teamId: player.teamId, teamName: team, points: player.points },
+        player: { id: player.id, name: player.name, teamId: player.teamId, teamName: team, points: player.points, vor: player.vor, avg },
         tiles,
         logos,
         hasHeadshot: availableHeadshots.has(player.id),

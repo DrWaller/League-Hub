@@ -10,6 +10,7 @@ import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 import { statLine } from "@/lib/espn-stats";
+import { getWeekVor } from "@/lib/vor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,10 +63,15 @@ export async function GET(req: NextRequest) {
 
     const logos = await loadLogoData(isPast);
     const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
-    const top3 = players
+    // Ranked by value over replacement (falls back to raw points if VOR can't be worked out).
+    const vorWeek = await getWeekVor(week, seasonParam, meta.season).catch(() => null);
+    type Pick = { id: number; name: string; position: string; teamId: number; points: number; stats?: Record<string, number>; vor?: number; gamesPlayed?: number };
+    const pool: Pick[] = vorWeek ? vorWeek.players : players;
+    const top3: Pick[] = pool
       .filter((p) => POSITION_GROUPS[position].includes(p.position))
-      .sort((a, b) => b.points - a.points)
+      .sort((a, b) => (b.vor ?? b.points) - (a.vor ?? a.points) || b.points - a.points)
       .slice(0, 3);
+    const avgOf = (p: Pick) => (p.gamesPlayed ? p.points / p.gamesPlayed : undefined);
     const availableHeadshots = await checkHeadshots(top3.map((p) => p.id));
 
     const medalColors = [OG.gold, OG.silver, OG.bronze];
@@ -73,6 +79,14 @@ export async function GET(req: NextRequest) {
 
     if (req.nextUrl.searchParams.get("caption")) {
       const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
+      if (vorWeek) {
+        const lines = top3.map((p, i) => {
+          const sl = statLine(p.position, p.stats);
+          const avg = avgOf(p);
+          return `${i + 1}) ${p.name} (${teamName(p.teamId)}) - ${(p.vor ?? 0) >= 0 ? "+" : ""}${(p.vor ?? 0).toFixed(2)} VOR (${p.points.toFixed(2)} pts${avg !== undefined ? `, ${avg.toFixed(2)} avg` : ""})${sl ? `\n    ${sl}` : ""}`;
+        });
+        return captionResponse([`TOP 3 ${POSITION_LABELS[position].toUpperCase()}`, when, "", ...lines, "", "Ranked by value over replacement."].join("\n"));
+      }
       return captionResponse(
         playersCaption(`Top 3 ${POSITION_LABELS[position]}`, when, top3.map((p) => ({ name: p.name, team: teamName(p.teamId), points: p.points, line: statLine(p.position, p.stats) })))
       );
@@ -83,7 +97,7 @@ export async function GET(req: NextRequest) {
         footer: seasonFooter(meta.name, seasonParam),
         title: `Top 3 ${POSITION_LABELS[position]}`,
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
-        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: statLine(p.position, p.stats) })),
+        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: statLine(p.position, p.stats), vor: p.vor, avg: avgOf(p) })),
         labels: rankLabels,
         colors: medalColors,
         emptyMessage: "No stats posted for this position/week yet.",
