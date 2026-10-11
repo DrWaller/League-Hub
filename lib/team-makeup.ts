@@ -216,3 +216,85 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
   teams.sort((a, b) => a.name.localeCompare(b.name));
   return { tiers, teams };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Every player in the league by tier: the rostered players from the team makeup, plus the free agents and
+// waiver players, so "show me all the Franchise players" has one answer whoever owns them.
+export interface DirPlayer {
+  id: number;
+  name: string;
+  pos: string;
+  group: Group;
+  nhl: string;
+  owner: string | null; // fantasy team, or null for a free agent / waivers
+  status: "Rostered" | "Free agent" | "Waivers";
+  injury: string | null;
+  gp: number;
+  avg: number | null;
+  priorAvg: number | null;
+  est: number | null;
+  tier: Tier | null;
+  l30: { gp: number; avg: number } | null;
+  form: Tier | null;
+  trend: "up" | "down" | null;
+}
+
+export interface TierDirectory {
+  tiers: LeagueTiers;
+  players: DirPlayer[];
+}
+
+export async function getTierDirectory(): Promise<TierDirectory | null> {
+  const meta = await getLeagueMeta();
+  const [makeup, fa, pools] = await Promise.all([getTeamMakeup(), getBestAvailable().catch(() => null), loadPools(meta.season - 1, false)]);
+  if (!makeup) return null;
+  const { tiers } = makeup;
+  const out: DirPlayer[] = [];
+  for (const t of makeup.teams) {
+    for (const p of t.players) {
+      out.push({ id: p.id, name: p.name, pos: p.pos, group: p.group, nhl: p.nhl, owner: t.name, status: "Rostered", injury: p.injury, gp: p.gp, avg: p.avg, priorAvg: p.priorAvg, est: p.est, tier: p.tier, l30: p.l30, form: p.form, trend: p.trend });
+    }
+  }
+  if (fa) {
+    const prior = new Map<number, { gp: number; avg: number }>();
+    for (const g of ["F", "D", "G"] as Group[]) for (const p of pools[g]) if (p.gp > 0) prior.set(p.id, { gp: p.gp, avg: p.appliedTotal / p.gp });
+    const seen = new Set(out.map((p) => p.id));
+    for (const p of fa.players) {
+      if (seen.has(p.id)) continue;
+      const group: Group = p.position === "G" ? "G" : p.position === "D" ? "D" : "F";
+      const cut = tiers.cutoffs[group];
+      const s = p.w.season;
+      const pr = prior.get(p.id);
+      const priorAvg = pr && pr.gp >= 20 ? pr.avg : null;
+      const k = group === "G" ? K_GOALIE : K_SKATER;
+      let est: number | null = null;
+      if (s && s.gp > 0 && priorAvg !== null) est = (s.gp * s.avg + k * priorAvg) / (s.gp + k);
+      else if (s && s.gp >= 5) est = s.avg;
+      else if (priorAvg !== null) est = priorAvg;
+      const tier = tierOf(est, cut);
+      const l30 = p.w.l30 && p.w.l30.gp > 0 ? { gp: p.w.l30.gp, avg: p.w.l30.avg } : null;
+      const form = l30 && l30.gp >= (group === "G" ? 3 : 5) ? tierOf(l30.avg, cut) : null;
+      const diff = tier && form ? tierRank(form) - tierRank(tier) : 0;
+      out.push({
+        id: p.id,
+        name: p.name,
+        pos: p.position,
+        group,
+        nhl: p.team,
+        owner: null,
+        status: p.status === "W" ? "Waivers" : "Free agent",
+        injury: p.injury,
+        gp: s?.gp ?? 0,
+        avg: s && s.gp > 0 ? r2(s.avg) : null,
+        priorAvg: priorAvg === null ? null : r2(priorAvg),
+        est: est === null ? null : r2(est),
+        tier,
+        l30,
+        form,
+        trend: diff >= 1 ? "up" : diff <= -1 ? "down" : null,
+      });
+    }
+  }
+  out.sort((a, b) => (b.est ?? -1) - (a.est ?? -1));
+  return { tiers, players: out.filter((p) => p.tier !== null) };
+}
