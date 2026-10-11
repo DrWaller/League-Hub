@@ -58,6 +58,27 @@ export default function AdminGraphicsPage() {
   const pastWeekSeason = weekSeason && Number(weekSeason) !== currentSeason ? weekSeason : "";
   const seasonQS = pastWeekSeason ? `&season=${encodeURIComponent(pastWeekSeason)}` : "";
 
+  // Monthly Periods for the chosen season, for the 3 Stars of the Month card.
+  type Period = { id: number; label: string; startWeek: number; endWeek: number };
+  const [periods, setPeriods] = useState<Period[]>([]);
+  const [periodId, setPeriodId] = useState<string>("");
+  const periodSeason = pastWeekSeason || (currentSeason != null ? String(currentSeason) : "");
+  useEffect(() => {
+    if (!periodSeason) return;
+    fetch(`/api/admin/monthly-periods?season=${encodeURIComponent(periodSeason)}`)
+      .then((r) => r.json())
+      .then((list) => setPeriods(Array.isArray(list) ? list : []))
+      .catch(() => setPeriods([]));
+  }, [periodSeason]);
+  // Open on the period that contains the chosen week (else the latest one), unless one was picked.
+  useEffect(() => {
+    if (periods.length === 0) return;
+    if (periods.some((p) => String(p.id) === periodId)) return;
+    const inWeek = periods.find((p) => p.startWeek <= week && week <= p.endWeek);
+    setPeriodId(String((inWeek ?? periods[periods.length - 1]).id));
+  }, [periods, week, periodId]);
+  const period = periods.find((p) => String(p.id) === periodId);
+
   const fmtQS = `&format=${format}`;
 
   const rawCards: { title: string; url: string; alwaysPortrait?: boolean }[] = [
@@ -85,6 +106,15 @@ export default function AdminGraphicsPage() {
       url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}${seasonQS}`,
     })),
     { title: "Team of the Week", url: `/api/admin/graphics/team-of-week?week=${week}${seasonQS}` },
+    ...(period
+      ? [
+          {
+            title: `3 Stars of the Month - ${period.label}`,
+            url: `/api/admin/graphics/three-stars-month?startWeek=${period.startWeek}&endWeek=${period.endWeek}&label=${encodeURIComponent(period.label)}${seasonQS}`,
+            alwaysPortrait: true,
+          },
+        ]
+      : []),
     { title: "Top Players by VOR", url: `/api/admin/graphics/top-vor?week=${week}${seasonQS}`, alwaysPortrait: true },
     luckSeason
       ? {
@@ -170,6 +200,23 @@ export default function AdminGraphicsPage() {
             </div>
           )}
         </div>
+
+        <label className="text-sm inline-block">
+          <div className="text-muted mb-1">Month (3 Stars of the Month)</div>
+          <select
+            value={periodId}
+            onChange={(e) => setPeriodId(e.target.value)}
+            disabled={periods.length === 0}
+            className="border border-ice-line px-3 py-2 w-56 bg-white"
+          >
+            {periods.length === 0 && <option value="">No monthly periods set</option>}
+            {periods.map((p) => (
+              <option key={p.id} value={String(p.id)}>
+                {p.label} (weeks {p.startWeek}-{p.endWeek})
+              </option>
+            ))}
+          </select>
+        </label>
 
         <label className="text-sm inline-block">
           <div className="text-muted mb-1">Shape</div>

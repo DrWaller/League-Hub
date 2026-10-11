@@ -354,6 +354,7 @@ export interface PortraitPlayer {
   teamId: number;
   points: number;
   statLine?: string | null; // e.g. "4 G \u00b7 4 A \u00b7 10 SOG"
+  vor?: number; // when set, the big number is value over replacement ("+14.20" over "VOR") instead of points
 }
 
 export async function renderPortraitPlayerList(opts: {
@@ -460,8 +461,8 @@ export async function renderPortraitThreeStars(opts: {
             <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={260} fontFamily={display} fontSize={90} border={`${AVATAR_BORDER + 2}px solid ${OG.gold}`} />
             <div style={{ display: "flex", fontFamily: display, fontSize: 62, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 900, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{star1.name}</div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-              <div style={{ display: "flex", fontFamily: display, fontSize: 88, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{star1.points.toFixed(2)}</div>
-              <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>PTS</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 88, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{star1.vor !== undefined ? `${star1.vor >= 0 ? "+" : ""}${star1.vor.toFixed(2)}` : star1.points.toFixed(2)}</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>{star1.vor !== undefined ? "VOR" : "PTS"}</div>
             </div>
             {star1.statLine ? <div style={{ display: "flex", fontSize: 28, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{star1.statLine}</div> : null}
             <TeamLine name={star1.teamName} logo={logos[star1.teamId]} size={LOGO_SIZE} fontSize={24} />
@@ -484,8 +485,8 @@ export async function renderPortraitThreeStars(opts: {
                   <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={170} fontFamily={display} fontSize={58} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
                   <div style={{ display: "flex", fontFamily: display, fontSize: 40, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 5 }}>PTS</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.vor !== undefined ? `${p.vor >= 0 ? "+" : ""}${p.vor.toFixed(2)}` : p.points.toFixed(2)}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 5 }}>{p.vor !== undefined ? "VOR" : "PTS"}</div>
                   </div>
                   {p.statLine ? <div style={{ display: "flex", fontSize: 23, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}
                   <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE - 8} fontSize={21} />

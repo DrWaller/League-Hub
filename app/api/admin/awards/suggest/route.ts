@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getWeeklyPlayerStats } from "@/lib/espn";
+import { getWeeklyPlayerStats, getLeagueMeta } from "@/lib/espn";
+import { getWeekVor } from "@/lib/vor";
 import { WeeklyPlayerStat } from "@/lib/types";
 
 // Suggests award picks from real weekly stats -- pure computation, no AI,
@@ -31,13 +32,17 @@ export async function GET(req: NextRequest) {
   const defense = players.filter((p) => p.position === "D");
   const goalies = players.filter((p) => p.position === "G");
 
-  const [star1, star2, star3] = top(players, 3);
+  // The 3 Stars are the most valuable players over replacement, so a goalie and a forward compete
+  // fairly. If VOR can't be worked out, fall back to raw points.
+  const meta = await getLeagueMeta();
+  const vor = await getWeekVor(week, meta.season, meta.season).catch(() => null);
+  const [star1, star2, star3] = vor ? vor.players.slice(0, 3) : top(players, 3);
   const [fwd1, fwd2] = top(forwards, 2);
   const [def1, def2] = top(defense, 2);
   const [g1, g2] = top(goalies, 2);
 
-  const toEntry = (p?: WeeklyPlayerStat) =>
-    p ? { playerName: p.name, teamId: p.teamId, points: p.points } : null;
+  const toEntry = (p?: { name: string; teamId: number; points: number; vor?: number }) =>
+    p ? { playerName: p.name, teamId: p.teamId, points: p.points, vor: p.vor } : null;
 
   return NextResponse.json({
     live,

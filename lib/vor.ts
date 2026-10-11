@@ -38,6 +38,7 @@ export interface VorPlayer {
   replacement: number;
   vor: number;
   starter: boolean; // would be in the league-wide best lineup
+  stats?: Record<string, number>; // raw ESPN stat counts summed over his scored days (for the stat line)
 }
 
 export interface WeekVor {
@@ -119,11 +120,16 @@ export async function getWeekVor(week: number, season: number, currentSeason: nu
         if (!dayStat) continue; // his team didn't play, or he didn't dress: no points that day
 
         const pts = Number(dayStat.appliedTotal) || 0;
+        const dayStats: Record<string, number> | undefined = dayStat.stats && typeof dayStat.stats === "object" ? dayStat.stats : undefined;
         const existing = byPlayer.get(pl.id);
         if (existing) {
           existing.points += pts;
           existing.gamesPlayed++;
           existing.teamId = t.id; // days run in order, so this ends as the latest owner
+          if (dayStats) {
+            existing.stats = existing.stats ?? {};
+            for (const [k, v] of Object.entries(dayStats)) existing.stats[k] = (existing.stats[k] ?? 0) + Number(v);
+          }
         } else {
           byPlayer.set(pl.id, {
             id: pl.id,
@@ -135,6 +141,7 @@ export async function getWeekVor(week: number, season: number, currentSeason: nu
             replacement: 0,
             vor: 0,
             starter: false,
+            stats: dayStats ? { ...dayStats } : undefined,
           });
         }
       }
@@ -169,4 +176,46 @@ export async function getWeekVor(week: number, season: number, currentSeason: nu
     replacement,
     players: pool,
   };
+}
+
+// A stretch of weeks (a "month"): each player's VOR is the SUM of his weekly VOR, so a month's best
+// player is the one who was most valuable week after week. Replacement level is per week, so it keeps
+// tracking how the league actually scored. Points and raw stats are summed the same way.
+export interface PeriodVor {
+  startWeek: number;
+  endWeek: number;
+  season: number;
+  weeks: number; // how many of the weeks had stats
+  players: VorPlayer[]; // sorted by total VOR, best first
+}
+
+export async function getPeriodVor(startWeek: number, endWeek: number, season: number, currentSeason: number): Promise<PeriodVor | null> {
+  const weeks: number[] = [];
+  for (let w = startWeek; w <= endWeek; w++) weeks.push(w);
+  const results = await Promise.all(weeks.map((w) => getWeekVor(w, season, currentSeason).catch(() => null)));
+
+  const totals = new Map<number, VorPlayer>();
+  let used = 0;
+  for (const r of results) {
+    if (!r) continue;
+    used++;
+    for (const p of r.players) {
+      const t = totals.get(p.id);
+      if (!t) {
+        totals.set(p.id, { ...p, stats: p.stats ? { ...p.stats } : undefined });
+        continue;
+      }
+      t.points += p.points;
+      t.vor = Math.round((t.vor + p.vor) * 100) / 100;
+      t.gamesPlayed += p.gamesPlayed;
+      t.teamId = p.teamId; // weeks run in order: the latest owner
+      if (p.stats) {
+        t.stats = t.stats ?? {};
+        for (const [k, v] of Object.entries(p.stats)) t.stats[k] = (t.stats[k] ?? 0) + Number(v);
+      }
+    }
+  }
+  if (used === 0 || totals.size === 0) return null;
+  const players = [...totals.values()].sort((a, b) => b.vor - a.vor || b.points - a.points);
+  return { startWeek, endWeek, season, weeks: used, players };
 }

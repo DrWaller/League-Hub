@@ -10,6 +10,7 @@ import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitThreeStars, seasonFooter } from "@/lib/portrait-graphics";
 import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 import { statLine } from "@/lib/espn-stats";
+import { getWeekVor } from "@/lib/vor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +31,11 @@ export async function GET(req: NextRequest) {
       return new Response(`${seasonParam} was played on Fantrax, so there's no ESPN player data to use.`, { status: 400 });
     }
 
-    const [{ players, live }, teamsResult, fonts] = await Promise.all([
+    const [{ players, live }, teamsResult, fonts, vorWeek] = await Promise.all([
       getWeeklyPlayerStats(week, isPast ? seasonParam : undefined),
       isPast ? getPastSeasonTeams(seasonParam) : getStandings().then((s) => s.teams),
       loadGraphicFonts(),
+      getWeekVor(week, seasonParam, meta.season).catch(() => null),
     ]);
 
     const { display, body } = getFontFamilies(fonts);
@@ -47,7 +49,16 @@ export async function GET(req: NextRequest) {
 
     const logos = await loadLogoData(isPast);
     const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
-    const top3 = [...players].sort((a, b) => b.points - a.points).slice(0, 3);
+    // The stars are the most valuable players over replacement, so a goalie and a forward compete fairly.
+    // (If VOR can't be worked out, fall back to raw points.)
+    type Star = { id: number; name: string; position: string; teamId: number; points: number; stats?: Record<string, number>; vor?: number };
+    const top3: Star[] = vorWeek
+      ? vorWeek.players.slice(0, 3)
+      : [...players].sort((a, b) => b.points - a.points).slice(0, 3);
+    const starLine = (p: Star) => {
+      const base = statLine(p.position, p.stats);
+      return p.vor !== undefined ? [`${p.points.toFixed(2)} PTS`, base].filter(Boolean).join(" \u00b7 ") : base;
+    };
     const availableHeadshots = await checkHeadshots(top3.map((p) => p.id));
 
     const medalColors = [OG.gold, OG.silver, OG.bronze];
@@ -56,6 +67,12 @@ export async function GET(req: NextRequest) {
 
     if (req.nextUrl.searchParams.get("caption")) {
       const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
+      if (vorWeek) {
+        const lines = top3.map(
+          (p, i) => `${i + 1}) ${p.name} (${p.position}, ${teamName(p.teamId)}) - ${(p.vor ?? 0) >= 0 ? "+" : ""}${(p.vor ?? 0).toFixed(2)} VOR (${p.points.toFixed(2)} pts)${statLine(p.position, p.stats) ? `\n    ${statLine(p.position, p.stats)}` : ""}`
+        );
+        return captionResponse(["3 STARS OF THE WEEK", when, "", ...lines, "", "Ranked by value over replacement (points minus the last starter at the position)."].join("\n"));
+      }
       return captionResponse(
         playersCaption("3 Stars of the Week", when, top3.map((p) => ({ name: p.name, team: teamName(p.teamId), points: p.points, line: statLine(p.position, p.stats) })))
       );
@@ -66,7 +83,7 @@ export async function GET(req: NextRequest) {
         footer: seasonFooter(meta.name, seasonParam),
         title: "3 Stars of the Week",
         subtitle: isPast ? `${seasonParam} - Week ${week}` : `Week ${week}`,
-        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: statLine(p.position, p.stats) })),
+        players: top3.map((p) => ({ id: p.id, name: p.name, teamId: p.teamId, teamName: teamName(p.teamId), points: p.points, statLine: starLine(p), vor: p.vor })),
         labels,
         colors: medalColors,
         emptyMessage: "No stats posted for this week yet.",
