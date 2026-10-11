@@ -11,6 +11,7 @@ import { getLeagueMeta, getScoringItems } from "@/lib/espn";
 import { STAT_META } from "@/lib/espn-stats";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { getReplacementRates, type Pos } from "@/lib/vor";
+import type { Usage } from "@/lib/nhl-usage";
 
 const LEAGUE_ID = process.env.ESPN_LEAGUE_ID || "78683444";
 const ESPN_S2 = process.env.ESPN_S2;
@@ -59,6 +60,7 @@ export interface AvailablePlayer {
   owned: number | null; // % owned across ESPN
   injury: string | null; // null when healthy
   proj: number | null; // ESPN's projected points per game, when it sends one
+  role?: Usage | null; // line, power-play unit and ice time (added by the page, not by getBestAvailable)
   games: number[]; // days-from-today (0 = today) his NHL team plays, within the next DAYS_AHEAD days
   w: Record<Window, WindowStat | null>;
 }

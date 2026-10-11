@@ -28,6 +28,15 @@ const POSITIONS: { id: string; label: string }[] = [
   { id: "G", label: "G" },
 ];
 const SKATERS = ["C", "LW", "RW", "D"];
+const LINE_OPTS = ["L1", "L2", "L3", "L4", "D1", "D2", "D3", "none"];
+const PP_OPTS = ["PP1", "PP2", "none"];
+const PRESETS: { label: string; lines: string[]; pps: string[] }[] = [
+  { label: "L1 + PP1", lines: ["L1"], pps: ["PP1"] },
+  { label: "L1/L2 + PP1/PP2", lines: ["L1", "L2"], pps: ["PP1", "PP2"] },
+  { label: "D1 + PP1", lines: ["D1"], pps: ["PP1"] },
+  { label: "Any PP", lines: [], pps: ["PP1", "PP2"] },
+];
+const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 const FORWARDS = ["C", "LW", "RW"];
 const fmtStat = (c: StatCat, v: number | undefined) => {
   if (v === undefined) return "–";
@@ -64,6 +73,9 @@ export default function BestAvailable({ data }: { data: Data }) {
   const [minGp, setMinGp] = useState(1);
   const [hideInjured, setHideInjured] = useState(false);
   const [q, setQ] = useState("");
+  const [lineSel, setLineSel] = useState<string[]>([]);
+  const [ppSel, setPpSel] = useState<string[]>([]);
+  const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -74,6 +86,8 @@ export default function BestAvailable({ data }: { data: Data }) {
       if (team !== "ALL" && p.team !== team) return false;
       if (date !== "ANY" && !p.games.includes(Number(date))) return false;
       if (hideInjured && p.injury) return false;
+      if (lineSel.length > 0 && !lineSel.includes(p.role?.line ?? "none")) return false;
+      if (ppSel.length > 0 && !ppSel.includes(p.role?.pp ?? "none")) return false;
       if (needle && !p.name.toLowerCase().includes(needle)) return false;
       return true;
     });
@@ -85,7 +99,7 @@ export default function BestAvailable({ data }: { data: Data }) {
       return sort === "vor" ? s.vor ?? -Infinity : sort === "pts" ? s.pts : s.avg;
     };
     return list.sort((a, b) => key(b) - key(a) || b.w[period]!.pts - a.w[period]!.pts);
-  }, [data.players, data.cats, period, sort, pos, team, date, minGp, hideInjured, q]);
+  }, [data.players, data.cats, period, sort, pos, team, date, minGp, hideInjured, q, lineSel, ppSel]);
 
   // Stat columns: the goalie set when only goalies are showing, the skater set otherwise (goalies show a dash).
   const statCols = useMemo(() => data.cats.filter((c) => c.goalie === (pos === "G")), [data.cats, pos]);
@@ -175,6 +189,40 @@ export default function BestAvailable({ data }: { data: Data }) {
         </label>
       </div>
 
+      {data.players.some((p) => p.role) && (
+        <div className="mb-5 border border-ice-line bg-white p-3">
+          <div className="text-xs text-muted mb-2">Role search: pick any lines and power-play units (a player must match one of each group you pick)</div>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {PRESETS.map((pr) => (
+              <button key={pr.label} type="button" onClick={() => { setLineSel(pr.lines); setPpSel(pr.pps); }} className="px-3 py-1 text-sm border border-ice-line hover:bg-ice-panel">
+                {pr.label}
+              </button>
+            ))}
+            <button type="button" onClick={() => { setLineSel([]); setPpSel([]); }} className="px-3 py-1 text-sm text-muted underline">
+              Clear
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted mr-1">Line</span>
+              {LINE_OPTS.map((o) => (
+                <button key={o} type="button" onClick={() => toggle(lineSel, setLineSel, o)} className={`px-2 py-1 text-xs font-tabular border ${lineSel.includes(o) ? "bg-rink text-ice border-rink" : "border-ice-line bg-white hover:bg-ice-panel"}`}>
+                  {o === "none" ? "No line" : o}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted mr-1">Power play</span>
+              {PP_OPTS.map((o) => (
+                <button key={o} type="button" onClick={() => toggle(ppSel, setPpSel, o)} className={`px-2 py-1 text-xs font-tabular border ${ppSel.includes(o) ? "bg-gold text-rink border-gold font-semibold" : "border-ice-line bg-white hover:bg-ice-panel"}`}>
+                  {o === "none" ? "No PP" : o}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <p className="text-xs text-muted mb-3 font-tabular">
         {rows.length} players
         {hasVor && data.rates
@@ -196,6 +244,9 @@ export default function BestAvailable({ data }: { data: Data }) {
                 {th("pts", "PTS")}
                 {th("avg", "AVG")}
                 {hasVor && th("vor", "VOR")}
+                <th className="px-2 py-2 text-center">Line</th>
+                <th className="px-2 py-2 text-center">PP</th>
+                <th className="px-2 py-2 text-right">TOI</th>
                 {showStats && statCols.map((c) => th(`s:${c.id}`, c.label))}
                 <th className="px-3 py-2 text-right">Games 7d</th>
                 <th className="px-3 py-2 text-right">Own %</th>
@@ -233,6 +284,14 @@ export default function BestAvailable({ data }: { data: Data }) {
                     {hasVor && (
                       <td className={`px-3 py-2 text-right font-display text-base ${sort === "vor" ? "text-center-red" : ""}`}>{s.vor === null ? "–" : signed(s.vor)}</td>
                     )}
+                    <td className="px-2 py-2 text-center">
+                      {p.role ? <span className={`px-1.5 py-0.5 text-xs ${p.role.line ? "bg-rink text-ice" : "text-muted"}`}>{p.role.line ?? "–"}</span> : <span className="text-muted">–</span>}
+                      {p.role?.change ? <span title={p.role.change.text} className="text-green-700"> ↑</span> : null}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      {p.role?.pp ? <span className="px-1.5 py-0.5 text-xs bg-gold text-rink font-semibold">{p.role.pp}</span> : <span className="text-muted">–</span>}
+                    </td>
+                    <td className="px-2 py-2 text-right text-muted">{p.role ? mmss(p.role.toi) : "–"}</td>
                     {showStats &&
                       statCols.map((c) => (
                         <td key={c.id} className={`px-3 py-2 text-right ${sort === `s:${c.id}` ? "font-semibold" : "text-muted"}`}>
