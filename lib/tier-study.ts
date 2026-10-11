@@ -104,7 +104,22 @@ export async function runTierStudy(season: number, minGp: number) {
     const deepRank = starterRank ? Math.round(starterRank * 1.5) : null;
     const deepLine = deepRank && q[deepRank - 1] ? { rank: deepRank, avg: r2(q[deepRank - 1].avg) } : null;
 
+    // Rank by total points against rank by average (volume vs quality): who moves, and by how much.
+    const byTotal = [...q].sort((a, b) => b.p.appliedTotal - a.p.appliedTotal);
+    const avgRank = new Map(q.map((x, i) => [x, i + 1] as const));
+    const totRank = new Map(byTotal.map((x, i) => [x, i + 1] as const));
+    const n = q.length;
+    let d2 = 0;
+    for (const x of q) d2 += (avgRank.get(x)! - totRank.get(x)!) ** 2;
+    const volume = {
+      spearman: n > 2 ? r2(1 - (6 * d2) / (n * (n * n - 1))) : null,
+      totalAtRank: Object.fromEntries([1, 3, 5, 10, 15, 20, 30, 40].filter((k) => byTotal[k - 1]).map((k) => [`#${k}`, Math.round(byTotal[k - 1].p.appliedTotal)])),
+      top20ByTotal: byTotal.slice(0, 20).map((x) => `${x.p.name} ${Math.round(x.p.appliedTotal)}pts ${x.p.gp}gp avg ${r2(x.avg)} (avg rank ${avgRank.get(x)})`),
+      top20ByAvgNotInTop20Total: q.slice(0, 20).filter((x) => totRank.get(x)! > 20).map((x) => `${x.p.name} avg ${r2(x.avg)} ${x.p.gp}gp total ${Math.round(x.p.appliedTotal)} (total rank ${totRank.get(x)})`),
+    };
+
     out[g] = {
+      volume: g === "G" ? volume : undefined,
       starterLine,
       deepLine,
       qualified: q.length,
