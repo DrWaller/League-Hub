@@ -14,6 +14,7 @@ import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { fetchProSchedule, fetchRosterAgg, fetchRosterDay } from "@/lib/games-played";
 import { fetchLineupSlots, SLOT, type Pos } from "@/lib/vor";
 import { getBestAvailable, type AvailablePlayer } from "@/lib/best-available";
+import { getNhlUsage, type Usage } from "@/lib/nhl-usage";
 
 const POS_BY_ID: Record<number, Pos> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
 const K_SKATER = 15;
@@ -50,6 +51,7 @@ export interface Pickup {
   avgL15: number | null;
   gpL15: number;
   hot: string | null; // why he can't be missed, if he can't
+  role: Usage | null; // how the NHL uses him (ice time, power play, line), null for goalies or no match
 }
 
 export interface PickupData {
@@ -57,6 +59,8 @@ export interface PickupData {
   teamName: string;
   teams: { id: number; name: string }[];
   windowKey: PickupWindow;
+  roleOn: boolean;
+  hasRoles: boolean;
   windowLabel: string;
   dayCount: number;
   days: PickupDay[];
@@ -105,21 +109,22 @@ const dayValue = (pos: Pos, est: number) => Math.max(0, est) * (pos === "G" ? GO
 
 export type PickupWindow = "3d" | "current" | "next";
 
-export async function getPickups(teamId: number | null, windowKey: PickupWindow): Promise<PickupData | null> {
+export async function getPickups(teamId: number | null, windowKey: PickupWindow, roleOn = true): Promise<PickupData | null> {
   const meta = await getLeagueMeta();
   const season = meta.season;
-  const [standings, status, avail, counts, pro] = await Promise.all([
+  const [standings, status, avail, counts, pro, usage] = await Promise.all([
     getStandings(),
     getCurrentScoringPeriod(),
     getBestAvailable(),
     fetchLineupSlots(season),
     fetchProSchedule(season),
+    getNhlUsage(season).catch(() => null),
   ]);
   const teams = standings.teams.map((t) => ({ id: t.id, name: t.name }));
   if (!avail || !counts || !pro || status.current === null) return null;
   const current = status.current;
   if (teamId === null || !teams.some((t) => t.id === teamId)) {
-    return { teamId: 0, teamName: "", teams, windowKey, windowLabel: "", dayCount: 0, days: [], picks: [], hot: [] };
+    return { teamId: 0, teamName: "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel: "", dayCount: 0, days: [], picks: [], hot: [] };
   }
 
   const [rosterData, agg] = await Promise.all([fetchRosterDay(season, current, false), fetchRosterAgg(season)]);
@@ -146,7 +151,8 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow)
     const pr = stats.find((x) => x.statSourceId === 1 && x.statSplitTypeId === 0 && !x.scoringPeriodId);
     const pg = Number(pr?.stats?.["34"]) || Number(pr?.stats?.["0"]) || 0;
     const proj = pr && pg > 0 && Number.isFinite(Number(pr.appliedTotal)) ? Number(pr.appliedTotal) / pg : null;
-    roster.push({ id: pl.id, name: pl.fullName ?? "Player", pos, proTeam: Number(pl.proTeamId), v: dayValue(pos, estimate(pos, gp, Number.isFinite(avg) ? avg : 0, prior(pos, proj))) });
+    const mine = pos === "G" || !roleOn ? null : usage?.lookup(pl.fullName ?? "") ?? null;
+    roster.push({ id: pl.id, name: pl.fullName ?? "Player", pos, proTeam: Number(pl.proTeamId), v: dayValue(pos, estimate(pos, gp, Number.isFinite(avg) ? avg : 0, prior(pos, proj)) * (mine?.mult ?? 1)) });
   }
 
   const plays = (proTeam: number, d: number) => pro.get(proTeam)?.has(current + d) ?? false;
@@ -199,13 +205,14 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow)
   topBy("l15", 5, 3, "last-15-day");
   topBy("l7", 3, 2, "last-7-day");
 
-  type Cand = { a: AvailablePlayer; est: number; v: number };
+  type Cand = { a: AvailablePlayer; est: number; v: number; role: Usage | null };
   const cands: Cand[] = avail.players
     .filter((a) => a.injury === null || a.injury === "day to day")
     .map((a) => {
       const s = a.w.season;
-      const est = estimate(a.position, s?.gp ?? 0, s?.avg ?? 0, prior(a.position, a.proj));
-      return { a, est, v: dayValue(a.position, est) };
+      const role = a.position === "G" ? null : usage?.lookup(a.name, a.team) ?? null;
+      const est = estimate(a.position, s?.gp ?? 0, s?.avg ?? 0, prior(a.position, a.proj)) * (roleOn && role ? role.mult : 1);
+      return { a, est, v: dayValue(a.position, est), role };
     });
   const pool = new Map<number, Cand>();
   [...cands].sort((x, y) => y.est - x.est).slice(0, MAX_CANDIDATES).forEach((c) => pool.set(c.a.id, c));
@@ -267,13 +274,14 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow)
       avgL15: l15 && l15.gp > 0 ? l15.avg : null,
       gpL15: l15?.gp ?? 0,
       hot: hotWhy.get(c.a.id) ?? null,
+      role: c.role,
     };
   };
 
   const all = Array.from(pool.values()).map(evaluate);
   const picks = [...all].sort((a, b) => b.net - a.net || b.added - a.added).slice(0, SHOWN);
   const hot = all.filter((p) => p.hot).sort((a, b) => (b.vorSeason ?? 0) - (a.vorSeason ?? 0));
-  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, windowKey, windowLabel, dayCount: offs.length, days, picks, hot };
+  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel, dayCount: offs.length, days, picks, hot };
 }
 
 // Which starting slots are empty on each of the given scoring days for one team.

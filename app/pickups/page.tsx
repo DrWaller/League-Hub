@@ -4,10 +4,10 @@ import PickupTool from "@/components/PickupTool";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pickup Targets" };
 
-export default async function PickupsPage({ searchParams }: { searchParams: { team?: string; window?: string } }) {
+export default async function PickupsPage({ searchParams }: { searchParams: { team?: string; window?: string; role?: string } }) {
   const teamId = Number(searchParams.team) || null;
   const windowKey = (searchParams.window === "3d" || searchParams.window === "next" ? searchParams.window : "current") as PickupWindow;
-  const data = await getPickups(teamId, windowKey).catch((e) => {
+  const data = await getPickups(teamId, windowKey, searchParams.role !== "off").catch((e) => {
     console.error("Pickups failed", e);
     return null;
   });
