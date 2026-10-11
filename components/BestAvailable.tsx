@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { TIERS } from "@/lib/tier-style";
 import TierBadge from "@/components/TierBadge";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import PlayerPanel, { PERIODS } from "@/components/PlayerPanel";
@@ -69,6 +70,7 @@ export default function BestAvailable({ data }: { data: Data }) {
   const [sort, setSort] = useState<SortKey>(data.rates ? "vor" : "pts");
   const [pos, setPos] = useState("ALL");
   const [team, setTeam] = useState("ALL");
+  const [tierSel, setTierSel] = useState("ALL");
   const [date, setDate] = useState("ANY");
   const [minGp, setMinGp] = useState(1);
   const [hideInjured, setHideInjured] = useState(false);
@@ -85,6 +87,7 @@ export default function BestAvailable({ data }: { data: Data }) {
       if (!s || s.gp < minGp) return false;
       if (pos === "SK" ? !SKATERS.includes(p.position) : pos === "F" ? !FORWARDS.includes(p.position) : pos !== "ALL" && p.position !== pos) return false;
       if (team !== "ALL" && p.team !== team) return false;
+      if (tierSel !== "ALL" && p.tier !== tierSel) return false;
       if (date !== "ANY" && !p.games.includes(Number(date))) return false;
       if (hideInjured && p.injury) return false;
       if (lineSel.length > 0 && !lineSel.includes(p.role?.line ?? "none")) return false;
@@ -100,7 +103,7 @@ export default function BestAvailable({ data }: { data: Data }) {
       return sort === "vor" ? s.vor ?? -Infinity : sort === "pts" ? s.pts : s.avg;
     };
     return list.sort((a, b) => key(b) - key(a) || b.w[period]!.pts - a.w[period]!.pts);
-  }, [data.players, data.cats, period, sort, pos, team, date, minGp, hideInjured, q, lineSel, ppSel]);
+  }, [data.players, data.cats, period, sort, pos, team, tierSel, date, minGp, hideInjured, q, lineSel, ppSel]);
 
   // Stat columns: the goalie set when only goalies are showing, the skater set otherwise (goalies show a dash).
   const statCols = useMemo(() => data.cats.filter((c) => c.goalie === (pos === "G")), [data.cats, pos]);
@@ -144,6 +147,17 @@ export default function BestAvailable({ data }: { data: Data }) {
           <select value={team} onChange={(e) => setTeam(e.target.value)} className="border border-ice-line bg-white px-2 py-1.5 text-sm">
             <option value="ALL">All teams</option>
             {data.teams.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs text-muted flex flex-col gap-1">
+          Tier
+          <select value={tierSel} onChange={(e) => setTierSel(e.target.value)} className="border border-ice-line bg-white px-2 py-1.5 text-sm">
+            <option value="ALL">All tiers</option>
+            {TIERS.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
