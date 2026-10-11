@@ -26,7 +26,7 @@ export type EditorialProps = {
 };
 
 // Largest font size (up to cap) at which a word of this length still fits the text column.
-const fit = (text: string, cap: number, room = 410) => Math.max(40, Math.min(cap, Math.floor(room / (Math.max(1, text.length) * 0.62))));
+const fit = (text: string, cap: number, room = 395) => Math.max(40, Math.min(cap, Math.floor(room / (Math.max(1, text.length) * 0.62))));
 
 export async function renderEditorialCard(p: EditorialProps) {
   const { blurb: b, tiles, logo, monster } = p;
@@ -45,7 +45,13 @@ export async function renderEditorialCard(p: EditorialProps) {
   const tileLabel = rows === 3 ? 20 : 24;
   const tilePad = rows === 1 ? "14px 8px 16px" : rows === 2 ? "8px 8px 10px" : "6px 6px 8px";
   const nameCap = rows === 1 ? 84 : rows === 2 ? 72 : 62;
-  const ptsSize = rows === 1 ? 190 : rows === 2 ? 150 : 120;
+  const ptsSize = rows === 1 ? 165 : rows === 2 ? 150 : 120;
+  // The headshot (ESPN's are landscape, about 1.38:1) is sized so its shoulders end before the text column starts.
+  const PHOTO_W = 690;
+  const PHOTO_H = Math.round(PHOTO_W / 1.38);
+  const PHOTO_LEFT = -135;
+  const TEXT_LEFT = 568;
+  const TEXT_W = 400;
 
   return frame({
     footer: p.footer,
@@ -80,52 +86,58 @@ export async function renderEditorialCard(p: EditorialProps) {
           ) : null}
 
           {logo ? (
-            <div style={{ display: "flex", position: "absolute", left: 40, top: 130, width: 470, height: 470, opacity: 0.14, alignItems: "center", justifyContent: "center" }}>
+            <div style={{ display: "flex", position: "absolute", left: 40, top: 110, width: 470, height: 470, opacity: 0.14, alignItems: "center", justifyContent: "center" }}>
               <img src={logo} width={470} height={470} style={{ objectFit: "contain" }} />
             </div>
           ) : null}
 
-          {/* the player */}
-          {p.hasHeadshot ? (
-            <img src={headshotUrl(b.playerId)} width={760} height={760} style={{ position: "absolute", left: -120, top: 20, objectFit: "contain" }} />
-          ) : (
-            <div style={{ display: "flex", position: "absolute", left: 70, top: 120 }}>
-              <PlayerAvatar name={b.playerName} src={headshotUrl(b.playerId)} hasHeadshot={false} size={400} fontFamily={display} fontSize={150} border={`8px solid ${OG.gold}`} />
-            </div>
-          )}
-
-          {/* text block */}
-          <div style={{ display: "flex", flexDirection: "column", position: "absolute", left: 540, top: p.special ? 92 : 70, width: 420 }}>
-            <div style={{ display: "flex", alignSelf: "flex-start", padding: "6px 22px 6px 26px", borderRadius: 8, background: accent, fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: 5, color: monster ? "#FFFFFF" : OG.board }}>
-              {p.positionName.toUpperCase()}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", marginTop: 18, fontFamily: display, fontWeight: 700, color: OG.board, lineHeight: 1.02, textTransform: "uppercase" }}>
-              {firstName ? <div style={{ display: "flex", fontSize: fit(firstName, nameCap) }}>{firstName}</div> : null}
-              <div style={{ display: "flex", fontSize: fit(last, nameCap + 16) }}>{last}</div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 12, marginTop: rows === 1 ? 20 : 14 }}>
-              {logo ? <img src={logo} width={50} height={50} style={{ objectFit: "contain" }} /> : null}
-              <div style={{ display: "flex", fontFamily: body, fontSize: b.teamName.length > 24 ? 26 : 30, fontWeight: 600, color: OG.muted }}>{b.teamName}</div>
-            </div>
-            <div style={{ display: "flex", width: 90, height: 5, borderRadius: 3, background: accent, marginTop: rows === 1 ? 22 : 14 }} />
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", marginTop: 8 }}>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: ptsSize, lineHeight: 1, color: OG.centerRed }}>{b.points.toFixed(2)}</div>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 40, letterSpacing: 2, color: OG.muted, paddingLeft: 12, paddingBottom: rows === 1 ? 34 : 24 }}>PTS</div>
-            </div>
-            {b.active ? null : <div style={{ display: "flex", marginTop: 6, fontSize: 22, color: OG.muted }}>Not in the active lineup, so these points did not count</div>}
-          </div>
-
-          {/* stat tiles */}
-          {n > 0 ? (
-            <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: GAP, position: "absolute", left: 30, bottom: 34, width: ROW_W }}>
-              {tiles.map((t) => (
-                <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: tileW, background: OG.rink, borderTop: `5px solid ${accent}`, borderRadius: 12, padding: tilePad }}>
-                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: tileValue, color: "#FFFFFF", lineHeight: 1.1 }}>{t.value}</div>
-                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: tileLabel, letterSpacing: 1.5, color: "#C9D6E6" }}>{t.label}</div>
+          {/* everything below the banner is one column: the photo + text area fills what's left above the tiles,
+              so the headshot always stands right on top of the stat tiles, whatever the tile count */}
+          <div style={{ display: "flex", flexDirection: "column", position: "absolute", left: 0, top: 0, right: 0, bottom: 0 }}>
+            <div style={{ display: "flex", position: "relative", flexGrow: 1, overflow: "hidden" }}>
+              {/* the player: bottom-anchored, kept left of the text column so the shoulders never reach the points */}
+              {p.hasHeadshot ? (
+                <img src={headshotUrl(b.playerId)} width={PHOTO_W} height={PHOTO_H} style={{ position: "absolute", left: PHOTO_LEFT, bottom: -4, objectFit: "contain", objectPosition: "center bottom" }} />
+              ) : (
+                <div style={{ display: "flex", position: "absolute", left: 70, bottom: 60 }}>
+                  <PlayerAvatar name={b.playerName} src={headshotUrl(b.playerId)} hasHeadshot={false} size={400} fontFamily={display} fontSize={150} border={`8px solid ${OG.gold}`} />
                 </div>
-              ))}
+              )}
+
+              {/* text block, vertically centred in the space above the tiles */}
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", position: "absolute", left: TEXT_LEFT, top: p.special ? 62 : 0, bottom: 0, width: TEXT_W }}>
+                <div style={{ display: "flex", alignSelf: "flex-start", padding: "6px 22px 6px 26px", borderRadius: 8, background: accent, fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: 5, color: monster ? "#FFFFFF" : OG.board }}>
+                  {p.positionName.toUpperCase()}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", marginTop: 18, fontFamily: display, fontWeight: 700, color: OG.board, lineHeight: 1.02, textTransform: "uppercase" }}>
+                  {firstName ? <div style={{ display: "flex", fontSize: fit(firstName, nameCap) }}>{firstName}</div> : null}
+                  <div style={{ display: "flex", fontSize: fit(last, nameCap + 16) }}>{last}</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 12, marginTop: rows === 1 ? 20 : 14 }}>
+                  {logo ? <img src={logo} width={50} height={50} style={{ objectFit: "contain" }} /> : null}
+                  <div style={{ display: "flex", fontFamily: body, fontSize: b.teamName.length > 24 ? 26 : 30, fontWeight: 600, color: OG.muted }}>{b.teamName}</div>
+                </div>
+                <div style={{ display: "flex", width: 90, height: 5, borderRadius: 3, background: accent, marginTop: rows === 1 ? 22 : 14 }} />
+                <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", marginTop: 8 }}>
+                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: ptsSize, lineHeight: 1, color: OG.centerRed }}>{b.points.toFixed(2)}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 40, letterSpacing: 2, color: OG.muted, paddingLeft: 12, paddingBottom: rows === 1 ? 34 : 24 }}>PTS</div>
+                </div>
+                {b.active ? null : <div style={{ display: "flex", marginTop: 6, fontSize: 22, color: OG.muted }}>Not in the active lineup, so these points did not count</div>}
+              </div>
             </div>
-          ) : null}
+
+            {/* stat tiles */}
+            {n > 0 ? (
+              <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: GAP, width: ROW_W, marginLeft: 30, marginBottom: 34 }}>
+                {tiles.map((t) => (
+                  <div key={t.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: tileW, background: OG.rink, borderTop: `5px solid ${accent}`, borderRadius: 12, padding: tilePad }}>
+                    <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: tileValue, color: "#FFFFFF", lineHeight: 1.1 }}>{t.value}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: tileLabel, letterSpacing: 1.5, color: "#C9D6E6" }}>{t.label}</div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     ),
