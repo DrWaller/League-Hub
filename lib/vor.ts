@@ -7,7 +7,7 @@
 //   replacement = per position, the weekly score of the LAST player who would be starting at that
 //                 position if every team started its best players. Built from the league's real
 //                 lineup slots, including flex (F / Util) slots, by filling slots league-wide.
-//   VOR         = points - replacement[position]
+//   VOR         = points - (replacement per game at the position x games he played)
 //
 // A goalie scoring 14 and a forward scoring 14 are not worth the same, because replacement level
 // differs by position; VOR puts them on one scale.
@@ -155,14 +155,21 @@ export async function getWeekVor(week: number, season: number, currentSeason: nu
   const starters = pickStarters(pool, teamCount, counts);
 
   // Replacement level: the lowest score among players who made the league-wide lineup, per position.
+  // That bar is for a typical week of games, so it's turned into a per-game rate (divided by the average
+  // games those starters played) and each player is measured against the rate times HIS games. A player
+  // who got his points in 3 games isn't docked for the game his team didn't play, and a 4th game is
+  // not free credit.
   const replacement = {} as Record<Pos, number>;
+  const replacementPerGame = {} as Record<Pos, number>;
   for (const pos of ["C", "LW", "RW", "D", "G"] as Pos[]) {
-    const scores = pool.filter((p) => p.position === pos && starters.has(p.id)).map((p) => p.points);
-    replacement[pos] = scores.length ? Math.min(...scores) : 0;
+    const group = pool.filter((p) => p.position === pos && starters.has(p.id));
+    replacement[pos] = group.length ? Math.min(...group.map((p) => p.points)) : 0;
+    const avgGames = group.length ? group.reduce((n, p) => n + p.gamesPlayed, 0) / group.length : 0;
+    replacementPerGame[pos] = avgGames > 0 ? replacement[pos] / avgGames : 0;
   }
 
   for (const p of pool) {
-    p.replacement = replacement[p.position];
+    p.replacement = Math.round(replacementPerGame[p.position] * p.gamesPlayed * 100) / 100;
     p.vor = Math.round((p.points - p.replacement) * 100) / 100;
     p.starter = starters.has(p.id);
   }
