@@ -1,13 +1,13 @@
-import { getPickups } from "@/lib/pickups";
+import { getPickups, type PickupWindow } from "@/lib/pickups";
 import PickupTool from "@/components/PickupTool";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pickup Targets" };
 
-export default async function PickupsPage({ searchParams }: { searchParams: { team?: string; days?: string } }) {
+export default async function PickupsPage({ searchParams }: { searchParams: { team?: string; window?: string } }) {
   const teamId = Number(searchParams.team) || null;
-  const horizon = [3, 7, 14].includes(Number(searchParams.days)) ? Number(searchParams.days) : 7;
-  const data = await getPickups(teamId, horizon).catch((e) => {
+  const windowKey = (searchParams.window === "3d" || searchParams.window === "next" ? searchParams.window : "current") as PickupWindow;
+  const data = await getPickups(teamId, windowKey).catch((e) => {
     console.error("Pickups failed", e);
     return null;
   });

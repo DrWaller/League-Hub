@@ -9,7 +9,7 @@ const POS = ["All", "F", "D", "G"];
 const f1 = (n: number) => n.toFixed(2);
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
 
-function Card({ p, horizon }: { p: Pickup; horizon: number }) {
+function Card({ p, label }: { p: Pickup; label: string }) {
   return (
     <div className={`border bg-white p-3 flex gap-3 ${p.hot ? "border-gold" : "border-ice-line"}`}>
       <PlayerPhoto playerId={p.id} name={p.name} size={44} />
@@ -29,7 +29,7 @@ function Card({ p, horizon }: { p: Pickup; horizon: number }) {
           </div>
           <div className="text-right shrink-0">
             <div className="font-display text-2xl leading-none text-center-red">{signed(p.net)}</div>
-            <div className="text-[11px] text-muted">pts / {horizon}d</div>
+            <div className="text-[11px] text-muted">pts · {label}</div>
           </div>
         </div>
         <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap gap-x-3 gap-y-1">
@@ -61,7 +61,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
       if (data.teamId) localStorage.setItem(KEY, String(data.teamId));
       else {
         const saved = localStorage.getItem(KEY);
-        if (saved) window.location.replace(`/pickups?team=${encodeURIComponent(saved)}`);
+        if (saved) window.location.replace(`/pickups?team=${encodeURIComponent(saved)}&window=${data.windowKey}`);
       }
     } catch {
       /* private mode: fine */
@@ -88,13 +88,11 @@ export default function PickupTool({ data }: { data: PickupData }) {
           </select>
         </label>
         <label className="text-xs text-muted flex flex-col gap-1">
-          Look ahead
-          <select name="days" defaultValue={data.horizon} className="border border-ice-line bg-white px-2 py-1.5 text-sm" onChange={(e) => e.currentTarget.form?.submit()}>
-            {[3, 7, 14].map((n) => (
-              <option key={n} value={n}>
-                {n} days
-              </option>
-            ))}
+          Window
+          <select name="window" defaultValue={data.windowKey} className="border border-ice-line bg-white px-2 py-1.5 text-sm" onChange={(e) => e.currentTarget.form?.submit()}>
+            <option value="3d">Next 3 days</option>
+            <option value="current">Current matchup (rest of it)</option>
+            <option value="next">Next matchup</option>
           </select>
         </label>
       </form>
@@ -106,7 +104,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
           <h2 className="font-display text-xl mb-2">The schedule: {data.teamName}</h2>
           <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
             {data.days.map((d) => (
-              <div key={d.offset} className={`shrink-0 w-[84px] border p-2 text-center font-tabular ${d.offset < data.horizon ? "bg-white" : "bg-ice-panel opacity-70"} ${d.light ? "border-gold" : "border-ice-line"}`}>
+              <div key={d.offset} className={`shrink-0 w-[84px] border p-2 text-center font-tabular ${"bg-white"} ${d.light ? "border-gold" : "border-ice-line"}`}>
                 <div className="text-xs text-muted">{d.label}</div>
                 <div className="text-sm">{d.nhlGames} games</div>
                 <div className={`text-xs ${d.open > 0 ? "text-center-red font-semibold" : "text-muted"}`}>{d.open} open</div>
@@ -121,7 +119,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
               <p className="text-xs text-muted mb-3">Performing at a standout level among available players, so they show up whatever your schedule looks like.</p>
               <div className="grid md:grid-cols-2 gap-3">
                 {data.hot.map((p) => (
-                  <Card key={p.id} p={p} horizon={data.horizon} />
+                  <Card key={p.id} p={p} label={data.windowLabel} />
                 ))}
               </div>
             </section>
@@ -143,12 +141,12 @@ export default function PickupTool({ data }: { data: PickupData }) {
             ) : (
               <div className="grid md:grid-cols-2 gap-3">
                 {picks.map((p) => (
-                  <Card key={p.id} p={p} horizon={data.horizon} />
+                  <Card key={p.id} p={p} label={data.windowLabel} />
                 ))}
               </div>
             )}
             <p className="text-xs text-muted mt-4 max-w-prose">
-              Points are the expected extra points over the next {data.horizon} days after dropping the player shown. Expected points per game
+              Points are the expected extra points over {data.windowLabel} after dropping the player shown. Expected points per game
               blend each player&apos;s season average with ESPN&apos;s projection. Goalies count for about 60% of their team&apos;s games, since
               they don&apos;t start every night.
             </p>

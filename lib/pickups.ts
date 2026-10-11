@@ -9,7 +9,7 @@
 // level if there's none) like the win-probability model does, so one hot week doesn't fool it. Players who
 // are simply performing at a level that stands out are flagged "can't miss" whatever the schedule says.
 
-import { getLeagueMeta, getStandings } from "@/lib/espn";
+import { getLeagueMeta, getScoringPeriodsForWeek, getStandings } from "@/lib/espn";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { fetchProSchedule, fetchRosterAgg, fetchRosterDay } from "@/lib/games-played";
 import { fetchLineupSlots, SLOT, type Pos } from "@/lib/vor";
@@ -56,7 +56,9 @@ export interface PickupData {
   teamId: number;
   teamName: string;
   teams: { id: number; name: string }[];
-  horizon: number;
+  windowKey: PickupWindow;
+  windowLabel: string;
+  dayCount: number;
   days: PickupDay[];
   picks: Pickup[];
   hot: Pickup[];
@@ -101,7 +103,9 @@ const estimate = (pos: Pos, gp: number, avg: number, prior: number | null) => {
 };
 const dayValue = (pos: Pos, est: number) => Math.max(0, est) * (pos === "G" ? GOALIE_START : 1);
 
-export async function getPickups(teamId: number | null, horizon: number): Promise<PickupData | null> {
+export type PickupWindow = "3d" | "current" | "next";
+
+export async function getPickups(teamId: number | null, windowKey: PickupWindow): Promise<PickupData | null> {
   const meta = await getLeagueMeta();
   const season = meta.season;
   const [standings, status, avail, counts, pro] = await Promise.all([
@@ -115,7 +119,7 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
   if (!avail || !counts || !pro || status.current === null) return null;
   const current = status.current;
   if (teamId === null || !teams.some((t) => t.id === teamId)) {
-    return { teamId: 0, teamName: "", teams, horizon, days: [], picks: [], hot: [] };
+    return { teamId: 0, teamName: "", teams, windowKey, windowLabel: "", dayCount: 0, days: [], picks: [], hot: [] };
   }
 
   const [rosterData, agg] = await Promise.all([fetchRosterDay(season, current, false), fetchRosterAgg(season)]);
@@ -146,29 +150,38 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
   }
 
   const plays = (proTeam: number, d: number) => pro.get(proTeam)?.has(current + d) ?? false;
-  const H = Math.max(1, Math.min(14, horizon));
+  // The days to look at: the next 3 days, what's left of this matchup, or all of next matchup.
+  let offs: number[] = [0, 1, 2];
+  let windowLabel = "the next 3 days";
+  if (windowKey !== "3d") {
+    const wk = windowKey === "current" ? meta.currentWeek : meta.currentWeek + 1;
+    const periods = await getScoringPeriodsForWeek(wk).then((r) => r.periods).catch(() => [] as number[]);
+    const got = periods.map((sp) => sp - current).filter((o) => o >= 0 && o < 21);
+    if (got.length > 0) {
+      offs = got;
+      windowLabel = windowKey === "current" ? `the rest of matchup ${wk}` : `matchup ${wk}`;
+    }
+  }
   const dayRoster = (d: number, skip?: number): P[] =>
     roster.filter((r) => r.id !== skip && plays(r.proTeam, d)).map((r) => ({ id: r.id, pos: r.pos, v: r.v }));
 
   const totalSlots = [SLOT.C, SLOT.LW, SLOT.RW, SLOT.F, SLOT.D, SLOT.G, SLOT.UTIL].reduce((n, k) => n + (counts[k] ?? 0), 0);
-  const baseDay: number[] = [];
-  const openDay: number[] = [];
-  for (let d = 0; d < H; d++) {
+  const baseDay: Record<number, number> = {};
+  const openDay: Record<number, number> = {};
+  for (const d of offs) {
     const b = bestLineup(dayRoster(d), counts);
-    baseDay.push(b.sum);
-    openDay.push(Math.max(0, totalSlots - b.filled));
+    baseDay[d] = b.sum;
+    openDay[d] = Math.max(0, totalSlots - b.filled);
   }
-  const base = baseDay.reduce((a, b) => a + b, 0);
+  const base = offs.reduce((a, d) => a + baseDay[d], 0);
 
-  const days: PickupDay[] = avail.days.slice(0, 14).map((d) => {
-    let n = 0;
-    for (const set of Array.from(pro.values())) if (set.has(current + d.offset)) n++;
-    const open = d.offset < H ? openDay[d.offset] : (() => {
-      const b = bestLineup(dayRoster(d.offset), counts);
-      return Math.max(0, totalSlots - b.filled);
-    })();
-    return { offset: d.offset, label: d.label, nhlGames: Math.round(n / 2), open, light: Math.round(n / 2) <= LIGHT_DAY_GAMES };
-  });
+  const days: PickupDay[] = avail.days
+    .filter((d) => offs.includes(d.offset))
+    .map((d) => {
+      let n = 0;
+      for (const set of Array.from(pro.values())) if (set.has(current + d.offset)) n++;
+      return { offset: d.offset, label: d.label, nhlGames: Math.round(n / 2), open: openDay[d.offset] ?? 0, light: Math.round(n / 2) <= LIGHT_DAY_GAMES };
+    });
   const lightOffsets = new Set(days.filter((d) => d.light).map((d) => d.offset));
 
   // Who can't be missed: top of the available pool by VOR over the season, last 15 days and last 7 days.
@@ -204,7 +217,7 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
     let lightGames = 0;
     let lightDayGames = 0;
     const gainDay: number[] = [];
-    for (let d = 0; d < H; d++) {
+    for (const d of offs) {
       const playsToday = c.a.games.includes(d);
       if (!playsToday) {
         gainDay.push(0);
@@ -222,7 +235,7 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
     let drop: Pickup["drop"] = null;
     for (const r of roster) {
       let tot = 0;
-      for (let d = 0; d < H; d++) {
+      for (const d of offs) {
         const lineup = dayRoster(d, r.id);
         if (c.a.games.includes(d)) lineup.push({ id: -1, pos: c.a.position, v: c.v });
         tot += bestLineup(lineup, counts).sum;
@@ -260,7 +273,7 @@ export async function getPickups(teamId: number | null, horizon: number): Promis
   const all = Array.from(pool.values()).map(evaluate);
   const picks = [...all].sort((a, b) => b.net - a.net || b.added - a.added).slice(0, SHOWN);
   const hot = all.filter((p) => p.hot).sort((a, b) => (b.vorSeason ?? 0) - (a.vorSeason ?? 0));
-  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, horizon: H, days, picks, hot };
+  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, windowKey, windowLabel, dayCount: offs.length, days, picks, hot };
 }
 
 // Which starting slots are empty on each of the given scoring days for one team.

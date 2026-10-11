@@ -17,7 +17,7 @@ const ESPN_S2 = process.env.ESPN_S2;
 const ESPN_SWID = process.env.ESPN_SWID;
 
 const POS_BY_ID: Record<number, Pos> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
-const DAYS_AHEAD = 14;
+const DAYS_AHEAD = 21;
 
 // ESPN's NHL team ids, used only when ESPN's schedule response doesn't carry abbreviations.
 export const NHL_ABBREV: Record<number, string> = {
