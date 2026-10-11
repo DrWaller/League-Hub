@@ -354,18 +354,22 @@ export interface PortraitPlayer {
   teamId: number;
   points: number;
   statLine?: string | null; // e.g. "4 G \u00b7 4 A \u00b7 10 SOG"
-  vor?: number; // value over replacement: shown small, under the points
-  avg?: number; // points per game played: shown next to the VOR, under the points
+  vor?: number; // value over replacement: the big number when set
+  avg?: number; // points per game played: shown small, under the big number
 }
 
-// "3.64 AVG  \u00b7  +11.55 VOR": one line, one size, one colour, so neither number looks like an afterthought.
+// Under a VOR hero number: "14.55 PTS   \u00b7   3.64 AVG", one line, one size, one colour.
+// Without VOR the hero is points, so only the average goes here.
 function SecondaryLine({ p, display, size }: { p: PortraitPlayer; display: string; size: number }) {
   const parts: string[] = [];
+  if (p.vor !== undefined) parts.push(`${p.points.toFixed(2)} PTS`);
   if (p.avg !== undefined) parts.push(`${p.avg.toFixed(2)} AVG`);
-  if (p.vor !== undefined) parts.push(`${p.vor >= 0 ? "+" : ""}${p.vor.toFixed(2)} VOR`);
   if (parts.length === 0) return null;
   return <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: size, lineHeight: 1.1, letterSpacing: 1.5, color: OG.board }}>{parts.join("   \u00b7   ")}</div>;
 }
+
+const heroNum = (p: PortraitPlayer) => (p.vor !== undefined ? `${p.vor >= 0 ? "+" : ""}${p.vor.toFixed(2)}` : p.points.toFixed(2));
+const heroLabel = (p: PortraitPlayer) => (p.vor !== undefined ? "VOR" : "PTS");
 
 export async function renderPortraitPlayerList(opts: {
   footer?: string;
@@ -471,8 +475,8 @@ export async function renderPortraitThreeStars(opts: {
             <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={224} fontFamily={display} fontSize={80} border={`${AVATAR_BORDER + 2}px solid ${OG.gold}`} />
             <div style={{ display: "flex", fontFamily: display, fontSize: 62, fontWeight: 700, color: OG.board, lineHeight: 1.3, maxWidth: 900, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{star1.name}</div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-              <div style={{ display: "flex", fontFamily: display, fontSize: 88, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{star1.points.toFixed(2)}</div>
-              <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>PTS</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 88, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(star1)}</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>{heroLabel(star1)}</div>
             </div>
             <SecondaryLine p={star1} display={display} size={36} />
             {star1.statLine ? <div style={{ display: "flex", fontSize: 28, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{star1.statLine}</div> : null}
@@ -496,8 +500,8 @@ export async function renderPortraitThreeStars(opts: {
                   <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={120} fontFamily={display} fontSize={44} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
                   <div style={{ display: "flex", fontFamily: display, fontSize: 40, fontWeight: 700, color: OG.board, lineHeight: 1.3, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 54, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 5 }}>PTS</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 54, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 5 }}>{heroLabel(p)}</div>
                   </div>
                   <SecondaryLine p={p} display={display} size={26} />
                   {p.statLine ? <div style={{ display: "flex", fontSize: 23, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}

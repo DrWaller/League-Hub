@@ -66,9 +66,9 @@ export async function GET(req: NextRequest) {
       const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
       if (vorWeek) {
         const lines = top3.map(
-          (p, i) => `${i + 1}) ${p.name} (${p.position}, ${teamName(p.teamId)}) - ${p.points.toFixed(2)} pts${avgOf(p) !== undefined ? ` (${avgOf(p)!.toFixed(2)} avg)` : ""}, ${(p.vor ?? 0) >= 0 ? "+" : ""}${(p.vor ?? 0).toFixed(2)} VOR${statLine(p.position, p.stats) ? `\n    ${statLine(p.position, p.stats)}` : ""}`
+          (p, i) => `${i + 1}) ${p.name} (${p.position}, ${teamName(p.teamId)}) - ${(p.vor ?? 0) >= 0 ? "+" : ""}${(p.vor ?? 0).toFixed(2)} VOR (${p.points.toFixed(2)} pts${avgOf(p) !== undefined ? `, ${avgOf(p)!.toFixed(2)} avg` : ""})${statLine(p.position, p.stats) ? `\n    ${statLine(p.position, p.stats)}` : ""}`
         );
-        return captionResponse(["3 STARS OF THE WEEK", when, "", ...lines, "", "Stars are chosen by value over replacement (points minus the last starter at the position)."].join("\n"));
+        return captionResponse(["3 STARS OF THE WEEK", when, "", ...lines, "", "Ranked by value over replacement (points minus the last starter at the position)."].join("\n"));
       }
       return captionResponse(
         playersCaption("3 Stars of the Week", when, top3.map((p) => ({ name: p.name, team: teamName(p.teamId), points: p.points, line: statLine(p.position, p.stats) })))
