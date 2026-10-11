@@ -45,6 +45,8 @@ export interface Pickup {
   est: number; // expected points per game
   games: number; // his team's games in the window
   nights: number[]; // the days (offsets from today) in the window that his team plays
+  fitNights: number[]; // of those, days he'd take an open slot in my lineup (full value)
+  partNights: number[]; // days he'd only partly help (he'd bump a weaker starter)
   lightGames: number; // of those, games on days my lineup has an open slot for him
   lightDayGames: number; // of those, games on league light days (few NHL games that night)
   added: number; // extra points over the window if I had a free roster spot
@@ -256,6 +258,8 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
     let lightGames = 0;
     let lightDayGames = 0;
     const gainDay: number[] = [];
+    const fitNights: number[] = [];
+    const partNights: number[] = [];
     for (const d of offs) {
       const playsToday = c.a.games.includes(d);
       if (!playsToday) {
@@ -267,7 +271,10 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
       const g = bestLineup([...dayRoster(d), { id: -1, pos: c.a.position, v: c.v }], counts).sum - baseDay[d];
       gainDay.push(g);
       added += g;
-      if (c.v > 0 && g >= 0.85 * c.v) lightGames++;
+      if (c.v > 0 && g >= 0.85 * c.v) {
+        lightGames++;
+        fitNights.push(d);
+      } else if (c.v > 0 && g > 0.05 * c.v) partNights.push(d);
     }
     // Best drop: the roster player whose loss costs the least over the window.
     let bestNet = -Infinity;
@@ -298,6 +305,8 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
       est: r2(c.est),
       games,
       nights: offs.filter((d) => c.a.games.includes(d)),
+      fitNights,
+      partNights,
       lightGames,
       lightDayGames,
       added: r2(added),

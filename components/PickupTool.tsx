@@ -49,7 +49,23 @@ function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen
         </div>
         <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap gap-x-3 gap-y-1">
           <span>{p.games} {p.games === 1 ? "game" : "games"}</span>
-          {nightList.length > 0 ? <span className="font-semibold text-rink">{nightList.map((d) => dayShort(d.label)).join(" ")}</span> : null}
+          {nightList.length > 0 ? (
+            <span className="inline-flex gap-1.5">
+              {nightList.map((d) => {
+                const fit = p.fitNights.includes(d.offset);
+                const part = !fit && p.partNights.includes(d.offset);
+                return (
+                  <span
+                    key={d.offset}
+                    title={fit ? "Fits an open slot in your lineup" : part ? "Only partly helps: he would bump a weaker starter" : "Plays, but your lineup is already full that night"}
+                    className={fit ? "px-1 bg-green-100 text-green-800 font-bold" : part ? "px-1 bg-gold/20 text-rink font-semibold" : "text-muted/70 line-through decoration-1"}
+                  >
+                    {dayShort(d.label)}
+                  </span>
+                );
+              })}
+            </span>
+          ) : null}
           <span>{p.lightGames} on your open-slot days</span>
           <span>{p.lightDayGames} on light nights</span>
           <span>{f1(p.est)} exp/gm</span>
@@ -150,7 +166,10 @@ export default function PickupTool({ data }: { data: PickupData }) {
       ) : (
         <>
           <h2 className="font-display text-xl">The schedule: {data.teamName}</h2>
-          <p className="text-xs text-muted mb-2">Showing {data.windowLabel}</p>
+          <p className="text-xs text-muted mb-2">
+            Showing {data.windowLabel}. Game nights on cards: <span className="px-1 bg-green-100 text-green-800 font-bold">fits your lineup</span>{" "}
+            <span className="px-1 bg-gold/20 text-rink font-semibold">partly</span> <span className="text-muted/70 line-through">lineup full</span>
+          </p>
           <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
             {data.days.map((d) => (
               <div key={d.offset} className={`shrink-0 w-[84px] border p-2 text-center font-tabular ${"bg-white"} ${d.light ? "border-gold" : "border-ice-line"}`}>
