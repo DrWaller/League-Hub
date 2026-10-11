@@ -354,7 +354,23 @@ export interface PortraitPlayer {
   teamId: number;
   points: number;
   statLine?: string | null; // e.g. "4 G \u00b7 4 A \u00b7 10 SOG"
-  vor?: number; // when set, the big number is value over replacement ("+14.20" over "VOR") instead of points
+  vor?: number; // value over replacement: shown small, under the points
+  avg?: number; // points per game played: shown next to the VOR, under the points
+}
+
+// "3.64 AVG  ·  +11.55 VOR": the average leads, VOR is the small print. Nothing when neither is set.
+function SecondaryLine({ p, display, avgSize, vorSize }: { p: PortraitPlayer; display: string; avgSize: number; vorSize: number }) {
+  if (p.avg === undefined && p.vor === undefined) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", gap: 14 }}>
+      {p.avg !== undefined ? (
+        <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: avgSize, lineHeight: 1, letterSpacing: 1, color: OG.rink }}>{`${p.avg.toFixed(2)} AVG`}</div>
+      ) : null}
+      {p.vor !== undefined ? (
+        <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: vorSize, lineHeight: 1, letterSpacing: 1, color: OG.muted }}>{`${p.avg !== undefined ? "\u00b7  " : ""}${p.vor >= 0 ? "+" : ""}${p.vor.toFixed(2)} VOR`}</div>
+      ) : null}
+    </div>
+  );
 }
 
 export async function renderPortraitPlayerList(opts: {
@@ -458,12 +474,13 @@ export async function renderPortraitThreeStars(opts: {
               <div style={{ display: "flex" }}>{(opts.labels[0] ?? "1ST STAR").toUpperCase()}</div>
               <GoldStar size={30} />
             </div>
-            <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={260} fontFamily={display} fontSize={90} border={`${AVATAR_BORDER + 2}px solid ${OG.gold}`} />
+            <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={224} fontFamily={display} fontSize={80} border={`${AVATAR_BORDER + 2}px solid ${OG.gold}`} />
             <div style={{ display: "flex", fontFamily: display, fontSize: 62, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 900, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{star1.name}</div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-              <div style={{ display: "flex", fontFamily: display, fontSize: 88, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{star1.vor !== undefined ? `${star1.vor >= 0 ? "+" : ""}${star1.vor.toFixed(2)}` : star1.points.toFixed(2)}</div>
-              <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>{star1.vor !== undefined ? "VOR" : "PTS"}</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 88, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{star1.points.toFixed(2)}</div>
+              <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>PTS</div>
             </div>
+            <SecondaryLine p={star1} display={display} avgSize={40} vorSize={30} />
             {star1.statLine ? <div style={{ display: "flex", fontSize: 28, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{star1.statLine}</div> : null}
             <TeamLine name={star1.teamName} logo={logos[star1.teamId]} size={LOGO_SIZE} fontSize={24} />
             <TeamAccent teamId={star1.teamId} />
@@ -482,12 +499,13 @@ export async function renderPortraitThreeStars(opts: {
                   }}
                 >
                   <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: 4, color: medalText(opts.colors[i]) }}>{(opts.labels[i] ?? "").toUpperCase()}</div>
-                  <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={170} fontFamily={display} fontSize={58} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
+                  <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={150} fontFamily={display} fontSize={52} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
                   <div style={{ display: "flex", fontFamily: display, fontSize: 40, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.vor !== undefined ? `${p.vor >= 0 ? "+" : ""}${p.vor.toFixed(2)}` : p.points.toFixed(2)}</div>
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 5 }}>{p.vor !== undefined ? "VOR" : "PTS"}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 58, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{p.points.toFixed(2)}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 5 }}>PTS</div>
                   </div>
+                  <SecondaryLine p={p} display={display} avgSize={30} vorSize={22} />
                   {p.statLine ? <div style={{ display: "flex", fontSize: 23, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}
                   <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE - 8} fontSize={21} />
                   <TeamAccent teamId={p.teamId} />

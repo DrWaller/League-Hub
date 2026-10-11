@@ -49,10 +49,11 @@ export async function GET(req: NextRequest) {
     if (req.nextUrl.searchParams.get("caption")) {
       const lines = top3.map((p, i) => {
         const sl = statLine(p.position, p.stats);
-        return `${i + 1}) ${p.name} (${p.position}, ${teamName(p.teamId)}) - ${signed(p.vor)} VOR (${p.points.toFixed(2)} pts)${sl ? `\n    ${sl}` : ""}`;
+        const avg = p.gamesPlayed ? ` (${(p.points / p.gamesPlayed).toFixed(2)} avg)` : "";
+        return `${i + 1}) ${p.name} (${p.position}, ${teamName(p.teamId)}) - ${p.points.toFixed(2)} pts${avg}, ${signed(p.vor)} VOR${sl ? `\n    ${sl}` : ""}`;
       });
       return captionResponse(
-        [`3 STARS OF THE MONTH`, `${label ? `${label} ` : ""}(${weeksText}${isPast ? `, ${seasonParam}` : ""})`, "", ...lines, "", "Ranked by total value over replacement across the month (points minus the last starter at each position, week by week)."].join("\n")
+        [`3 STARS OF THE MONTH`, `${label ? `${label} ` : ""}(${weeksText}${isPast ? `, ${seasonParam}` : ""})`, "", ...lines, "", "Stars are chosen by total value over replacement across the month (points minus the last starter at each position, week by week)."].join("\n")
       );
     }
 
@@ -67,8 +68,9 @@ export async function GET(req: NextRequest) {
         teamId: p.teamId,
         teamName: teamName(p.teamId),
         points: p.points,
-        statLine: [`${p.points.toFixed(2)} PTS`, statLine(p.position, p.stats)].filter(Boolean).join(" · "),
+        statLine: statLine(p.position, p.stats),
         vor: p.vor,
+        avg: p.gamesPlayed ? p.points / p.gamesPlayed : undefined,
       })),
       labels: ["1ST STAR", "2ND STAR", "3RD STAR"],
       colors: [OG.gold, OG.silver, OG.bronze],
