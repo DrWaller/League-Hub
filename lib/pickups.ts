@@ -9,7 +9,10 @@
 // level if there's none) like the win-probability model does, so one hot week doesn't fool it. Players who
 // are simply performing at a level that stands out are flagged "can't miss" whatever the schedule says.
 
-import { getLeagueMeta, getScoringPeriodsForWeek, getStandings } from "@/lib/espn";
+import { getLeagueMeta, getStandings } from "@/lib/espn";
+import { resolveWindow, PICKUP_WINDOWS, type PickupWindow } from "@/lib/windows";
+export { PICKUP_WINDOWS };
+export type { PickupWindow };
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { fetchProSchedule, fetchRosterAgg, fetchRosterDay } from "@/lib/games-played";
 import { fetchLineupSlots, SLOT, type Pos } from "@/lib/vor";
@@ -117,9 +120,6 @@ const estimate = (pos: Pos, gp: number, avg: number, prior: number | null) => {
 };
 const dayValue = (pos: Pos, est: number) => Math.max(0, est) * (pos === "G" ? GOALIE_START : 1);
 
-export type PickupWindow = "3d" | "current" | "next" | "early" | "late" | "next-early" | "next-late";
-export const PICKUP_WINDOWS: PickupWindow[] = ["3d", "current", "next", "early", "late", "next-early", "next-late"];
-const EARLY_DAYS = ["Mon", "Tue", "Wed"]; // early week = M-W, late week = Th-Su
 
 export async function getPickups(teamId: number | null, windowKey: PickupWindow, roleOn = true): Promise<PickupData | null> {
   const meta = await getLeagueMeta();
@@ -171,37 +171,8 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
   }
 
   const plays = (proTeam: number, d: number) => pro.get(proTeam)?.has(current + d) ?? false;
-  // The days to look at: the next 3 days, what's left of this matchup, or all of next matchup.
-  let offs: number[] = [0, 1, 2];
-  let windowLabel = "the next 3 days";
-  if (windowKey !== "3d") {
-    const part = windowKey.endsWith("early") ? "early" : windowKey.endsWith("late") ? "late" : null;
-    const dayName = (o: number) => (avail.days.find((d) => d.offset === o)?.label ?? "").slice(0, 3);
-    const inPart = (o: number) => (part === null ? true : part === "early" ? EARLY_DAYS.includes(dayName(o)) : !EARLY_DAYS.includes(dayName(o)));
-    const partName = part === "early" ? "early week (M-W)" : part === "late" ? "late week (Th-Su)" : null;
-    const load = async (wk: number) => {
-      const periods = await getScoringPeriodsForWeek(wk).then((r) => r.periods).catch(() => [] as number[]);
-      return periods.map((sp) => sp - current).filter((o) => o >= 0 && o < 21 && inPart(o));
-    };
-    let wk = windowKey.startsWith("next") || windowKey === "next" ? meta.currentWeek + 1 : meta.currentWeek;
-    let got = await load(wk);
-    let rolled = false;
-    if (got.length === 0 && wk === meta.currentWeek) {
-      // That part of this matchup is already played, so look at the same part of next matchup.
-      wk = meta.currentWeek + 1;
-      got = await load(wk);
-      rolled = true;
-    }
-    if (got.length > 0) {
-      offs = got;
-      const isNext = wk !== meta.currentWeek;
-      windowLabel = partName
-        ? `${partName} of matchup ${wk}${rolled ? " (this week's is over)" : ""}`
-        : isNext
-          ? `matchup ${wk}`
-          : `the rest of matchup ${wk}`;
-    }
-  }
+  // The days to look at: the next 3 days, what is left of this matchup, early/late week, or next matchup.
+  const { offs, label: windowLabel } = await resolveWindow(windowKey, avail.days, current, meta.currentWeek);
   const dayRoster = (d: number, skip?: number): P[] =>
     roster.filter((r) => r.id !== skip && plays(r.proTeam, d)).map((r) => ({ id: r.id, pos: r.pos, v: r.v }));
 
