@@ -47,6 +47,7 @@ export interface WeekVor {
   teamCount: number;
   slots: Record<string, number>; // how many of each slot a team starts
   replacement: Record<Pos, number>;
+  replacementPerGame: Record<Pos, number>; // the same bar per game played, used to score any stretch of games
   players: VorPlayer[]; // sorted by VOR, best first
 }
 
@@ -181,6 +182,7 @@ export async function getWeekVor(week: number, season: number, currentSeason: nu
     teamCount,
     slots: { C: counts[SLOT.C] ?? 0, LW: counts[SLOT.LW] ?? 0, RW: counts[SLOT.RW] ?? 0, F: counts[SLOT.F] ?? 0, D: counts[SLOT.D] ?? 0, G: counts[SLOT.G] ?? 0, Util: counts[SLOT.UTIL] ?? 0 },
     replacement,
+    replacementPerGame,
     players: pool,
   };
 }
@@ -225,4 +227,18 @@ export async function getPeriodVor(startWeek: number, endWeek: number, season: n
   if (used === 0 || totals.size === 0) return null;
   const players = [...totals.values()].sort((a, b) => b.vor - a.vor || b.points - a.points);
   return { startWeek, endWeek, season, weeks: used, players };
+}
+
+// Replacement level per game, per position: the average over the last few COMPLETED weeks of the season
+// (a part-played week would skew it). Lets the waiver-wire tool score any stretch of games (season, last 7 /
+// 15 / 30 days) with the same bar the weekly VOR uses. Falls back to the current week if none are done.
+export async function getReplacementRates(season: number, currentWeek: number, lookback = 4): Promise<Record<Pos, number> | null> {
+  const weeks: number[] = [];
+  for (let w = currentWeek - 1; w >= 1 && weeks.length < lookback; w--) weeks.push(w);
+  if (weeks.length === 0) weeks.push(currentWeek);
+  const results = (await Promise.all(weeks.map((w) => getWeekVor(w, season, season).catch(() => null)))).filter((r): r is WeekVor => r !== null);
+  if (results.length === 0) return null;
+  const out = {} as Record<Pos, number>;
+  for (const pos of ["C", "LW", "RW", "D", "G"] as Pos[]) out[pos] = results.reduce((n, r) => n + r.replacementPerGame[pos], 0) / results.length;
+  return out;
 }

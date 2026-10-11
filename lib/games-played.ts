@@ -101,7 +101,7 @@ async function fetchRosterAgg(season: number): Promise<Map<number, any[]>> {
 
 // proTeamId -> the scoring days that NHL team plays. ESPN publishes this on the
 // game-level (not league-level) endpoint under settings.proTeams[].proGamesByScoringPeriod.
-async function fetchProSchedule(season: number): Promise<Map<number, Set<number>> | null> {
+export async function fetchProSchedule(season: number): Promise<Map<number, Set<number>> | null> {
   const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}?view=proTeamSchedules_wl`;
   try {
     const res = await fetch(url, { headers: cookies(), next: { revalidate: 3600 } });
