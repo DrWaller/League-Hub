@@ -189,8 +189,8 @@ export default function BestAvailable({ data }: { data: Data }) {
           <table className="w-full text-sm font-tabular">
             <thead>
               <tr className="text-left text-muted border-b border-ice-line">
-                <th className="px-3 py-2 w-10">#</th>
-                <th className="px-3 py-2">Player</th>
+                <th className="px-3 py-2 w-10 min-w-[2.5rem] sticky left-0 z-10 bg-white">#</th>
+                <th className="px-3 py-2 min-w-[210px] sticky left-10 z-10 bg-white shadow-[2px_0_0_0_#CBD6E2]">Player</th>
                 <th className="px-3 py-2">Pos</th>
                 <th className="px-3 py-2 text-right">GP</th>
                 {th("pts", "PTS")}
@@ -207,8 +207,8 @@ export default function BestAvailable({ data }: { data: Data }) {
                 const next7 = p.games.filter((g) => g < 7).length;
                 return (
                   <tr key={p.id} className="border-b border-ice-line last:border-0">
-                    <td className="px-3 py-2 text-muted">{i + 1}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 text-muted sticky left-0 z-10 bg-white">{i + 1}</td>
+                    <td className="px-3 py-2 sticky left-10 z-10 bg-white shadow-[2px_0_0_0_#CBD6E2]">
                       <div className="flex items-center gap-3">
                         <PlayerPhoto playerId={p.id} name={p.name} size={36} />
                         <div className="min-w-0">
