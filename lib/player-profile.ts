@@ -13,6 +13,7 @@ import {
   getStandings,
   getWeeklyPlayerStats,
 } from "./espn";
+import { getWeekVor } from "./vor";
 import { checkHeadshots, headshotUrl, urlExists } from "./headshots";
 import {
   buildRadar,
@@ -94,7 +95,9 @@ export async function loadProfile(params: URLSearchParams): Promise<{ response: 
     if (!week) return fail("Pick a player, or give a week to use that week's top scorer.");
     const { players, live } = await getWeeklyPlayerStats(week);
     if (!live || players.length === 0) return fail("No player stats posted for that week yet.");
-    playerId = [...players].sort((a, b) => b.points - a.points)[0].id;
+    // The week's best player is the one with the most value over replacement (raw points if VOR isn't available).
+    const vorWeek = await getWeekVor(week, meta.season, meta.season).catch(() => null);
+    playerId = vorWeek && vorWeek.players.length > 0 ? vorWeek.players[0].id : [...players].sort((a, b) => b.points - a.points)[0].id;
   }
 
   // 2. His season line, and the pool of NHL players at his position to rank him against.

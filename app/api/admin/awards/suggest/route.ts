@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWeeklyPlayerStats, getLeagueMeta } from "@/lib/espn";
 import { getWeekVor } from "@/lib/vor";
-import { WeeklyPlayerStat } from "@/lib/types";
 
 // Suggests award picks from real weekly stats -- pure computation, no AI,
 // no extra cost. The admin still reviews/edits before saving anything.
 
-function top(players: WeeklyPlayerStat[], n: number) {
-  return [...players].sort((a, b) => b.points - a.points).slice(0, n);
+// Best by value over replacement when the players carry it, else by raw points.
+type Ranked = { name: string; position: string; teamId: number; points: number; vor?: number };
+function top(players: Ranked[], n: number) {
+  return [...players].sort((a, b) => (b.vor ?? b.points) - (a.vor ?? a.points) || b.points - a.points).slice(0, n);
 }
 
 export async function GET(req: NextRequest) {
@@ -28,15 +29,15 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const forwards = players.filter((p) => ["C", "LW", "RW"].includes(p.position));
-  const defense = players.filter((p) => p.position === "D");
-  const goalies = players.filter((p) => p.position === "G");
-
   // The 3 Stars are the most valuable players over replacement, so a goalie and a forward compete
   // fairly. If VOR can't be worked out, fall back to raw points.
   const meta = await getLeagueMeta();
   const vor = await getWeekVor(week, meta.season, meta.season).catch(() => null);
   const [star1, star2, star3] = vor ? vor.players.slice(0, 3) : top(players, 3);
+  const ranked: Ranked[] = vor ? vor.players : players;
+  const forwards = ranked.filter((p) => ["C", "LW", "RW"].includes(p.position));
+  const defense = ranked.filter((p) => p.position === "D");
+  const goalies = ranked.filter((p) => p.position === "G");
   const [fwd1, fwd2] = top(forwards, 2);
   const [def1, def2] = top(defense, 2);
   const [g1, g2] = top(goalies, 2);

@@ -473,8 +473,8 @@ export async function renderPortraitThreeStars(opts: {
               <div style={{ display: "flex" }}>{(opts.labels[0] ?? "1ST STAR").toUpperCase()}</div>
               <GoldStar size={30} />
             </div>
-            <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={224} fontFamily={display} fontSize={80} border={`${AVATAR_BORDER + 2}px solid ${OG.gold}`} />
-            <div style={{ display: "flex", fontFamily: display, fontSize: 62, fontWeight: 700, color: OG.board, lineHeight: 1.3, maxWidth: 900, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{star1.name}</div>
+            <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={200} fontFamily={display} fontSize={72} border={`${AVATAR_BORDER + 2}px solid ${OG.gold}`} />
+            <div style={{ display: "flex", fontFamily: display, fontSize: 62, fontWeight: 700, color: OG.board, lineHeight: 1.3, flexShrink: 0, maxWidth: 900, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{star1.name}</div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
               <div style={{ display: "flex", fontFamily: display, fontSize: 88, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(star1)}</div>
               <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>{heroLabel(star1)}</div>
@@ -499,7 +499,7 @@ export async function renderPortraitThreeStars(opts: {
                 >
                   <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: 4, color: medalText(opts.colors[i]) }}>{(opts.labels[i] ?? "").toUpperCase()}</div>
                   <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={120} fontFamily={display} fontSize={44} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 40, fontWeight: 700, color: OG.board, lineHeight: 1.3, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 40, fontWeight: 700, color: OG.board, lineHeight: 1.3, flexShrink: 0, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
                   <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
                     <div style={{ display: "flex", fontFamily: display, fontSize: 54, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
                     <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 5 }}>{heroLabel(p)}</div>
@@ -528,7 +528,7 @@ export async function renderPortraitTeamOfWeek(opts: {
   headshots: Set<number>;
 }) {
   const logos = opts.logos ?? {};
-  const scored = opts.lineup.map((l) => l.player?.points).filter((p): p is number => p !== undefined);
+  const scored = opts.lineup.map((l) => (l.player ? (l.player.vor ?? l.player.points) : undefined)).filter((p): p is number => p !== undefined);
   const high = scored.length ? Math.max(...scored) : null;
 
   type Slot = { slot: string; player?: PortraitPlayer };
@@ -549,7 +549,7 @@ export async function renderPortraitTeamOfWeek(opts: {
     body: ({ display }) => {
       const card = (l: Slot, i: number) => {
         const p = l.player;
-        const isHigh = p != null && high != null && p.points === high;
+        const isHigh = p != null && high != null && (p.vor ?? p.points) === high;
         const w = isHigh ? HIGH_W : CARD_W;
         const logoShown = p ? Boolean(logos[p.teamId]) : false;
         return (
@@ -581,7 +581,10 @@ export async function renderPortraitTeamOfWeek(opts: {
                   {logoShown ? <TeamBadge name={p.teamName} logo={logos[p.teamId]} size={TOTW_LOGO} fontFamily={display} /> : null}
                   <div style={{ display: "flex", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", maxWidth: logoShown ? w - 24 - TOTW_LOGO - 8 : w - 24 }}>{p.teamName}</div>
                 </div>
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 46, lineHeight: 1, color: OG.centerRed, marginTop: 8 }}>{p.points.toFixed(2)}</div>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 46, lineHeight: 1, color: OG.centerRed, marginTop: 8 }}>{p.vor !== undefined ? `${heroNum(p)} VOR` : heroNum(p)}</div>
+                <div style={{ display: "flex", marginTop: 6 }}>
+                  <SecondaryLine p={p} display={display} size={20} />
+                </div>
               </div>
             ) : (
               <div style={{ display: "flex", color: OG.muted, fontSize: 24, height: 150, alignItems: "center" }}>No data</div>
@@ -599,7 +602,7 @@ export async function renderPortraitTeamOfWeek(opts: {
       // Rows sit close together in the middle (instead of spreading to the edges) so the
       // goalie reads as part of the formation, not a separate island.
       return (
-        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center", gap: 34 }}>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center", gap: 22 }}>
           {row(forwards, "f")}
           {row(defence, "d")}
           {row(goalie, "g")}

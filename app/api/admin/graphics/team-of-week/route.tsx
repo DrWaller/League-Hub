@@ -8,7 +8,7 @@ import { PlayerAvatar } from "@/lib/og-avatar";
 import { OG, NO_CACHE } from "@/lib/og-theme";
 import { loadLogoData, TeamLine } from "@/lib/og-team-logo";
 import { isPortrait, renderPortraitPlayerList, renderPortraitTeamOfWeek, renderPortraitSpotlight, seasonFooter } from "@/lib/portrait-graphics";
-import { WeeklyPlayerStat } from "@/lib/types";
+import { getWeekVor } from "@/lib/vor";
 import { captionResponse, playersCaption, lineupCaption, standingsCaption, rankingsCaption, scoreboardCaption, previewCaption, luckCaption, weekLine, weekDatesText } from "@/lib/captions";
 
 export const runtime = "nodejs";
@@ -47,9 +47,14 @@ export async function GET(req: NextRequest) {
 
     const logos = await loadLogoData(isPast);
     const teamName = (id: number) => teamsResult.find((t) => t.id === id)?.name ?? "";
-    const byPos = (pos: string) => [...players].filter((p) => p.position === pos).sort((a, b) => b.points - a.points);
+    // Best at each position by value over replacement (raw points if VOR can't be worked out).
+    const vorWeek = await getWeekVor(week, seasonParam, meta.season).catch(() => null);
+    type Pick = { id: number; name: string; position: string; teamId: number; points: number; vor?: number; gamesPlayed?: number };
+    const pool: Pick[] = vorWeek ? vorWeek.players : players;
+    const byPos = (pos: string) => pool.filter((p) => p.position === pos).sort((a, b) => (b.vor ?? b.points) - (a.vor ?? a.points) || b.points - a.points);
+    const avgOf = (p: Pick) => (p.gamesPlayed ? p.points / p.gamesPlayed : undefined);
 
-    const lineup: { slot: string; player: WeeklyPlayerStat | undefined }[] = [
+    const lineup: { slot: string; player: Pick | undefined }[] = [
       { slot: "LW", player: byPos("LW")[0] },
       { slot: "C", player: byPos("C")[0] },
       { slot: "RW", player: byPos("RW")[0] },
@@ -64,12 +69,20 @@ export async function GET(req: NextRequest) {
 
     if (req.nextUrl.searchParams.get("caption")) {
       const when = weekLine(seasonParam, meta.season, week, await weekDatesText(seasonParam, meta.season, week));
+      const filled = lineup.filter((l) => l.player);
+      if (vorWeek) {
+        const lines = filled.map((l) => {
+          const p = l.player!;
+          const avg = avgOf(p);
+          return `${l.slot}: ${p.name} (${teamName(p.teamId)}) - ${(p.vor ?? 0) >= 0 ? "+" : ""}${(p.vor ?? 0).toFixed(2)} VOR (${p.points.toFixed(2)} pts${avg !== undefined ? `, ${avg.toFixed(2)} avg` : ""})`;
+        });
+        const best = [...filled].sort((a, b) => (b.player!.vor ?? 0) - (a.player!.vor ?? 0))[0]?.player;
+        return captionResponse(["TEAM OF THE WEEK", when, "", ...lines, ...(best ? ["", `Week high: ${best.name} (${(best.vor ?? 0) >= 0 ? "+" : ""}${(best.vor ?? 0).toFixed(2)} VOR)`] : []), "", "Ranked by value over replacement."].join("\n"));
+      }
       return captionResponse(
         lineupCaption(
           when,
-          lineup
-            .filter((l) => l.player)
-            .map((l) => ({ slot: l.slot, name: l.player!.name, team: teamName(l.player!.teamId), points: l.player!.points }))
+          filled.map((l) => ({ slot: l.slot, name: l.player!.name, team: teamName(l.player!.teamId), points: l.player!.points }))
         )
       );
     }
@@ -81,7 +94,7 @@ export async function GET(req: NextRequest) {
         lineup: lineup.map((l) => ({
           slot: l.slot,
           player: l.player
-            ? { id: l.player.id, name: l.player.name, teamId: l.player.teamId, teamName: teamName(l.player.teamId), points: l.player.points }
+            ? { id: l.player.id, name: l.player.name, teamId: l.player.teamId, teamName: teamName(l.player.teamId), points: l.player.points, vor: l.player.vor, avg: avgOf(l.player) }
             : undefined,
         })),
         logos,
