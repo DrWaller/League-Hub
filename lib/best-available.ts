@@ -58,6 +58,7 @@ export interface AvailablePlayer {
   status: "FA" | "W"; // free agent, or on waivers
   owned: number | null; // % owned across ESPN
   injury: string | null; // null when healthy
+  proj: number | null; // ESPN's projected points per game, when it sends one
   games: number[]; // days-from-today (0 = today) his NHL team plays, within the next DAYS_AHEAD days
   w: Record<Window, WindowStat | null>;
 }
@@ -203,6 +204,10 @@ export async function getBestAvailable(): Promise<BestAvailable | null> {
       const sched = pro!.get(proId)?.days;
       if (sched) for (let i = 0; i < DAYS_AHEAD; i++) if (sched.has((current as number) + i)) games.push(i);
     }
+    const projEntry = stats.find((x) => x.statSourceId === 1 && x.statSplitTypeId === 0 && !x.scoringPeriodId);
+    const projGp = Number(projEntry?.stats?.["34"]) || Number(projEntry?.stats?.["0"]) || 0;
+    const projTotal = Number(projEntry?.appliedTotal);
+    const proj = projEntry && projGp > 0 && Number.isFinite(projTotal) ? projTotal / projGp : null;
     const inj = String(pl.injuryStatus ?? "ACTIVE");
     const owned = Number(pl.ownership?.percentOwned);
     players.push({
@@ -213,6 +218,7 @@ export async function getBestAvailable(): Promise<BestAvailable | null> {
       status: String(e.status ?? "").toUpperCase() === "WAIVERS" ? "W" : "FA",
       owned: Number.isFinite(owned) ? owned : null,
       injury: inj === "ACTIVE" ? null : inj.replace(/_/g, " ").toLowerCase(),
+      proj,
       games,
       w,
     });

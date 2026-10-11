@@ -80,7 +80,7 @@ export async function fetchRosterDay(season: number, sp: number, frozen: boolean
 
 // Season-level stat buckets (this season's actuals, ESPN's projection, last season) for every rostered
 // player. ESPN only includes these when NO scoringPeriodId is asked for, so they come from their own call.
-async function fetchRosterAgg(season: number): Promise<Map<number, any[]>> {
+export async function fetchRosterAgg(season: number): Promise<Map<number, any[]>> {
   const out = new Map<number, any[]>();
   const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mRoster&view=mTeam`;
   try {

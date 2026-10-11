@@ -26,7 +26,7 @@ const FORWARDS: Pos[] = ["C", "LW", "RW"];
 const SKATERS: Pos[] = ["C", "LW", "RW", "D"];
 
 // ESPN hockey lineup slot ids: 0 C, 1 LW, 2 RW, 3 F (any forward), 4 D, 5 G, 6 Util (any skater), 7 bench, 8 IR.
-const SLOT = { C: 0, LW: 1, RW: 2, F: 3, D: 4, G: 5, UTIL: 6 };
+export const SLOT = { C: 0, LW: 1, RW: 2, F: 3, D: 4, G: 5, UTIL: 6 };
 
 export interface VorPlayer {
   id: number;
@@ -51,7 +51,7 @@ export interface WeekVor {
   players: VorPlayer[]; // sorted by VOR, best first
 }
 
-async function fetchLineupSlots(season: number): Promise<Record<number, number> | null> {
+export async function fetchLineupSlots(season: number): Promise<Record<number, number> | null> {
   const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mSettings`;
   try {
     const res = await fetch(url, { headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` }, next: { revalidate: 3600 } });

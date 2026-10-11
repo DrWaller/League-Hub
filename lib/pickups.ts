@@ -1,0 +1,257 @@
+// Server-side only. The pickup optimizer: which available player adds the most points to MY lineup.
+//
+// Every day, a team fills its starting slots with the best of its players who have a game that day.
+// On a light NHL day (few teams playing) some slots go empty, so a free agent whose team plays that day
+// adds his full expected points; on a heavy day he only adds what he's worth over the worst starter.
+// The value of a pickup is the extra points over the next N days, with the best player to drop.
+//
+// Expected points per game = the player's season average pulled toward ESPN's projection (or replacement
+// level if there's none) like the win-probability model does, so one hot week doesn't fool it. Players who
+// are simply performing at a level that stands out are flagged "can't miss" whatever the schedule says.
+
+import { getLeagueMeta, getStandings } from "@/lib/espn";
+import { getCurrentScoringPeriod } from "@/lib/espn-daily";
+import { fetchProSchedule, fetchRosterAgg, fetchRosterDay } from "@/lib/games-played";
+import { fetchLineupSlots, SLOT, type Pos } from "@/lib/vor";
+import { getBestAvailable, type AvailablePlayer } from "@/lib/best-available";
+
+const POS_BY_ID: Record<number, Pos> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
+const K_SKATER = 15;
+const K_GOALIE = 10;
+const GOALIE_START = 0.6; // a goalie's team plays more games than he starts
+const MAX_CANDIDATES = 90;
+const SHOWN = 40;
+
+export interface PickupDay {
+  offset: number;
+  label: string;
+  nhlTeams: number; // NHL teams playing that day
+  open: number; // empty starting slots on my team that day
+  light: boolean;
+}
+
+export interface Pickup {
+  id: number;
+  name: string;
+  position: Pos;
+  team: string;
+  status: "FA" | "W";
+  owned: number | null;
+  injury: string | null;
+  est: number; // expected points per game
+  games: number; // his team's games in the window
+  lightGames: number; // of those, games on days my lineup has an open slot for him
+  added: number; // extra points over the window if I had a free roster spot
+  net: number; // extra points after dropping the best drop
+  drop: { id: number; name: string } | null;
+  vorSeason: number | null;
+  avgL15: number | null;
+  gpL15: number;
+  hot: string | null; // why he can't be missed, if he can't
+}
+
+export interface PickupData {
+  teamId: number;
+  teamName: string;
+  teams: { id: number; name: string }[];
+  horizon: number;
+  days: PickupDay[];
+  picks: Pickup[];
+  hot: Pickup[];
+}
+
+type P = { id: number; pos: Pos; v: number };
+
+function bestLineup(players: P[], counts: Record<number, number>): { sum: number; filled: number } {
+  const sorted = [...players].sort((a, b) => b.v - a.v);
+  const used = new Set<number>();
+  let sum = 0;
+  let filled = 0;
+  const take = (ok: (p: P) => boolean, n: number) => {
+    let got = 0;
+    for (const p of sorted) {
+      if (got >= n) break;
+      if (used.has(p.id) || !ok(p)) continue;
+      used.add(p.id);
+      sum += p.v;
+      filled++;
+      got++;
+    }
+  };
+  take((p) => p.pos === "C", counts[SLOT.C] ?? 0);
+  take((p) => p.pos === "LW", counts[SLOT.LW] ?? 0);
+  take((p) => p.pos === "RW", counts[SLOT.RW] ?? 0);
+  take((p) => p.pos === "D", counts[SLOT.D] ?? 0);
+  take((p) => p.pos === "G", counts[SLOT.G] ?? 0);
+  take((p) => p.pos === "C" || p.pos === "LW" || p.pos === "RW", counts[SLOT.F] ?? 0);
+  take((p) => p.pos !== "G", counts[SLOT.UTIL] ?? 0);
+  return { sum, filled };
+}
+
+const estimate = (pos: Pos, gp: number, avg: number, prior: number | null) => {
+  if (prior === null) return gp > 0 ? avg : 0;
+  const k = pos === "G" ? K_GOALIE : K_SKATER;
+  return (gp * avg + k * prior) / (gp + k);
+};
+const dayValue = (pos: Pos, est: number) => Math.max(0, est) * (pos === "G" ? GOALIE_START : 1);
+
+export async function getPickups(teamId: number | null, horizon: number): Promise<PickupData | null> {
+  const meta = await getLeagueMeta();
+  const season = meta.season;
+  const [standings, status, avail, counts, pro] = await Promise.all([
+    getStandings(),
+    getCurrentScoringPeriod(),
+    getBestAvailable(),
+    fetchLineupSlots(season),
+    fetchProSchedule(season),
+  ]);
+  const teams = standings.teams.map((t) => ({ id: t.id, name: t.name }));
+  if (!avail || !counts || !pro || status.current === null) return null;
+  const current = status.current;
+  if (teamId === null || !teams.some((t) => t.id === teamId)) {
+    return { teamId: 0, teamName: "", teams, horizon, days: [], picks: [], hot: [] };
+  }
+
+  const [rosterData, agg] = await Promise.all([fetchRosterDay(season, current, false), fetchRosterAgg(season)]);
+  const myTeam = (rosterData?.teams ?? []).find((t: any) => t.id === teamId);
+  if (!myTeam) return null;
+
+  const rates = avail.rates;
+  const prior = (pos: Pos, proj: number | null) => proj ?? (rates ? rates[pos] : null);
+
+  // My roster: expected points per game for each player who isn't on IR or out.
+  type R = { id: number; name: string; pos: Pos; proTeam: number; v: number };
+  const roster: R[] = [];
+  for (const e of myTeam.roster?.entries ?? []) {
+    if (e.lineupSlotId === 8) continue; // IR
+    const pl = e.playerPoolEntry?.player;
+    const pos = POS_BY_ID[pl?.defaultPositionId];
+    if (!pl || !pos) continue;
+    const inj = String(pl.injuryStatus ?? "ACTIVE");
+    if (inj === "OUT" || inj === "INJURY_RESERVE") continue;
+    const stats: any[] = [...(agg.get(pl.id) ?? []), ...(pl.stats ?? [])];
+    const act = stats.find((x) => x.statSourceId === 0 && x.statSplitTypeId === 0 && (String(x.id) === `00${season}` || x.seasonId === season));
+    const gp = Number(act?.stats?.["34"]) || Number(act?.stats?.["0"]) || 0;
+    const avg = gp > 0 ? Number(act?.appliedTotal) / gp : 0;
+    const pr = stats.find((x) => x.statSourceId === 1 && x.statSplitTypeId === 0 && !x.scoringPeriodId);
+    const pg = Number(pr?.stats?.["34"]) || Number(pr?.stats?.["0"]) || 0;
+    const proj = pr && pg > 0 && Number.isFinite(Number(pr.appliedTotal)) ? Number(pr.appliedTotal) / pg : null;
+    roster.push({ id: pl.id, name: pl.fullName ?? "Player", pos, proTeam: Number(pl.proTeamId), v: dayValue(pos, estimate(pos, gp, Number.isFinite(avg) ? avg : 0, prior(pos, proj))) });
+  }
+
+  const plays = (proTeam: number, d: number) => pro.get(proTeam)?.has(current + d) ?? false;
+  const H = Math.max(1, Math.min(14, horizon));
+  const dayRoster = (d: number, skip?: number): P[] =>
+    roster.filter((r) => r.id !== skip && plays(r.proTeam, d)).map((r) => ({ id: r.id, pos: r.pos, v: r.v }));
+
+  const totalSlots = [SLOT.C, SLOT.LW, SLOT.RW, SLOT.F, SLOT.D, SLOT.G, SLOT.UTIL].reduce((n, k) => n + (counts[k] ?? 0), 0);
+  const baseDay: number[] = [];
+  const openDay: number[] = [];
+  for (let d = 0; d < H; d++) {
+    const b = bestLineup(dayRoster(d), counts);
+    baseDay.push(b.sum);
+    openDay.push(Math.max(0, totalSlots - b.filled));
+  }
+  const base = baseDay.reduce((a, b) => a + b, 0);
+
+  const days: PickupDay[] = avail.days.slice(0, 14).map((d) => {
+    let n = 0;
+    for (const set of Array.from(pro.values())) if (set.has(current + d.offset)) n++;
+    const open = d.offset < H ? openDay[d.offset] : (() => {
+      const b = bestLineup(dayRoster(d.offset), counts);
+      return Math.max(0, totalSlots - b.filled);
+    })();
+    return { offset: d.offset, label: d.label, nhlTeams: n, open, light: false };
+  });
+  const sortedCounts = days.map((d) => d.nhlTeams).sort((a, b) => a - b);
+  const lightCut = sortedCounts.length ? sortedCounts[Math.floor(sortedCounts.length / 3)] : 0;
+  for (const d of days) d.light = d.nhlTeams <= lightCut && d.nhlTeams < 0.5 * pro.size;
+
+  // Who can't be missed: top of the available pool by VOR over the season, last 15 days and last 7 days.
+  const hotWhy = new Map<number, string>();
+  const topBy = (win: "season" | "l15" | "l7", n: number, minGp: number, label: string) => {
+    avail.players
+      .filter((p) => (p.w[win]?.gp ?? 0) >= minGp && p.w[win]!.vor !== null)
+      .sort((a, b) => (b.w[win]!.vor as number) - (a.w[win]!.vor as number))
+      .slice(0, n)
+      .forEach((p, i) => {
+        if (!hotWhy.has(p.id)) hotWhy.set(p.id, `#${i + 1} available by ${label} VOR (${(p.w[win]!.vor as number) >= 0 ? "+" : ""}${(p.w[win]!.vor as number).toFixed(2)})`);
+      });
+  };
+  topBy("season", 5, 3, "season");
+  topBy("l15", 5, 3, "last-15-day");
+  topBy("l7", 3, 2, "last-7-day");
+
+  type Cand = { a: AvailablePlayer; est: number; v: number };
+  const cands: Cand[] = avail.players
+    .filter((a) => a.injury === null || a.injury === "day to day")
+    .map((a) => {
+      const s = a.w.season;
+      const est = estimate(a.position, s?.gp ?? 0, s?.avg ?? 0, prior(a.position, a.proj));
+      return { a, est, v: dayValue(a.position, est) };
+    });
+  const pool = new Map<number, Cand>();
+  [...cands].sort((x, y) => y.est - x.est).slice(0, MAX_CANDIDATES).forEach((c) => pool.set(c.a.id, c));
+  for (const c of cands) if (hotWhy.has(c.a.id)) pool.set(c.a.id, c);
+
+  const evaluate = (c: Cand): Pickup => {
+    let added = 0;
+    let games = 0;
+    let lightGames = 0;
+    const gainDay: number[] = [];
+    for (let d = 0; d < H; d++) {
+      const playsToday = c.a.games.includes(d);
+      if (!playsToday) {
+        gainDay.push(0);
+        continue;
+      }
+      games++;
+      const g = bestLineup([...dayRoster(d), { id: -1, pos: c.a.position, v: c.v }], counts).sum - baseDay[d];
+      gainDay.push(g);
+      added += g;
+      if (c.v > 0 && g >= 0.85 * c.v) lightGames++;
+    }
+    // Best drop: the roster player whose loss costs the least over the window.
+    let bestNet = -Infinity;
+    let drop: Pickup["drop"] = null;
+    for (const r of roster) {
+      let tot = 0;
+      for (let d = 0; d < H; d++) {
+        const lineup = dayRoster(d, r.id);
+        if (c.a.games.includes(d)) lineup.push({ id: -1, pos: c.a.position, v: c.v });
+        tot += bestLineup(lineup, counts).sum;
+      }
+      const net = tot - base;
+      if (net > bestNet) {
+        bestNet = net;
+        drop = { id: r.id, name: r.name };
+      }
+    }
+    const l15 = c.a.w.l15;
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    return {
+      id: c.a.id,
+      name: c.a.name,
+      position: c.a.position,
+      team: c.a.team,
+      status: c.a.status,
+      owned: c.a.owned,
+      injury: c.a.injury,
+      est: r2(c.est),
+      games,
+      lightGames,
+      added: r2(added),
+      net: r2(Number.isFinite(bestNet) ? bestNet : added),
+      drop,
+      vorSeason: c.a.w.season?.vor ?? null,
+      avgL15: l15 && l15.gp > 0 ? l15.avg : null,
+      gpL15: l15?.gp ?? 0,
+      hot: hotWhy.get(c.a.id) ?? null,
+    };
+  };
+
+  const all = Array.from(pool.values()).map(evaluate);
+  const picks = [...all].sort((a, b) => b.net - a.net || b.added - a.added).slice(0, SHOWN);
+  const hot = all.filter((p) => p.hot).sort((a, b) => (b.vorSeason ?? 0) - (a.vorSeason ?? 0));
+  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, horizon: H, days, picks, hot };
+}

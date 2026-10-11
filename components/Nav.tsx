@@ -20,6 +20,7 @@ const NAV: Entry[] = [
       { href: "/last-night", label: "Big Nights" },
       { href: "/top-players", label: "Top Players" },
       { href: "/best-available", label: "Best Available" },
+      { href: "/pickups", label: "Pickup Targets" },
     ],
   },
   { label: "Players", href: "/players" },
