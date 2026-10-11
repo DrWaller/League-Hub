@@ -44,6 +44,7 @@ export interface Pickup {
   injury: string | null;
   est: number; // expected points per game
   games: number; // his team's games in the window
+  nights: number[]; // the days (offsets from today) in the window that his team plays
   lightGames: number; // of those, games on days my lineup has an open slot for him
   lightDayGames: number; // of those, games on league light days (few NHL games that night)
   added: number; // extra points over the window if I had a free roster spot
@@ -273,6 +274,7 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
       injury: c.a.injury,
       est: r2(c.est),
       games,
+      nights: offs.filter((d) => c.a.games.includes(d)),
       lightGames,
       lightDayGames,
       added: r2(added),

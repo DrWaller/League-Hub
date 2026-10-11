@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import type { Pickup, PickupData } from "@/lib/pickups";
+import { dayShort } from "@/lib/nights";
 
 const KEY = "pickups-team";
 const POS = ["All", "F", "D", "G"];
@@ -14,7 +15,8 @@ const ago = (iso: string) => {
 const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
 
-function Card({ p, label }: { p: Pickup; label: string }) {
+function Card({ p, label, days }: { p: Pickup; label: string; days: PickupData["days"] }) {
+  const nightList = days.filter((d) => p.nights.includes(d.offset));
   return (
     <div className={`border bg-white p-3 flex gap-3 ${p.hot ? "border-gold" : "border-ice-line"}`}>
       <PlayerPhoto playerId={p.id} name={p.name} size={44} />
@@ -39,6 +41,7 @@ function Card({ p, label }: { p: Pickup; label: string }) {
         </div>
         <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap gap-x-3 gap-y-1">
           <span>{p.games} games</span>
+          {nightList.length > 0 ? <span className="font-semibold text-rink">{nightList.map((d) => dayShort(d.label)).join(" ")}</span> : null}
           <span>{p.lightGames} on your open-slot days</span>
           <span>{p.lightDayGames} on light nights</span>
           <span>{f1(p.est)} exp/gm</span>
@@ -170,7 +173,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
               <p className="text-xs text-muted mb-3">Performing at a standout level among available players, so they show up whatever your schedule looks like.</p>
               <div className="grid md:grid-cols-2 gap-3">
                 {data.hot.map((p) => (
-                  <Card key={p.id} p={p} label={data.windowLabel} />
+                  <Card key={p.id} p={p} label={data.windowLabel} days={data.days} />
                 ))}
               </div>
             </section>
@@ -192,7 +195,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
             ) : (
               <div className="grid md:grid-cols-2 gap-3">
                 {picks.map((p) => (
-                  <Card key={p.id} p={p} label={data.windowLabel} />
+                  <Card key={p.id} p={p} label={data.windowLabel} days={data.days} />
                 ))}
               </div>
             )}
