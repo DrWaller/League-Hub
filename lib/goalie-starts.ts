@@ -22,11 +22,11 @@ const LOOKBACK = 10;
 type GameRow = { gameId: number; date: string; team: string; id: number; name: string; started: boolean };
 type TeamGame = { gameId: number; date: string; starter: number | null; played: Set<number>; b2b2: boolean };
 
-async function fetchGoalieGames(season: number): Promise<GameRow[] | null> {
+async function fetchGoalieGames(season: number, revalidate = 900): Promise<GameRow[] | null> {
   const exp = `gameTypeId=2 and seasonId=${SEASON_ID(season)}`;
   const url = `https://api.nhle.com/stats/rest/en/goalie/summary?isAggregate=false&isGame=true&limit=-1&sort=gameDate&cayenneExp=${encodeURIComponent(exp)}`;
   try {
-    const res = await fetch(url, { next: { revalidate: 900 } });
+    const res = await fetch(url, { next: { revalidate } });
     if (!res.ok) return null;
     const data = await res.json();
     return ((data?.data ?? []) as any[])
@@ -246,4 +246,60 @@ export async function getZeroG(windowKey: PickupWindow): Promise<ZeroGData | nul
   }
 
   return { windowKey, windowLabel, scheduleKnown: avail.scheduleKnown, cats: avail.cats, days: avail.days, goalies, asOf: asOf || null };
+}
+
+// ---------------------------------------------------------------------------------------------
+// How many of his team's games each goalie has started (for tiers: points per team game).
+export interface GoalieUsage {
+  starts: number;
+  teamGames: number; // his team's games so far
+  starts10: number; // starts in his team's last 10 games
+  games10: number;
+}
+export interface GoalieUsageIndex {
+  lookup(name: string, espnTeam?: string): GoalieUsage | null;
+  teamGames(name: string): number | null;
+}
+
+export async function getGoalieUsage(season: number): Promise<GoalieUsageIndex | null> {
+  const current = season === (await getLeagueMeta()).season;
+  const rows = await fetchGoalieGames(season, current ? 900 : 86400);
+  if (!rows || rows.length === 0) return null;
+  const logs = buildTeamLogs(rows);
+  // Each goalie's latest team.
+  const latest = new Map<number, { team: string; date: string; name: string }>();
+  for (const r of rows) {
+    const l = latest.get(r.id);
+    if (!l || r.date >= l.date) latest.set(r.id, { team: r.team, date: r.date, name: r.name });
+  }
+  const byKey = new Map<string, GoalieUsage>();
+  const byName = new Map<string, GoalieUsage[]>();
+  const teamGamesByName = new Map<string, number>();
+  for (const [id, l] of Array.from(latest.entries())) {
+    const log = logs.get(l.team) ?? [];
+    const last10 = log.slice(-LOOKBACK);
+    const u: GoalieUsage = {
+      starts: log.filter((g) => g.starter === id).length,
+      teamGames: log.length,
+      starts10: last10.filter((g) => g.starter === id).length,
+      games10: last10.length,
+    };
+    byKey.set(`${norm(l.name)}|${l.team}`, u);
+    const arr = byName.get(norm(l.name)) ?? [];
+    arr.push(u);
+    byName.set(norm(l.name), arr);
+    teamGamesByName.set(norm(l.name), log.length);
+  }
+  return {
+    lookup(name, espnTeam) {
+      const n = norm(name);
+      if (espnTeam) {
+        const hit = byKey.get(`${n}|${ESPN_TO_NHL[espnTeam] ?? espnTeam}`);
+        if (hit) return hit;
+      }
+      const arr = byName.get(n);
+      return arr && arr.length === 1 ? arr[0] : null;
+    },
+    teamGames: (name) => teamGamesByName.get(norm(name)) ?? null,
+  };
 }

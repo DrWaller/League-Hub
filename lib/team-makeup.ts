@@ -11,6 +11,7 @@ import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { fetchRosterDay } from "@/lib/games-played";
 import { getBestAvailable, NHL_ABBREV } from "@/lib/best-available";
 import { getLeagueTiers, loadPools, tierOf, tierRank, type LeagueTiers, type Tier } from "@/lib/league-tiers";
+import { getGoalieUsage } from "@/lib/goalie-starts";
 import type { Group } from "@/lib/radar";
 
 const LEAGUE_ID = process.env.ESPN_LEAGUE_ID || "78683444";
@@ -20,6 +21,16 @@ const POS: Record<number, string> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" }
 const GROUP_OF: Record<number, Group> = { 1: "F", 2: "F", 3: "F", 4: "D", 5: "G" };
 const K_SKATER = 15; // games of last season's average blended into the rating
 const K_GOALIE = 10;
+
+// A goalie is rated on points per TEAM game: points per start (quality) x share of his team's starts (security).
+export interface GoalieRating {
+  perStart: number; // blended: this season pulled toward last
+  share: number; // 0-1, share of his team's starts
+  perTeamGame: number; // perStart x share: the number the tier is on
+  pace: number; // perTeamGame x 82
+  starts: number | null; // starts so far / his team's games (null when the NHL data had no match)
+  teamGames: number | null;
+}
 
 export type Signal = "Core" | "Keep" | "Watch" | "Drop candidate" | "IR" | "Unrated";
 
@@ -42,6 +53,7 @@ export interface MakeupPlayer {
   signal: Signal;
   why: string;
   better: { id: number; name: string; est: number; tier: Tier; team: string } | null; // best free agent at his position who beats him
+  goalie?: GoalieRating; // goalies only: est is points per team game
 }
 
 export interface MakeupTeam {
@@ -79,6 +91,45 @@ async function fetchWindows(ids: number[], season: number): Promise<Map<number, 
   return out;
 }
 
+
+type Win = { gp: number; avg: number } | null;
+
+// Rates goalies on points per team game. Injured goalies keep their season share (the last-10 share would
+// collapse while they are out and drop the tier). Early in the year, before his team has played 5 games,
+// last season's share stands in.
+async function makeGoalieRater(season: number, leagueMaxGp: number) {
+  const [cur, prev] = await Promise.all([getGoalieUsage(season).catch(() => null), getGoalieUsage(season - 1).catch(() => null)]);
+  return (name: string, nhl: string, w: Win, priorAvg: number | null, injured: boolean, projBase: number | null): { est: number; info: GoalieRating } | null => {
+    let perStart: number | null = null;
+    if (w && w.gp > 0 && priorAvg !== null) perStart = (w.gp * w.avg + K_GOALIE * priorAvg) / (w.gp + K_GOALIE);
+    else if (w && w.gp >= 3) perStart = w.avg;
+    else if (priorAvg !== null) perStart = priorAvg;
+    else if (projBase !== null) perStart = projBase;
+    if (perStart === null) return null;
+    const u = cur?.lookup(name, nhl) ?? null;
+    let share: number | null = null;
+    let starts: number | null = null;
+    let teamGames: number | null = null;
+    if (u && u.teamGames >= 5) {
+      const season_ = u.starts / u.teamGames;
+      share = injured || u.games10 === 0 ? season_ : 0.5 * season_ + 0.5 * (u.starts10 / u.games10);
+      starts = u.starts;
+      teamGames = u.teamGames;
+    } else {
+      const pu = prev?.lookup(name, nhl) ?? null;
+      if (pu && pu.teamGames > 0) share = pu.starts / pu.teamGames;
+      if (u) {
+        starts = u.starts;
+        teamGames = u.teamGames;
+      }
+    }
+    if (share === null) share = w && leagueMaxGp > 0 ? Math.min(1, w.gp / leagueMaxGp) : 0;
+    share = Math.max(0, Math.min(1, share));
+    const perTeamGame = perStart * share;
+    return { est: perTeamGame, info: { perStart: r2(perStart), share: r2(share), perTeamGame: r2(perTeamGame), pace: Math.round(perTeamGame * 82), starts, teamGames } };
+  };
+}
+
 function windowOf(stats: any[], prefix: string, season: number): { gp: number; avg: number } | null {
   const x = stats.find((s) => s.statSourceId === 0 && String(s.id) === `${prefix}${season}`);
   if (!x) return null;
@@ -110,6 +161,8 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
   const ids: number[] = [];
   for (const t of roster.teams) for (const e of t.roster?.entries ?? []) if (e.playerPoolEntry?.player?.id != null) ids.push(e.playerPoolEntry.player.id);
   const windows = await fetchWindows(ids, season);
+  const maxGp = Math.max(0, ...pools.G.map((g) => g.gp));
+  const rateG = await makeGoalieRater(season, Math.max(maxGp, ...Array.from(windows.values()).map((st) => windowOf(st, "00", season)?.gp ?? 0)));
 
   // Free agents rated the same way (this season pulled toward ESPN's projection), best first, by group.
   const faRated: Record<Group, { id: number; name: string; est: number; tier: Tier; team: string }[]> = { F: [], D: [], G: [] };
@@ -117,7 +170,16 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
     for (const p of fa.players) {
       const g: Group = p.position === "G" ? "G" : p.position === "D" ? "D" : "F";
       const s = p.w.season;
-      const k = g === "G" ? K_GOALIE : K_SKATER;
+      if (g === "G") {
+        const pr = prior.get(p.id);
+        const r = rateG(p.name, p.team, s, pr && pr.gp >= 20 ? pr.avg : null, !!p.injury, p.proj);
+        if (r) {
+          const tier = tierOf(r.est, tiers.cutoffs.G);
+          if (tier) faRated.G.push({ id: p.id, name: p.name, est: r2(r.est), tier, team: p.team });
+        }
+        continue;
+      }
+      const k = K_SKATER;
       const base = p.proj ?? tiers.cutoffs[g].depth - 0.1;
       const est = s && s.gp > 0 ? (s.gp * s.avg + k * base) / (s.gp + k) : null;
       const tier = est === null ? null : tierOf(est, tiers.cutoffs[g]);
@@ -146,9 +208,18 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
       if (cur && priorAvg !== null) est = (cur.gp * cur.avg + k * priorAvg) / (cur.gp + k);
       else if (cur && cur.gp >= 5) est = cur.avg;
       else if (priorAvg !== null) est = priorAvg;
+      const injured = String(pl.injuryStatus ?? "ACTIVE") !== "ACTIVE";
+      let goalie: GoalieRating | undefined;
+      if (group === "G") {
+        const r = rateG(pl.fullName ?? "", NHL_ABBREV[Number(pl.proTeamId)] ?? "", cur, priorAvg, injured, null);
+        if (r) {
+          est = r.est;
+          goalie = r.info;
+        } else est = null;
+      }
       const tier = tierOf(est, cut);
       const minForm = group === "G" ? 3 : 5;
-      const form = l30 && l30.gp >= minForm ? tierOf(l30.avg, cut) : null;
+      const form = group === "G" ? null : l30 && l30.gp >= minForm ? tierOf(l30.avg, cut) : null;
       const diff = tier && form ? tierRank(form) - tierRank(tier) : 0;
       const trend = diff >= 1 ? "up" : diff <= -1 ? "down" : null;
       const slot = e.lineupSlotId === 8 ? "IR" : e.lineupSlotId === 7 ? "Bench" : "Lineup";
@@ -164,21 +235,21 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         why = "No games yet this season or last";
       } else if (tierRank(tier) >= 2) {
         signal = "Core";
-        why = `${tier}: a player you build around`;
+        why = `${tier}: a player you build around${goalie ? ` (${goalie.pace} pt pace)` : ""}`;
       } else if (tier === "Depth") {
         if (form === "Stream" && l30 && l30.avg < cut.depth - 0.3) {
           signal = "Watch";
           why = `Depth, but ${r2(l30.avg)} over his last ${l30.gp} games`;
         } else {
           signal = "Keep";
-          why = "Depth: starter level for this league";
+          why = goalie ? `Depth: starter level (${goalie.pace} pt pace)` : "Depth: starter level for this league";
         }
       } else if (form && tierRank(form) >= 1) {
         signal = "Watch";
         why = `Rated Stream, but his last ${l30!.gp} games are ${form} level (${r2(l30!.avg)})`;
       } else {
         signal = "Drop candidate";
-        why = `Stream: below the starter line (${cut.depth.toFixed(2)})`;
+        why = `Stream: below the starter line (${cut.depth.toFixed(2)}${group === "G" ? " per team game" : ""})`;
       }
 
       let better: MakeupPlayer["better"] = null;
@@ -206,6 +277,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         signal,
         why,
         better,
+        goalie,
       });
     }
     players.sort((a, b) => (a.group === b.group ? (b.est ?? -1) - (a.est ?? -1) : ["F", "D", "G"].indexOf(a.group) - ["F", "D", "G"].indexOf(b.group)));
@@ -237,6 +309,7 @@ export interface DirPlayer {
   l30: { gp: number; avg: number } | null;
   form: Tier | null;
   trend: "up" | "down" | null;
+  goalie?: GoalieRating;
 }
 
 export interface TierDirectory {
@@ -252,13 +325,15 @@ export async function getTierDirectory(): Promise<TierDirectory | null> {
   const out: DirPlayer[] = [];
   for (const t of makeup.teams) {
     for (const p of t.players) {
-      out.push({ id: p.id, name: p.name, pos: p.pos, group: p.group, nhl: p.nhl, owner: t.name, status: "Rostered", injury: p.injury, gp: p.gp, avg: p.avg, priorAvg: p.priorAvg, est: p.est, tier: p.tier, l30: p.l30, form: p.form, trend: p.trend });
+      out.push({ id: p.id, name: p.name, pos: p.pos, group: p.group, nhl: p.nhl, owner: t.name, status: "Rostered", injury: p.injury, gp: p.gp, avg: p.avg, priorAvg: p.priorAvg, est: p.est, tier: p.tier, l30: p.l30, form: p.form, trend: p.trend, goalie: p.goalie });
     }
   }
   if (fa) {
     const prior = new Map<number, { gp: number; avg: number }>();
     for (const g of ["F", "D", "G"] as Group[]) for (const p of pools[g]) if (p.gp > 0) prior.set(p.id, { gp: p.gp, avg: p.appliedTotal / p.gp });
     const seen = new Set(out.map((p) => p.id));
+    const maxGp = Math.max(0, ...fa.players.map((x) => x.w.season?.gp ?? 0), ...out.filter((x) => x.group === "G").map((x) => x.gp));
+    const rateG = await makeGoalieRater(meta.season, maxGp);
     for (const p of fa.players) {
       if (seen.has(p.id)) continue;
       const group: Group = p.position === "G" ? "G" : p.position === "D" ? "D" : "F";
@@ -266,14 +341,21 @@ export async function getTierDirectory(): Promise<TierDirectory | null> {
       const s = p.w.season;
       const pr = prior.get(p.id);
       const priorAvg = pr && pr.gp >= 20 ? pr.avg : null;
-      const k = group === "G" ? K_GOALIE : K_SKATER;
+      const k = K_SKATER;
       let est: number | null = null;
-      if (s && s.gp > 0 && priorAvg !== null) est = (s.gp * s.avg + k * priorAvg) / (s.gp + k);
+      let goalie: GoalieRating | undefined;
+      if (group === "G") {
+        const r = rateG(p.name, p.team, s, priorAvg, !!p.injury, null);
+        if (r) {
+          est = r.est;
+          goalie = r.info;
+        }
+      } else if (s && s.gp > 0 && priorAvg !== null) est = (s.gp * s.avg + k * priorAvg) / (s.gp + k);
       else if (s && s.gp >= 5) est = s.avg;
       else if (priorAvg !== null) est = priorAvg;
       const tier = tierOf(est, cut);
       const l30 = p.w.l30 && p.w.l30.gp > 0 ? { gp: p.w.l30.gp, avg: p.w.l30.avg } : null;
-      const form = l30 && l30.gp >= (group === "G" ? 3 : 5) ? tierOf(l30.avg, cut) : null;
+      const form = group === "G" ? null : l30 && l30.gp >= 5 ? tierOf(l30.avg, cut) : null;
       const diff = tier && form ? tierRank(form) - tierRank(tier) : 0;
       out.push({
         id: p.id,
@@ -292,6 +374,7 @@ export async function getTierDirectory(): Promise<TierDirectory | null> {
         l30,
         form,
         trend: diff >= 1 ? "up" : diff <= -1 ? "down" : null,
+        goalie,
       });
     }
   }

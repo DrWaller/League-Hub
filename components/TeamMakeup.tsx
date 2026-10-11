@@ -43,15 +43,29 @@ function Row({ p }: { p: MakeupPlayer }) {
           </div>
           <div className="shrink-0 text-right">
             <Badge tier={p.tier} />
-            <div className="text-[11px] text-muted font-tabular mt-0.5">{p.est === null ? "no rating" : `${f2(p.est)} rating`}</div>
+            {p.goalie ? (
+              <>
+                <div className="text-[11px] font-semibold font-tabular mt-0.5">≈ {p.goalie.pace} pt pace</div>
+                <div className="text-[11px] text-muted font-tabular">{f2(p.goalie.perTeamGame)} per team game</div>
+              </>
+            ) : (
+              <div className="text-[11px] text-muted font-tabular mt-0.5">{p.est === null ? "no rating" : `${f2(p.est)} rating`}</div>
+            )}
           </div>
         </div>
+        {p.goalie ? (
+          <div className="mt-1.5 text-xs font-tabular text-muted">
+            {f2(p.goalie.perStart)} per start · starts {Math.round(p.goalie.share * 100)}%
+            {p.goalie.starts !== null && p.goalie.teamGames !== null ? ` (${p.goalie.starts} of ${p.goalie.teamGames})` : ""}
+            {p.injury ? " · tier held while injured" : ""}
+          </div>
+        ) : null}
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-tabular text-muted">
           <span>
             Season {p.avg === null ? "–" : f2(p.avg)} ({p.gp} gp)
           </span>
           {p.priorAvg !== null ? <span>Last yr {f2(p.priorAvg)}</span> : null}
-          <span className="inline-flex items-center gap-1">
+          <span className={`inline-flex items-center gap-1 ${p.goalie ? "hidden" : ""}`}>
             L30 {p.l30 ? `${f2(p.l30.avg)} (${p.l30.gp} gp)` : "–"}
             {p.form ? <Badge tier={p.form} small /> : null}
             {p.trend === "up" ? <span className="text-green-700 font-bold">↑</span> : p.trend === "down" ? <span className="text-center-red font-bold">↓</span> : null}
@@ -107,7 +121,7 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
     <div>
       <section className="mb-6">
         <h2 className="font-display text-xl mb-1">The cutoffs</h2>
-        <p className="text-xs text-muted mb-2">Average fantasy points per game, {basis}.</p>
+        <p className="text-xs text-muted mb-2">Average fantasy points per game, {basis}. Goalies are on points per team game (points per start × share of starts), with the 82-game pace underneath.</p>
         <div className="border border-ice-line bg-white overflow-x-auto">
           <table className="w-full text-sm font-tabular">
             <thead>
@@ -125,10 +139,12 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
                 <tr key={g} className="border-b border-ice-line last:border-0">
                   <td className="px-3 py-2 font-semibold">{GROUP_LABEL[g]}</td>
                   <td className="text-center text-muted">under {f2(c[g].depth)}</td>
-                  <td className="text-center">{f2(c[g].depth)}+</td>
-                  <td className="text-center">{f2(c[g].elite)}+</td>
-                  <td className="text-center">{f2(c[g].superstar)}+</td>
-                  <td className="text-center">{f2(c[g].franchise)}+</td>
+                  {(["depth", "elite", "superstar", "franchise"] as const).map((k) => (
+                    <td key={k} className="text-center">
+                      {f2(c[g][k])}+
+                      {g === "G" ? <div className="text-[10px] text-muted">≈ {Math.round(c[g][k] * 82)} pts</div> : null}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
@@ -194,9 +210,9 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
             );
           })}
           <p className="text-xs text-muted max-w-prose">
-            Rating = his average this season pulled toward last season&apos;s, so a few games don&apos;t swing it. L30 shows his last 30 days against the same cutoffs; an arrow means his form is a
+            Skater rating = his average this season pulled toward last season&apos;s, so a few games don&apos;t swing it. L30 shows his last 30 days against the same cutoffs; an arrow means his form is a
             tier or more away from his rating. Core is Elite and above, Keep is Depth, and Drop candidate is Stream with no recent surge. Watch means the rating and the recent form disagree.
-            &quot;Available&quot; names the best free agent at his position who rates above him.
+            &quot;Available&quot; names the best free agent at his position who rates above him. Goalies are rated on points per team game: points per start (quality) times his share of his team&apos;s starts (security), so a goalie who starts more climbs; the pace is that × 82. A hurt goalie keeps his season share so his tier holds.
           </p>
         </section>
       )}

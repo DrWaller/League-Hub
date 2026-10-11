@@ -15,6 +15,7 @@ import { sql } from "@/lib/db";
 import { getLeagueMeta, getPlayerPool } from "@/lib/espn";
 import { fetchLineupSlots, SLOT } from "@/lib/vor";
 import type { Group, PoolPlayer } from "@/lib/radar";
+import { getGoalieUsage } from "@/lib/goalie-starts";
 
 import { TIERS, type Tier } from "@/lib/tier-style";
 export { TIERS, TIER_STYLE } from "@/lib/tier-style";
@@ -22,6 +23,7 @@ export type { Tier };
 export type Cutoffs = { depth: number; elite: number; superstar: number; franchise: number };
 
 export interface LeagueTiers {
+  v?: number; // cutoff version: 2 = goalies on points per team game
   season: number;
   basis: "last season" | "this season";
   checkpoint: number; // 0 = last season's final, 1-3 = this season at 20 / 40 / 60 games
@@ -35,6 +37,7 @@ const SHARE = { franchise: 0.05, superstar: 0.12, elite: 0.45, depth: 1 };
 const floor05 = (n: number) => Math.floor(n / 0.05 + 1e-9) * 0.05;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const GROUPS: Group[] = ["F", "D", "G"];
+const CUTOFF_VERSION = 2;
 
 export function tierOf(avg: number | null, c: Cutoffs): Tier | null {
   if (avg === null || !Number.isFinite(avg)) return null;
@@ -47,10 +50,14 @@ export async function loadPools(season: number, current: boolean): Promise<Recor
   return { F, D, G };
 }
 
-function cutoffsFrom(pools: Record<Group, PoolPlayer[]>, starters: Record<Group, number>, minGp: number): Record<Group, Cutoffs> {
+// Goalies are measured on points per TEAM game (points per start x share of starts), so volume counts.
+function cutoffsFrom(pools: Record<Group, PoolPlayer[]>, starters: Record<Group, number>, minGp: number, goalieTeamGames: (name: string) => number | null): Record<Group, Cutoffs> {
   const out = {} as Record<Group, Cutoffs>;
   for (const g of GROUPS) {
-    const avgs = pools[g].filter((p) => p.gp >= minGp).map((p) => p.appliedTotal / p.gp).sort((a, b) => b - a);
+    const avgs = pools[g]
+      .filter((p) => p.gp >= minGp)
+      .map((p) => (g === "G" ? p.appliedTotal / (goalieTeamGames(p.name) ?? 82) : p.appliedTotal / p.gp))
+      .sort((a, b) => b - a);
     const n = Math.max(1, starters[g]);
     const at = (rank: number) => avgs[Math.min(avgs.length, Math.max(1, rank)) - 1] ?? 0;
     const depth = floor05(at(Math.round(n * SHARE.depth)));
@@ -99,21 +106,26 @@ export async function getLeagueTiers(): Promise<LeagueTiers | null> {
   try {
     await ensureTable();
     const r = await sql`SELECT payload FROM tier_cutoffs WHERE season = ${season} AND checkpoint = ${checkpoint};`;
-    if (r.rows.length) return { ...(JSON.parse(r.rows[0].payload as string) as LeagueTiers), gamesPlayed };
+    if (r.rows.length) {
+      const saved = JSON.parse(r.rows[0].payload as string) as LeagueTiers;
+      if (saved.v === CUTOFF_VERSION) return { ...saved, gamesPlayed };
+    }
   } catch (err) {
     console.error("tier_cutoffs read failed (is Postgres connected?)", err);
   }
 
   let cutoffs: Record<Group, Cutoffs>;
   if (checkpoint === 0) {
-    cutoffs = cutoffsFrom(await loadPools(season - 1, false), starters, 20);
+    const usage = await getGoalieUsage(season - 1).catch(() => null);
+    cutoffs = cutoffsFrom(await loadPools(season - 1, false), starters, 20, (n) => usage?.teamGames(n) ?? null);
   } else {
-    cutoffs = cutoffsFrom(cur, starters, Math.min(20, Math.max(5, Math.floor(gamesPlayed * 0.5))));
+    const usage = await getGoalieUsage(season).catch(() => null);
+    cutoffs = cutoffsFrom(cur, starters, Math.min(20, Math.max(5, Math.floor(gamesPlayed * 0.5))), (n) => usage?.teamGames(n) ?? null);
   }
-  const result: LeagueTiers = { season, basis: checkpoint === 0 ? "last season" : "this season", checkpoint, gamesPlayed, cutoffs, starters };
+  const result: LeagueTiers = { v: CUTOFF_VERSION, season, basis: checkpoint === 0 ? "last season" : "this season", checkpoint, gamesPlayed, cutoffs, starters };
   try {
     const payload = JSON.stringify(result);
-    await sql`INSERT INTO tier_cutoffs (season, checkpoint, payload) VALUES (${season}, ${checkpoint}, ${payload}) ON CONFLICT (season, checkpoint) DO NOTHING;`;
+    await sql`INSERT INTO tier_cutoffs (season, checkpoint, payload) VALUES (${season}, ${checkpoint}, ${payload}) ON CONFLICT (season, checkpoint) DO UPDATE SET payload = ${payload}, created_at = now();`;
   } catch (err) {
     console.error("tier_cutoffs write failed", err);
   }

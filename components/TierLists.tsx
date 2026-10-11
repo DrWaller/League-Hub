@@ -44,15 +44,29 @@ function Row({ p }: { p: DirPlayer }) {
           </div>
           <div className="shrink-0 text-right">
             <Badge tier={p.tier} />
-            <div className="text-[11px] text-muted font-tabular mt-0.5">{p.est === null ? "" : `${f2(p.est)} rating`}</div>
+            {p.goalie ? (
+              <>
+                <div className="text-[11px] font-semibold font-tabular mt-0.5">≈ {p.goalie.pace} pt pace</div>
+                <div className="text-[11px] text-muted font-tabular">{f2(p.goalie.perTeamGame)} per team game</div>
+              </>
+            ) : (
+              <div className="text-[11px] text-muted font-tabular mt-0.5">{p.est === null ? "" : `${f2(p.est)} rating`}</div>
+            )}
           </div>
         </div>
+        {p.goalie ? (
+          <div className="mt-1.5 text-xs font-tabular text-muted">
+            {f2(p.goalie.perStart)} per start · starts {Math.round(p.goalie.share * 100)}%
+            {p.goalie.starts !== null && p.goalie.teamGames !== null ? ` (${p.goalie.starts} of ${p.goalie.teamGames})` : ""}
+            {p.injury ? " · tier held while injured" : ""}
+          </div>
+        ) : null}
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-tabular text-muted">
           <span>
             Season {p.avg === null ? "–" : f2(p.avg)} ({p.gp} gp)
           </span>
           {p.priorAvg !== null ? <span>Last yr {f2(p.priorAvg)}</span> : null}
-          <span className="inline-flex items-center gap-1">
+          <span className={`inline-flex items-center gap-1 ${p.goalie ? "hidden" : ""}`}>
             L30 {p.l30 ? `${f2(p.l30.avg)} (${p.l30.gp} gp)` : "–"}
             {p.form ? <Badge tier={p.form} small /> : null}
             {p.trend === "up" ? <span className="text-green-700 font-bold">↑</span> : p.trend === "down" ? <span className="text-center-red font-bold">↓</span> : null}
@@ -153,7 +167,7 @@ export default function TierLists({ data }: { data: TierDirectory }) {
       </div>
 
       <p className="text-xs text-muted mb-3 font-tabular">
-        {list.length} {tier} player{list.length === 1 ? "" : "s"} · Forwards {range("F")} · Defence {range("D")} · Goalies {range("G")} avg pts per game
+        {list.length} {tier} player{list.length === 1 ? "" : "s"} · Forwards {range("F")} · Defence {range("D")} · Goalies {range("G")} per team game · skaters avg pts per game
         {data.tiers.basis === "last season" ? " (cutoffs from last season's final)" : ""}
       </p>
 
