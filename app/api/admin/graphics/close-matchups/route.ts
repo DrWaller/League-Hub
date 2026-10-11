@@ -7,19 +7,21 @@ import { loadLogoData } from "@/lib/og-team-logo";
 import { getWeekCalendar } from "@/lib/week-calendar";
 import { Matchup } from "@/lib/types";
 import { captionResponse } from "@/lib/captions";
-import { CloseMode, DEFAULT_MARGIN, pickCloseMatchups, closeMatchupsCaption, daysLeftInWeek } from "@/lib/close-matchups";
-import { renderPortraitCloseMatchups } from "@/lib/close-matchups-image";
+import { CloseMode, DEFAULT_MARGIN, TIER_LABELS, pickCloseMatchups, closeMatchupsCaption, daysLeftInWeek } from "@/lib/close-matchups";
+import { renderCloseMatchupCard } from "@/lib/close-matchups-image";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Close Matchups (portrait only).
+// Close Matchups: one 1v1 card per close game (portrait only), like the Big Night cards.
 //   ?week=N       defaults to the current week
 //   ?mode=live    games still in play that are close right now (going into Saturday / Sunday)
 //   ?mode=final   finished games decided by a small margin
 //                 (default: "final" once every game in the week is final, otherwise "live")
 //   ?margin=N     how close counts as close, in points (default 3, both modes)
 //   ?season=YYYY  a past season (final mode)
+//   ?list=1       JSON list of the close games, each with the address of its card
+//   ?home=ID      the card for the game whose home team has this id (default: the closest game)
 //   ?caption=1    ready-to-post text instead of the image
 export async function GET(req: NextRequest) {
   try {
@@ -63,14 +65,40 @@ export async function GET(req: NextRequest) {
     const margin = Number.isFinite(marginNum) && marginNum > 0 ? marginNum : DEFAULT_MARGIN[mode];
 
     const games = pickCloseMatchups(matchups, mode, margin);
-    if (games.length === 0) {
-      return new Response(
-        mode === "live"
-          ? `No games are within ${margin.toFixed(2)} points right now in week ${week} (or nobody has scored yet). Try a bigger margin, e.g. &margin=${Math.round(margin * 2)}.`
-          : `No finished games in week ${week}${isPast ? ` of ${seasonParam}` : ""} were decided by ${margin.toFixed(2)} points or less. Try a bigger margin, e.g. &margin=${Math.round(margin * 2)}.`,
-        { status: 400 }
-      );
+
+    const emptyMessage =
+      mode === "live"
+        ? `No games are within ${margin.toFixed(2)} points right now in week ${week} (or nobody has scored yet). Try a bigger margin, e.g. &margin=${Math.round(margin * 2)}.`
+        : `No finished games in week ${week}${isPast ? ` of ${seasonParam}` : ""} were decided by ${margin.toFixed(2)} points or less. Try a bigger margin, e.g. &margin=${Math.round(margin * 2)}.`;
+
+    // The list the Graphics page uses to show one card per close game.
+    if (sp.get("list")) {
+      return Response.json({
+        mode,
+        week,
+        margin,
+        message: games.length === 0 ? emptyMessage : null,
+        games: games.map((g) => {
+          const q = new URLSearchParams({ week: String(week), mode, home: String(g.homeTeamId) });
+          if (isPast) q.set("season", String(seasonParam));
+          if (marginRaw) q.set("margin", marginRaw);
+          return {
+            homeTeamId: g.homeTeamId,
+            homeName: teamName(g.homeTeamId),
+            awayName: teamName(g.awayTeamId),
+            margin: g.margin,
+            tierLabel: TIER_LABELS[mode][g.tier],
+            card: `/api/admin/graphics/close-matchups?${q.toString()}`,
+          };
+        }),
+      });
     }
+
+    if (games.length === 0) return new Response(emptyMessage, { status: 400 });
+
+    const homeId = Number(sp.get("home")) || null;
+    const game = homeId ? games.find((g) => g.homeTeamId === homeId) : games[0];
+    if (!game) return new Response(`That matchup isn't within ${margin.toFixed(2)} points in week ${week} any more.`, { status: 400 });
 
     // Days still to play (live, current season only). Optional: no calendar saved = no line.
     let daysLeft: number | null = null;
@@ -83,13 +111,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (sp.get("caption")) return captionResponse(closeMatchupsCaption(week, mode, games, teamName, daysLeft));
+    if (sp.get("caption")) return captionResponse(closeMatchupsCaption(week, mode, [game], teamName, daysLeft));
 
-    return await renderPortraitCloseMatchups({
-      games,
+    return await renderCloseMatchupCard({
+      game,
       week,
       mode,
-      margin,
       daysLeft,
       teamName,
       logos: await loadLogoData(isPast),

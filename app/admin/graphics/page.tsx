@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import GraphicCard from "@/components/GraphicCard";
+import CloseMatchupCards from "@/components/CloseMatchupCards";
 
 const TOP_THREE_POSITIONS = [
   { value: "forward", label: "Top 3 Forwards" },
@@ -60,18 +61,6 @@ export default function AdminGraphicsPage() {
     { title: "Standings", url: `/api/admin/graphics/standings?week=${week}${seasonQS}` },
     { title: "Matchup Preview (upcoming week)", url: `/api/admin/graphics/matchup-preview?week=${week}` },
     { title: "Weekly Scoreboard", url: `/api/admin/graphics/scoreboard?week=${week}${seasonQS}` },
-    // Close Matchups: portrait only. "Live" is the going-into-Saturday/Sunday version (current season);
-    // "Final" is the really-close-finishes version (works for a past season too).
-    {
-      title: "Close Matchups - live (going into the weekend)",
-      url: `/api/admin/graphics/close-matchups?week=${week}&mode=live`,
-      alwaysPortrait: true,
-    },
-    {
-      title: "Close Matchups - final scores",
-      url: `/api/admin/graphics/close-matchups?week=${week}&mode=final${seasonQS}`,
-      alwaysPortrait: true,
-    },
     { title: "Power Rankings", url: `/api/admin/graphics/power-rankings?week=${week}` },
     { title: "3 Stars of the Week", url: `/api/admin/graphics/three-stars?week=${week}${seasonQS}` },
     {
@@ -211,7 +200,15 @@ export default function AdminGraphicsPage() {
 
       <div className="space-y-10">
         {cards.map((c) => (
-          <GraphicCard key={c.title} title={c.title} url={c.url} portrait={format === "portrait" || Boolean(c.alwaysPortrait)} />
+          <Fragment key={c.title}>
+            <GraphicCard title={c.title} url={c.url} portrait={format === "portrait" || Boolean(c.alwaysPortrait)} />
+            {c.title === "Weekly Scoreboard" && (
+              <>
+                <CloseMatchupCards week={week} mode="live" title="Close Matchups - live (going into the weekend)" />
+                <CloseMatchupCards week={week} mode="final" season={weekSeason} title="Close Matchups - final scores" />
+              </>
+            )}
+          </Fragment>
         ))}
       </div>
     </div>

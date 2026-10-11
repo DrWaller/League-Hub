@@ -39,7 +39,7 @@ export type CardLayout = "classic" | "editorial";
 const CARD_LAYOUT: CardLayout = "editorial";
 
 // Team colors for the cards: the shared ones (lib/og-theme.ts) plus two more used only here.
-const CARD_TEAM_COLOR: Record<number, string> = {
+export const CARD_TEAM_COLOR: Record<number, string> = {
   ...TEAM_COLOR,
   3: "#E26A10", // Ottawa Angry Pylons
   6: "#1A5FA8", // Farsta Strand Consiglieres
