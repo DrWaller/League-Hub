@@ -7,6 +7,10 @@ import type { Pickup, PickupData } from "@/lib/pickups";
 const KEY = "pickups-team";
 const POS = ["All", "F", "D", "G"];
 const f1 = (n: number) => n.toFixed(2);
+const ago = (iso: string) => {
+  const m = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
+};
 const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
 
@@ -42,8 +46,9 @@ function Card({ p, label }: { p: Pickup; label: string }) {
           {p.vorSeason !== null ? <span>season VOR {signed(p.vorSeason)}</span> : null}
         </div>
         {p.role ? (
+          <>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs font-tabular">
-            {p.role.line ? <span className="px-1.5 py-0.5 bg-rink text-ice">{p.role.line}</span> : null}
+            <span className="px-1.5 py-0.5 bg-rink text-ice">{p.role.line ?? (p.role.source === "lines" ? "no line" : "line ?")}</span>
             <span className={`px-1.5 py-0.5 ${p.role.pp ? "bg-gold text-rink font-semibold" : "border border-ice-line text-muted"}`}>{p.role.pp ?? "no PP"}</span>
             <span>{mmss(p.role.toi)} TOI</span>
             {p.role.toiRecent !== null && Math.abs(p.role.toiRecent - p.role.toiSeason) >= 20 ? (
@@ -53,7 +58,12 @@ function Card({ p, label }: { p: Pickup; label: string }) {
             ) : null}
             <span className="text-muted">{Math.round((p.role.ppShareRecent ?? p.role.ppShare) * 100)}% of PP time</span>
             <span className="text-muted">role {p.role.score}</span>
+            {p.role.source === "inferred" ? <span className="text-muted italic">inferred</span> : null}
           </div>
+          {p.role.change ? (
+            <div className="mt-1 text-xs font-semibold text-green-700">Line change: {p.role.change.text} · {ago(p.role.change.at)}</div>
+          ) : null}
+          </>
         ) : null}
         {p.hot ? <div className="mt-1 text-xs text-gold">{p.hot}</div> : null}
         {p.drop ? (
@@ -135,6 +145,25 @@ export default function PickupTool({ data }: { data: PickupData }) {
             ))}
           </div>
 
+          {data.lineChanges.length > 0 && (
+            <section className="mb-8">
+              <h2 className="font-display text-xl mb-1">Line changes: available players</h2>
+              <p className="text-xs text-muted mb-3">
+                Recent moves in the NHL lines{data.linesUpdated ? ` (Daily Faceoff, updated ${ago(data.linesUpdated)})` : ""}. A promotion is often the first sign a pickup is about to pay off.
+              </p>
+              <div className="border border-ice-line bg-white divide-y divide-ice-line">
+                {data.lineChanges.map((c, i) => (
+                  <div key={i} className="px-3 py-2 text-sm flex flex-wrap items-center gap-x-3">
+                    <span className="font-semibold">{c.name}</span>
+                    <span className="text-xs text-muted">{c.team}{c.position ? ` · ${c.position}` : ""}</span>
+                    <span>{c.text}</span>
+                    <span className="text-xs text-muted ml-auto">{ago(c.at)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {data.hot.length > 0 && (
             <section className="mb-8">
               <h2 className="font-display text-xl mb-1">Can&apos;t miss</h2>
@@ -170,7 +199,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
             <p className="text-xs text-muted mt-4 max-w-prose">
               Points are the expected extra points over {data.windowLabel} after dropping the player shown. Expected points per game
               blend each player&apos;s season average with ESPN&apos;s projection{data.roleOn && data.hasRoles ? ", then scale it 0.85-1.15 by role (ice time, power-play share and line)" : ""}. Goalies count for about 60% of their team&apos;s games, since
-              they don&apos;t start every night. Lines are inferred from NHL ice time (the NHL doesn&apos;t publish lines): the top 3 forwards by even-strength time on a team are L1, and so on; the top 5 by power-play time are PP1.
+              they don&apos;t start every night. Lines and power-play units are the real combinations from Daily Faceoff, refreshed every 15 minutes while you use the page; ice time is from the NHL. If a team&apos;s lines can&apos;t be read, its players show an inferred line (L1 = top 3 forwards by even-strength time) marked as inferred.
             </p>
           </section>
         </>

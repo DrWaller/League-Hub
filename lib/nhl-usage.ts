@@ -7,11 +7,13 @@
 //   power play: the 5 skaters with the most PP time on a team = PP1, the next 5 = PP2
 // Each player gets a 0-100 role score (ice time, power-play share and line), see roleScore().
 
+import { ESPN_TO_NHL as TEAM_MAP, norm as normName, type LineIndex } from "@/lib/lines";
+import { describeChange, type LineChange } from "@/lib/lines-store";
+
 const SEASON_ID = (season: number) => `${season - 1}${season}`; // 2027 -> 20262027
 const RECENT_DAYS = 14;
 
-// ESPN's abbreviation for a few teams differs from the NHL's.
-const ESPN_TO_NHL: Record<string, string> = { LA: "LAK", NJ: "NJD", SJ: "SJS", TB: "TBL" };
+const ESPN_TO_NHL = TEAM_MAP;
 
 export interface Usage {
   toiSeason: number; // seconds per game
@@ -21,6 +23,9 @@ export interface Usage {
   ppShareRecent: number | null;
   line: string | null; // "L1".."L4" for forwards, "D1".."D3" for defence
   pp: "PP1" | "PP2" | null;
+  pk: string | null;
+  source: "lines" | "inferred"; // real line combinations, or inferred from ice time
+  change: { text: string; at: string } | null; // a recent line / PP change
   score: number; // 0-100
   mult: number; // multiplier applied to expected points per game
 }
@@ -72,7 +77,7 @@ export interface UsageIndex {
   lookup(name: string, espnTeam?: string): Usage | null;
 }
 
-export async function getNhlUsage(season: number): Promise<UsageIndex | null> {
+export async function getNhlUsage(season: number, lines: LineIndex | null = null, changes: LineChange[] = []): Promise<UsageIndex | null> {
   const since = new Date(Date.now() - RECENT_DAYS * 86400000).toISOString().slice(0, 10);
   const [seasonRows, recentRows] = await Promise.all([fetchRows(season, null), fetchRows(season, since)]);
   if (!seasonRows || seasonRows.length === 0) return null;
@@ -112,6 +117,7 @@ export async function getNhlUsage(season: number): Promise<UsageIndex | null> {
   }
 
   const usage = new Map<number, Usage>();
+  const parts = new Map<number, { toiPct: number; ppPct: number; team: string }>();
   const toiVals = { F: [] as number[], D: [] as number[] };
   const ppVals: number[] = [];
   const pre = seasonRows.map((r) => {
@@ -131,6 +137,7 @@ export async function getNhlUsage(season: number): Promise<UsageIndex | null> {
     const toiPct = percentile(p.toi, isD(p.r.pos) ? toiVals.D : toiVals.F);
     const ppPct = p.ppBlend < 0.04 ? 0 : percentile(p.ppBlend, ppVals);
     const score = Math.round(0.45 * toiPct + 0.3 * ppPct + 0.25 * (line ? LINE_PTS[line] : 20));
+    parts.set(p.r.id, { toiPct, ppPct, team: p.r.team });
     usage.set(p.r.id, {
       toiSeason: p.r.toi,
       toiRecent: p.toiRecent,
@@ -139,6 +146,9 @@ export async function getNhlUsage(season: number): Promise<UsageIndex | null> {
       ppShareRecent: p.ppShareRecent,
       line,
       pp: ppOf.get(p.r.id) ?? null,
+      pk: null,
+      source: "inferred",
+      change: null,
       score,
       mult: Math.round((0.85 + 0.3 * (score / 100)) * 1000) / 1000,
     });
@@ -160,12 +170,36 @@ export async function getNhlUsage(season: number): Promise<UsageIndex | null> {
     const t = team ? ESPN_TO_NHL[team] ?? team : null;
     return t ? rows.find((r) => r.team === t) ?? null : null;
   };
+  const changeOf = new Map<string, LineChange>();
+  for (const c of changes) if (!changeOf.has(`${c.team}|${c.player}`)) changeOf.set(`${c.team}|${c.player}`, c); // newest first
+  const LINE_SCORE: Record<string, number> = { L1: 100, L2: 70, L3: 40, L4: 15, D1: 100, D2: 55, D3: 20 };
+
   return {
     lookup(name: string, espnTeam?: string) {
       const n = norm(name);
-      const parts = n.split(" ");
-      const row = pick(byName.get(n), espnTeam) ?? pick(byInitial.get(`${parts[0]?.[0] ?? ""} ${parts.slice(1).join(" ")}`), espnTeam);
-      return row ? usage.get(row.id) ?? null : null;
+      const parts2 = n.split(" ");
+      const row = pick(byName.get(n), espnTeam) ?? pick(byInitial.get(`${parts2[0]?.[0] ?? ""} ${parts2.slice(1).join(" ")}`), espnTeam);
+      if (!row) return null;
+      const base = usage.get(row.id);
+      const pt = parts.get(row.id);
+      if (!base || !pt) return base ?? null;
+      // Real lines win when that team's page was read; a player who isn't listed isn't in the lineup.
+      if (!lines || !lines.teamsOk.includes(row.team)) return base;
+      const real = lines.lookup(name, row.team);
+      const line = real?.line ?? null;
+      const pp = real?.pp ?? null;
+      const score = Math.round(0.4 * pt.toiPct + 0.25 * pt.ppPct + 0.2 * (line ? LINE_SCORE[line] : 10) + 0.15 * (pp === "PP1" ? 100 : pp === "PP2" ? 50 : 0));
+      const ch = changeOf.get(`${row.team}|${norm(real?.name ?? name)}`);
+      return {
+        ...base,
+        line,
+        pp,
+        pk: real?.pk ?? null,
+        source: "lines" as const,
+        change: ch ? { text: describeChange(ch), at: ch.changedAt } : null,
+        score,
+        mult: Math.round((0.85 + 0.3 * (score / 100)) * 1000) / 1000,
+      };
     },
   };
 }

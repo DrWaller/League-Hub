@@ -1,6 +1,13 @@
 {
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/cron/nightly-blurbs", "schedule": "0 13 * * *" }
+    {
+      "path": "/api/cron/nightly-blurbs",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/lines",
+      "schedule": "0 15 * * *"
+    }
   ]
 }

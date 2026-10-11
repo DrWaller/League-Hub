@@ -15,6 +15,8 @@ import { fetchProSchedule, fetchRosterAgg, fetchRosterDay } from "@/lib/games-pl
 import { fetchLineupSlots, SLOT, type Pos } from "@/lib/vor";
 import { getBestAvailable, type AvailablePlayer } from "@/lib/best-available";
 import { getNhlUsage, type Usage } from "@/lib/nhl-usage";
+import { getLines, norm as normName, ESPN_TO_NHL } from "@/lib/lines";
+import { describeChange, recentChanges, syncLines } from "@/lib/lines-store";
 
 const POS_BY_ID: Record<number, Pos> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
 const K_SKATER = 15;
@@ -66,6 +68,9 @@ export interface PickupData {
   days: PickupDay[];
   picks: Pickup[];
   hot: Pickup[];
+  lineChanges: { name: string; team: string; text: string; at: string; id: number | null; position: string | null }[]; // recent moves by players who are available
+  linesUpdated: string | null;
+  linesLive: boolean;
 }
 
 type P = { id: number; pos: Pos; v: number };
@@ -112,19 +117,22 @@ export type PickupWindow = "3d" | "current" | "next";
 export async function getPickups(teamId: number | null, windowKey: PickupWindow, roleOn = true): Promise<PickupData | null> {
   const meta = await getLeagueMeta();
   const season = meta.season;
-  const [standings, status, avail, counts, pro, usage] = await Promise.all([
+  const [standings, status, avail, counts, pro] = await Promise.all([
     getStandings(),
     getCurrentScoringPeriod(),
     getBestAvailable(),
     fetchLineupSlots(season),
     fetchProSchedule(season),
-    getNhlUsage(season).catch(() => null),
   ]);
+  const lines = await getLines().catch(() => null);
+  if (lines) await syncLines(lines).catch(() => 0);
+  const changes = await recentChanges(3).catch(() => []);
+  const usage = await getNhlUsage(season, lines, changes).catch(() => null);
   const teams = standings.teams.map((t) => ({ id: t.id, name: t.name }));
   if (!avail || !counts || !pro || status.current === null) return null;
   const current = status.current;
   if (teamId === null || !teams.some((t) => t.id === teamId)) {
-    return { teamId: 0, teamName: "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel: "", dayCount: 0, days: [], picks: [], hot: [] };
+    return { teamId: 0, teamName: "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel: "", dayCount: 0, days: [], picks: [], hot: [], lineChanges: [], linesUpdated: null, linesLive: lines !== null };
   }
 
   const [rosterData, agg] = await Promise.all([fetchRosterDay(season, current, false), fetchRosterAgg(season)]);
@@ -278,10 +286,20 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
     };
   };
 
+  // Recent line moves by players who are available (the signal that a pickup is about to matter).
+  const availByKey = new Map(avail.players.map((p) => [`${ESPN_TO_NHL[p.team] ?? p.team}|${normName(p.name)}`, p] as const));
+  const lineChanges: PickupData["lineChanges"] = [];
+  for (const c of changes) {
+    const a = availByKey.get(`${c.team}|${c.player}`);
+    if (!a) continue;
+    lineChanges.push({ name: c.name, team: a.team, text: describeChange(c), at: c.changedAt, id: a.id, position: a.position });
+    if (lineChanges.length >= 12) break;
+  }
+
   const all = Array.from(pool.values()).map(evaluate);
   const picks = [...all].sort((a, b) => b.net - a.net || b.added - a.added).slice(0, SHOWN);
   const hot = all.filter((p) => p.hot).sort((a, b) => (b.vorSeason ?? 0) - (a.vorSeason ?? 0));
-  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel, dayCount: offs.length, days, picks, hot };
+  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel, dayCount: offs.length, days, picks, hot, lineChanges, linesUpdated: lines?.updatedAt ?? null, linesLive: lines !== null };
 }
 
 // Which starting slots are empty on each of the given scoring days for one team.
