@@ -13,7 +13,7 @@ import { getLeagueMeta, getScoringPeriodsForWeek, getStandings } from "@/lib/esp
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { fetchProSchedule, fetchRosterAgg, fetchRosterDay } from "@/lib/games-played";
 import { fetchLineupSlots, SLOT, type Pos } from "@/lib/vor";
-import { getBestAvailable, type AvailablePlayer } from "@/lib/best-available";
+import { getBestAvailable, type AvailablePlayer, type BestAvailable, type StatCat } from "@/lib/best-available";
 import { getNhlUsage, type Usage } from "@/lib/nhl-usage";
 import { getLines, norm as normName, ESPN_TO_NHL } from "@/lib/lines";
 import { describeChange, recentChanges, syncLines } from "@/lib/lines-store";
@@ -55,6 +55,7 @@ export interface Pickup {
   gpL15: number;
   hot: string | null; // why he can't be missed, if he can't
   role: Usage | null; // how the NHL uses him (ice time, power play, line), null for goalies or no match
+  player: AvailablePlayer; // full stat lines for the click-through panel
 }
 
 export interface PickupData {
@@ -72,6 +73,7 @@ export interface PickupData {
   lineChanges: { name: string; team: string; text: string; at: string; id: number | null; position: string | null }[]; // recent moves by players who are available
   linesUpdated: string | null;
   linesLive: boolean;
+  panel: { cats: StatCat[]; days: BestAvailable["days"]; scheduleKnown: boolean };
 }
 
 type P = { id: number; pos: Pos; v: number };
@@ -113,7 +115,9 @@ const estimate = (pos: Pos, gp: number, avg: number, prior: number | null) => {
 };
 const dayValue = (pos: Pos, est: number) => Math.max(0, est) * (pos === "G" ? GOALIE_START : 1);
 
-export type PickupWindow = "3d" | "current" | "next";
+export type PickupWindow = "3d" | "current" | "next" | "early" | "late" | "next-early" | "next-late";
+export const PICKUP_WINDOWS: PickupWindow[] = ["3d", "current", "next", "early", "late", "next-early", "next-late"];
+const EARLY_DAYS = ["Mon", "Tue", "Wed"]; // early week = M-W, late week = Th-Su
 
 export async function getPickups(teamId: number | null, windowKey: PickupWindow, roleOn = true): Promise<PickupData | null> {
   const meta = await getLeagueMeta();
@@ -133,7 +137,7 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
   if (!avail || !counts || !pro || status.current === null) return null;
   const current = status.current;
   if (teamId === null || !teams.some((t) => t.id === teamId)) {
-    return { teamId: 0, teamName: "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel: "", dayCount: 0, days: [], picks: [], hot: [], lineChanges: [], linesUpdated: null, linesLive: lines !== null };
+    return { teamId: 0, teamName: "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel: "", dayCount: 0, days: [], picks: [], hot: [], lineChanges: [], linesUpdated: null, linesLive: lines !== null, panel: { cats: avail.cats, days: avail.days, scheduleKnown: avail.scheduleKnown } };
   }
 
   const [rosterData, agg] = await Promise.all([fetchRosterDay(season, current, false), fetchRosterAgg(season)]);
@@ -169,12 +173,31 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
   let offs: number[] = [0, 1, 2];
   let windowLabel = "the next 3 days";
   if (windowKey !== "3d") {
-    const wk = windowKey === "current" ? meta.currentWeek : meta.currentWeek + 1;
-    const periods = await getScoringPeriodsForWeek(wk).then((r) => r.periods).catch(() => [] as number[]);
-    const got = periods.map((sp) => sp - current).filter((o) => o >= 0 && o < 21);
+    const part = windowKey.endsWith("early") ? "early" : windowKey.endsWith("late") ? "late" : null;
+    const dayName = (o: number) => (avail.days.find((d) => d.offset === o)?.label ?? "").slice(0, 3);
+    const inPart = (o: number) => (part === null ? true : part === "early" ? EARLY_DAYS.includes(dayName(o)) : !EARLY_DAYS.includes(dayName(o)));
+    const partName = part === "early" ? "early week (M-W)" : part === "late" ? "late week (Th-Su)" : null;
+    const load = async (wk: number) => {
+      const periods = await getScoringPeriodsForWeek(wk).then((r) => r.periods).catch(() => [] as number[]);
+      return periods.map((sp) => sp - current).filter((o) => o >= 0 && o < 21 && inPart(o));
+    };
+    let wk = windowKey.startsWith("next") || windowKey === "next" ? meta.currentWeek + 1 : meta.currentWeek;
+    let got = await load(wk);
+    let rolled = false;
+    if (got.length === 0 && wk === meta.currentWeek) {
+      // That part of this matchup is already played, so look at the same part of next matchup.
+      wk = meta.currentWeek + 1;
+      got = await load(wk);
+      rolled = true;
+    }
     if (got.length > 0) {
       offs = got;
-      windowLabel = windowKey === "current" ? `the rest of matchup ${wk}` : `matchup ${wk}`;
+      const isNext = wk !== meta.currentWeek;
+      windowLabel = partName
+        ? `${partName} of matchup ${wk}${rolled ? " (this week's is over)" : ""}`
+        : isNext
+          ? `matchup ${wk}`
+          : `the rest of matchup ${wk}`;
     }
   }
   const dayRoster = (d: number, skip?: number): P[] =>
@@ -285,6 +308,7 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
       gpL15: l15?.gp ?? 0,
       hot: hotWhy.get(c.a.id) ?? null,
       role: c.role,
+      player: { ...c.a, role: c.role },
     };
   };
 
@@ -301,7 +325,7 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
   const all = Array.from(pool.values()).map(evaluate);
   const picks = [...all].sort((a, b) => b.net - a.net || b.added - a.added).slice(0, SHOWN);
   const hot = all.filter((p) => p.hot).sort((a, b) => (b.vorSeason ?? 0) - (a.vorSeason ?? 0));
-  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel, dayCount: offs.length, days, picks, hot, lineChanges, linesUpdated: lines?.updatedAt ?? null, linesLive: lines !== null };
+  return { teamId, teamName: teams.find((t) => t.id === teamId)?.name ?? "", teams, windowKey, roleOn, hasRoles: usage !== null, windowLabel, dayCount: offs.length, days, picks, hot, lineChanges, linesUpdated: lines?.updatedAt ?? null, linesLive: lines !== null, panel: { cats: avail.cats, days: avail.days, scheduleKnown: avail.scheduleKnown } };
 }
 
 // Which starting slots are empty on each of the given scoring days for one team.

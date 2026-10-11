@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import type { Pickup, PickupData } from "@/lib/pickups";
+import PlayerPanel from "@/components/PlayerPanel";
 import { dayShort } from "@/lib/nights";
 
 const KEY = "pickups-team";
@@ -15,17 +16,21 @@ const ago = (iso: string) => {
 const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
 
-function Card({ p, label, days }: { p: Pickup; label: string; days: PickupData["days"] }) {
+function Card({ p, label, days, onOpen }: { p: Pickup; label: string; days: PickupData["days"]; onOpen: (p: Pickup) => void }) {
   const nightList = days.filter((d) => p.nights.includes(d.offset));
   return (
     <div className={`border bg-white p-3 flex gap-3 ${p.hot ? "border-gold" : "border-ice-line"}`}>
-      <PlayerPhoto playerId={p.id} name={p.name} size={44} />
+      <button type="button" onClick={() => onOpen(p)} aria-label={`${p.name} stats`} className="shrink-0 self-start">
+        <PlayerPhoto playerId={p.id} name={p.name} size={44} />
+      </button>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="font-semibold truncate">
               {p.hot ? <span className="text-gold" title={p.hot}>★ </span> : null}
-              {p.name}
+              <button type="button" onClick={() => onOpen(p)} className="hover:underline hover:text-center-red">
+                {p.name}
+              </button>
             </div>
             <div className="text-xs text-muted">
               {p.team} · {p.position}
@@ -82,6 +87,7 @@ function Card({ p, label, days }: { p: Pickup; label: string; days: PickupData["
 
 export default function PickupTool({ data }: { data: PickupData }) {
   const [pos, setPos] = useState("All");
+  const [open, setOpen] = useState<Pickup | null>(null);
 
   // Remember my team so the page opens on it next time.
   useEffect(() => {
@@ -128,6 +134,10 @@ export default function PickupTool({ data }: { data: PickupData }) {
             <option value="3d">Next 3 days</option>
             <option value="current">Current matchup (rest of it)</option>
             <option value="next">Next matchup</option>
+            <option value="early">Early week, M-W (this matchup)</option>
+            <option value="late">Late week, Th-Su (this matchup)</option>
+            <option value="next-early">Early week, M-W (next matchup)</option>
+            <option value="next-late">Late week, Th-Su (next matchup)</option>
           </select>
         </label>
       </form>
@@ -173,7 +183,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
               <p className="text-xs text-muted mb-3">Performing at a standout level among available players, so they show up whatever your schedule looks like.</p>
               <div className="grid md:grid-cols-2 gap-3">
                 {data.hot.map((p) => (
-                  <Card key={p.id} p={p} label={data.windowLabel} days={data.days} />
+                  <Card key={p.id} p={p} label={data.windowLabel} days={data.days} onOpen={setOpen} />
                 ))}
               </div>
             </section>
@@ -195,7 +205,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
             ) : (
               <div className="grid md:grid-cols-2 gap-3">
                 {picks.map((p) => (
-                  <Card key={p.id} p={p} label={data.windowLabel} days={data.days} />
+                  <Card key={p.id} p={p} label={data.windowLabel} days={data.days} onOpen={setOpen} />
                 ))}
               </div>
             )}
@@ -207,6 +217,7 @@ export default function PickupTool({ data }: { data: PickupData }) {
           </section>
         </>
       )}
+      {open && <PlayerPanel p={open.player} data={data.panel} period="season" onClose={() => setOpen(null)} />}
     </div>
   );
 }
