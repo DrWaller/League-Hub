@@ -4,6 +4,7 @@
 // the commissioner has recorded a champion for. Server-side only.
 
 import { getLeagueMeta } from "./espn";
+import { findTeamByText } from "./team-match";
 import { getSeasonBundle } from "./season-data";
 import {
   getSeasonHistory,
@@ -117,8 +118,13 @@ export async function getTeamBanners(): Promise<TeamBanner[]> {
 
       const champion = curated.find((c) => c.season === season)?.champion;
       if (champion) {
-        const row = rows.find((r) => norm(r.name) === norm(champion));
-        const ms = managerSeasons.find((m) => m.season === season && norm(m.teamName) === norm(champion));
+        const row = findTeamByText(rows, champion, (r) => r.name, (r) => managerName(r.managerId));
+        const ms = findTeamByText(
+          managerSeasons.filter((m) => m.season === season),
+          champion,
+          (m) => m.teamName,
+          (m) => managerName(m.managerId)
+        );
         out.push(
           make(
             "champion",

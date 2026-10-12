@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { findTeamByText } from "@/lib/team-match";
 
 // Show "(Manager)" after a team name only when it adds something -- not when
 // the team is named after the manager already.
@@ -34,7 +35,8 @@ export default function SeasonHistoryCard({ data }: { data: SeasonHistoryCardDat
 
   // The standings table (rows) knows each team's manager; champion/runner-up/
   // third are just typed team names, so look the manager up by matching name.
-  const managerOf = (team: string) => rows.find((r) => norm(r.name) === norm(team))?.managerName ?? null;
+  const rowOf = (team: string) => findTeamByText(rows, team, (r) => r.name, (r) => r.managerName);
+  const managerOf = (team: string) => rowOf(team)?.managerName ?? null;
   const podium = [
     { place: "Champion", team: champion, strong: true },
     { place: "Runner-up", team: runnerUp, strong: false },
@@ -62,12 +64,13 @@ export default function SeasonHistoryCard({ data }: { data: SeasonHistoryCardDat
         <dl className="text-sm grid sm:grid-cols-3 gap-x-6 gap-y-2 mb-2">
           {podium.map((p) => {
             const mgr = managerOf(p.team);
+            const teamName = rowOf(p.team)?.name ?? p.team; // the real team name, even if only the manager was typed
             return (
               <div key={p.place}>
                 <dt className="text-muted">{p.place}</dt>
                 <dd className={p.strong ? "font-body font-semibold" : "font-body"}>
-                  {p.team}
-                  {mgr && norm(mgr) !== norm(p.team) && <span className="text-muted"> ({mgr})</span>}
+                  {teamName}
+                  {mgr && norm(mgr) !== norm(teamName) && <span className="text-muted"> ({mgr})</span>}
                 </dd>
               </div>
             );
