@@ -61,11 +61,26 @@ export interface BenchPlayer {
   benchDays: number;
 }
 
+// One night where the lineup left points on the table: who should have started, and who they should have replaced.
+export interface DaySwap {
+  start: { name: string; position: Pos; points: number };
+  over: { name: string; position: Pos; points: number } | null; // null = a slot that was left empty
+}
+
+export interface DayMiss {
+  day: number; // 1 = first scoring day of the week
+  actual: number;
+  max: number;
+  emptySlots: number; // lineup slots with nobody in them that day
+  swaps: DaySwap[];
+}
+
 export interface TeamLineupWeek {
   teamId: number;
   actual: number;
   max: number;
   bench: BenchPlayer[]; // best bench scorers first
+  misses: DayMiss[]; // only the nights that lost points
 }
 
 export interface WeekLineups {
@@ -102,13 +117,16 @@ export async function getWeekLineups(week: number, season: number, currentSeason
     D: counts[SLOT.D] ?? 0, G: counts[SLOT.G] ?? 0, Util: counts[SLOT.UTIL] ?? 0,
   };
 
-  const totals = new Map<number, { actual: number; max: number; bench: Map<number, BenchPlayer> }>();
-  for (const { sp, data } of days) {
+  const slotTotal = slots.C + slots.LW + slots.RW + slots.F + slots.D + slots.G + slots.Util;
+  const totals = new Map<number, { actual: number; max: number; bench: Map<number, BenchPlayer>; misses: DayMiss[] }>();
+  for (const [dayIdx, { sp, data }] of days.entries()) {
     for (const t of data?.teams ?? []) {
-      const acc = totals.get(t.id) ?? { actual: 0, max: 0, bench: new Map<number, BenchPlayer>() };
+      const acc = totals.get(t.id) ?? { actual: 0, max: 0, bench: new Map<number, BenchPlayer>(), misses: [] };
       totals.set(t.id, acc);
       const today: DayPlayer[] = [];
+      let filled = 0; // active slots with somebody in them (played or not)
       for (const e of t.roster?.entries ?? []) {
+        if (Number(e.lineupSlotId) !== BENCH && Number(e.lineupSlotId) !== IR) filled++;
         const pl = e.playerPoolEntry?.player;
         const pos = pl ? POS_BY_ID[pl.defaultPositionId] : undefined;
         if (!pl || !pos) continue;
@@ -117,9 +135,23 @@ export async function getWeekLineups(week: number, season: number, currentSeason
         today.push({ id: pl.id, name: pl.fullName ?? "Unknown Player", position: pos, points: Number(dayStat.appliedTotal) || 0, slotId: Number(e.lineupSlotId) });
       }
       const actual = today.filter((p) => p.slotId !== BENCH && p.slotId !== IR).reduce((n, p) => n + p.points, 0);
-      const best = bestDayLineup(today.filter((p) => p.slotId !== IR), slots).total;
+      const bestRes = bestDayLineup(today.filter((p) => p.slotId !== IR), slots);
+      const best = Math.max(bestRes.total, actual); // a legal lineup can never beat the best one
       acc.actual += actual;
-      acc.max += Math.max(best, actual); // a legal lineup can never beat the best one
+      acc.max += best;
+      if (best - actual > 0.004) {
+        const started = today.filter((p) => p.slotId !== BENCH && p.slotId !== IR);
+        const startIn = today.filter((p) => bestRes.chosen.has(p.id) && (p.slotId === BENCH));
+        const startOut = started.filter((p) => !bestRes.chosen.has(p.id)).sort((a, b) => a.points - b.points);
+        const swaps: DaySwap[] = [];
+        for (const inP of startIn.sort((a, b) => b.points - a.points)) {
+          let k = startOut.findIndex((o) => o.position === inP.position);
+          if (k < 0) k = startOut.length > 0 ? 0 : -1;
+          const out = k >= 0 ? startOut.splice(k, 1)[0] : null;
+          swaps.push({ start: { name: inP.name, position: inP.position, points: inP.points }, over: out ? { name: out.name, position: out.position, points: out.points } : null });
+        }
+        acc.misses.push({ day: dayIdx + 1, actual: Math.round(actual * 100) / 100, max: Math.round(best * 100) / 100, emptySlots: Math.max(0, slotTotal - filled), swaps });
+      }
       for (const p of today) {
         if (p.slotId !== BENCH) continue;
         const b = acc.bench.get(p.id) ?? { id: p.id, name: p.name, position: p.position, benchPoints: 0, benchDays: 0 };
@@ -139,6 +171,7 @@ export async function getWeekLineups(week: number, season: number, currentSeason
       actual: Math.round(v.actual * 100) / 100,
       max: Math.round(v.max * 100) / 100,
       bench: [...v.bench.values()].sort((a, b) => b.benchPoints - a.benchPoints),
+      misses: v.misses,
     })),
   };
   cache.set(key, { at: Date.now(), value });
