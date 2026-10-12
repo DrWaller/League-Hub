@@ -18,12 +18,13 @@ const FIRST_SEASON = 2020;
 
 type Row = { key: string; name: string; sub: string; value: string; rank: number };
 
-function Card({ title, blurb, rows, recorded, note }: { title: string; blurb: string; rows: Row[]; recorded?: string; note?: string }) {
+function Card({ title, blurb, rows, recorded, note, why }: { title: string; blurb: string; rows: Row[]; recorded?: string; note?: string; why?: string }) {
   return (
     <div className="border border-ice-line bg-white p-4">
       <h2 className="font-display text-xl">{title}</h2>
       <p className="text-xs text-muted mb-1">{blurb}</p>
-      {recorded && <p className="text-xs mb-3"><b>Recorded winner:</b> {recorded}</p>}
+      {recorded && <p className={`text-xs ${why ? "mb-1" : "mb-3"}`}><b>Recorded winner:</b> {recorded}</p>}
+      {why && <p className="text-xs text-muted mb-3">{why}</p>}
       {rows.length === 0 ? (
         <p className="text-sm text-muted">{note ?? "Nothing to show."}</p>
       ) : (
@@ -103,7 +104,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
 
   const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? meta.size) : null;
   const trendsReady = haveSeason.has(season) && priorSeasons.length > 0 && missingPriors.length === 0;
-  const trends = trendsReady ? buildTrendAwards(rows, season, 5, rosterableBar(rows, season, counts, teams?.length ?? meta.size)) : [];
+  const trends = trendsReady ? buildTrendAwards(rows, season, 5, rosterableBar(rows, season, counts, teams?.length ?? meta.size), recordedFor("breakout")) : [];
   const noStats = haveSeason.has(season) ? "" : `Player stats for ${season} are not loaded yet.`;
 
   // Hard Luck: actual wins against the wins the all-play record says the team earned, as a share of expected wins.
@@ -220,6 +221,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
             blurb={t.blurb}
             rows={t.entries.map((e) => ({ key: String(e.id), name: e.name, sub: `${e.position} · ${e.detail}`, value: e.value, rank: e.rank }))}
             recorded={recordedFor(t.key)}
+            why={t.why}
             note="Nothing qualifies."
           />
         ))}

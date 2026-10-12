@@ -156,6 +156,7 @@ export interface TrendAward {
   title: string;
   blurb: string;
   entries: TrendEntry[];
+  why?: string; // Breakout only: where a named player (the recorded winner) stands under these rules, and why
 }
 
 const sd = (xs: number[]) => {
@@ -169,7 +170,7 @@ const signed = (n: number) => `${n >= 0 ? "+" : ""}${f2(n)}`;
 
 // `bar` = points per game at each position that counts as rosterable (replacement level). A player below it is never
 // an award candidate, however big his jump: a 0.4 to 0.9 points-per-game climb is not a story.
-export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, bar: Record<string, number> | null = null): TrendAward[] {
+export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, bar: Record<string, number> | null = null, probeName?: string): TrendAward[] {
   const lines = (season: number): Map<number, Line> => {
     const m = new Map<number, Line>();
     for (const r of rows) {
@@ -219,7 +220,7 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
   // Breakout: elite now, never elite in the last three seasons. He needs at least one earlier season on record
   // (a player with none is a rookie and belongs to the Calder).
   const breakout = [...cur.values()]
-    .filter((l) => qualifies(l, true) && rosterable(l) && eliteNow.has(l.id))
+    .filter((l) => groupOf(l.position) === "S" && qualifies(l, true) && rosterable(l) && eliteNow.has(l.id))
     .map((l) => {
       const history = prev.map((m) => m.get(l.id)).filter((p): p is Line => qualifies(p, false));
       if (history.length === 0) return null;
@@ -287,8 +288,40 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
     })
     .map((l) => ({ l, score: l.points + l.ppg * 0.001, value: `${f2(l.points)} pts`, detail: `${l.gp} GP, ${f2(l.ppg)} pts/gm` }));
 
+  // Where a named player stands for the Breakout, step by step, so a recorded winner the rules miss can be understood.
+  let why: string | undefined;
+  if (probeName) {
+    const k = nameKey(probeName);
+    const l = [...cur.values()].find((x) => nameKey(x.name) === k);
+    const rankOf = (m: Map<number, Line>, id: number, isCurrent: boolean) => {
+      const list = [...m.values()].filter((x) => groupOf(x.position) === "S" && qualifies(x, isCurrent)).sort((a, b) => b.ppg - a.ppg);
+      const i = list.findIndex((x) => x.id === id);
+      return i < 0 ? null : i + 1;
+    };
+    if (!l) why = `${probeName} is not in the ${currentSeason} stats.`;
+    else {
+      const parts: string[] = [`${f2(l.ppg)} pts/gm in ${l.gp} GP`];
+      const r = rankOf(cur, l.id, true);
+      parts.push(r ? `#${r} among skaters (elite means top ${ELITE_SKATERS})` : "not enough games to rank");
+      if (groupOf(l.position) === "G") parts.push("a goalie, so not eligible");
+      if (bar && l.ppg < (bar[l.position] ?? 0)) parts.push(`below the rosterable bar (${f2(bar[l.position] ?? 0)})`);
+      const before = prev.map((m, i) => {
+        const p = m.get(l.id);
+        const pr = p ? rankOf(m, l.id, false) : null;
+        return `${currentSeason - 1 - i}: ${p ? `${f2(p.ppg)}${pr ? `, #${pr}` : ""}` : "no stats"}`;
+      });
+      parts.push(`before: ${before.join("; ")}`);
+      const hit = breakout.find((x) => x.l.id === l.id);
+      if (hit) parts.push(`ranks #${[...breakout].sort((a, b) => b.score - a.score).findIndex((x) => x.l.id === l.id) + 1} of ${breakout.length}`);
+      else if (elitePrev.some((s2) => s2.has(l.id))) parts.push("left out: already in the top 30 in an earlier season");
+      else if (!eliteNow.has(l.id)) parts.push("left out: not in the top 30 this season");
+      else if (!prev.some((m) => qualifies(m.get(l.id), false))) parts.push("left out: no earlier qualifying season");
+      why = parts.join(" · ");
+    }
+  }
+
   return [
-    { key: "breakout", title: "Breakout Player", blurb: `Biggest jump into the top ${ELITE_SKATERS} skaters / top ${ELITE_GOALIES} goalies (points per game) for the first time. Players with no earlier season are left to the Calder. Rosterable players only (at or above replacement level).`, entries: entries(breakout) },
+    { key: "breakout", title: "Breakout Player", blurb: `Biggest jump into the top ${ELITE_SKATERS} skaters (points per game) for the first time. Skaters only: goalies are recognised by the Vezina and Jennings. Players with no earlier season are left to the Calder. Rosterable players only (at or above replacement level).`, entries: entries(breakout), why },
     { key: "bounce", title: "Bounce Back Player", blurb: `Last year's points per game fell ${DOWN_SEASON_DROP * 100}% or more, and he is back to ${BOUNCE_RECOVERY * 100}% of the earlier level. Ranked by the rebound. Rosterable players only.`, entries: entries(bounce) },
     { key: "improved", title: "Most Improved Player", blurb: "Biggest gain on last season, combining the change in points per game and the change in total points. Rosterable players only (at or above replacement level).", entries: entries(improved) },
     { key: "calder", title: "Calder Trophy", blurb: "Best rookie by fantasy points, owned or not, using the NHL rookie rules (no more than 25 games in any past season, and not 6+ games in each of two past seasons). Rosterable rookies only.", entries: entries(calder) },
