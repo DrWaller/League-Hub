@@ -218,7 +218,6 @@ export default async function SeasonAwardsPage() {
             note="Nothing qualifies yet. Early in the season few players have enough games."
           />
         ))}
-        <Card title="Calder Trophy" blurb="Best qualifying rookie (any player, owned or not)." rows={[]} note="Coming once the rookie rules are set." />
       </div>
     </div>
   );

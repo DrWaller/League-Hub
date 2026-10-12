@@ -114,7 +114,7 @@ export interface TrendEntry {
 }
 
 export interface TrendAward {
-  key: "breakout" | "bounce" | "improved";
+  key: "breakout" | "bounce" | "improved" | "calder";
   title: string;
   blurb: string;
   entries: TrendEntry[];
@@ -233,9 +233,22 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
     };
   });
 
+
+  // Calder: the NHL's own rookie rules, checked against the last three seasons on record. A player is a rookie if he
+  // never played more than 25 games in a past season and did not play 6 or more games in each of two past seasons.
+  // (The age limit, under 26 by Sept 15, is not checked: ESPN does not give birth dates here.) Best rookie by
+  // fantasy points so far, the same measure as the Art Ross.
+  const calder = [...cur.values()]
+    .filter((l) => {
+      const past = prev.map((m) => m.get(l.id)?.gp ?? 0);
+      return past.every((gp) => gp <= 25) && past.filter((gp) => gp >= 6).length < 2;
+    })
+    .map((l) => ({ l, score: l.points + l.ppg * 0.001, value: `${f2(l.points)} pts`, detail: `${l.gp} GP, ${f2(l.ppg)} pts/gm` }));
+
   return [
     { key: "breakout", title: "Breakout Player", blurb: `Biggest jump into the top ${ELITE_SKATERS} skaters / top ${ELITE_GOALIES} goalies (points per game) for the first time. Players with no earlier season are left to the Calder.`, entries: entries(breakout) },
     { key: "bounce", title: "Bounce Back Player", blurb: `Last year's points per game fell ${DOWN_SEASON_DROP * 100}% or more, and he is back to ${BOUNCE_RECOVERY * 100}% of the earlier level. Ranked by the rebound.`, entries: entries(bounce) },
     { key: "improved", title: "Most Improved Player", blurb: "Biggest gain on last season, combining the change in points per game and the change in total points.", entries: entries(improved) },
+    { key: "calder", title: "Calder Trophy", blurb: "Best rookie by fantasy points, owned or not, using the NHL rookie rules (no more than 25 games in any past season, and not 6+ games in each of two past seasons).", entries: entries(calder) },
   ];
 }
