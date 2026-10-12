@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getLeagueMeta, getMatchups, getPastSeasonTeams } from "@/lib/espn";
+import { getLeagueMeta } from "@/lib/espn";
+import { getSeasonBundle, byRecord as recordOrder } from "@/lib/season-data";
+import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { fetchLineupSlots } from "@/lib/vor";
 import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncPoolSeasons, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
@@ -71,15 +73,23 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
   const haveSeason = new Set(rows.map((r) => r.season));
   missingPriors = [season - 1, season - 2, season - 3].filter((s) => !haveSeason.has(s));
 
-  const [teams, matchupData, counts] = await Promise.all([
-    getPastSeasonTeams(season).catch(() => null),
-    getMatchups(undefined, season).catch(() => ({ matchups: [], live: false })),
+  // Standings and matchups come from the same provider as League History: a season played on Fantrax never touches
+  // ESPN (it uses the weekly scores entered by hand, or nothing), any other season comes from ESPN.
+  const [bundle, elsewhere, seasonSlots, currentSlots] = await Promise.all([
+    getSeasonBundle(season).catch(() => null),
+    getPlayedElsewhereSeasons().catch(() => new Set<number>()),
     fetchLineupSlots(season).catch(() => null),
+    fetchLineupSlots(meta.season).catch(() => null),
   ]);
+  const playedElsewhere = elsewhere.has(season);
+  // A Fantrax season has no ESPN lineup settings, so it borrows the current season's slots.
+  const counts = playedElsewhere ? currentSlots : seasonSlots ?? currentSlots;
+  const teams = bundle?.teams ?? null;
+  const matchupData = { matchups: bundle?.matchups ?? [] };
   const teamName = (id: number) => teams?.find((t) => t.id === id)?.name ?? `Team ${id}`;
   const recordedFor = (key: string) => PAST_WINNERS[key]?.find((w) => w.startsWith(`${season}:`))?.replace(`${season}: `, "");
 
-  const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? 0) : null;
+  const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? meta.size) : null;
   const trends = haveSeason.has(season) && missingPriors.length === 0 ? buildTrendAwards(rows, season) : [];
 
   // Hard Luck: actual wins against the wins the all-play record says the team earned, as a share of expected wins.
@@ -96,7 +106,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
         .sort((a, b) => a.pctGap - b.pctGap)
     : [];
 
-  const byRecord = teams ? [...teams].sort((a, b) => b.wins - b.losses - (a.wins - a.losses) || b.pointsFor - a.pointsFor) : [];
+  const byRecord = teams ? [...teams].sort(recordOrder) : [];
   const byPoints = teams ? [...teams].sort((a, b) => b.pointsFor - a.pointsFor) : [];
   const rec = (t: { wins: number; losses: number; ties: number }) => `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`;
 
@@ -116,6 +126,11 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
         ))}
       </div>
       <p className="text-sm text-muted mb-1">{season} here means the {season - 1}-{String(season).slice(2)} season, matching your award banners.</p>
+      {playedElsewhere && (
+        <p className="text-sm mb-1">
+          {season} was played on Fantrax. Hard Luck, Presidents&apos; Trophy and Most Points use the weekly scores entered under Fantrax Scores{bundle ? "" : " (none entered yet, so they are empty)"}. The player cards use ESPN&apos;s scoring, so they are hypothetical for this year; your recorded winners stand.
+        </p>
+      )}
       {notes.length > 0 && <p className="text-sm text-muted mb-1">{notes.join(" ")}</p>}
       {!haveSeason.has(season) && <p className="text-sm mb-3">Player stats for {season} are not saved yet. Refresh this page to load them.</p>}
       {haveSeason.has(season) && missingPriors.length > 0 && (
@@ -150,19 +165,19 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
             value: `${r.pctGap >= 0 ? "+" : "−"}${Math.abs(r.pctGap * 100).toFixed(0)}% xWINS`, rank: i + 1,
           }))}
           recorded={recordedFor("hardluck")}
-          note="ESPN has no finished matchups for this season."
+          note={playedElsewhere ? "Enter this season's weekly scores under Fantrax Scores." : "ESPN has no finished matchups for this season."}
         />
         <Card
           title="Presidents' Trophy"
           blurb="Best regular-season record (wins minus losses, then points for)."
           rows={byRecord.slice(0, 5).map((t, i) => ({ key: String(t.id), name: t.name, sub: `${pts(t.pointsFor)} PF`, value: rec(t), rank: i + 1 }))}
-          note="ESPN has no standings for this season."
+          note={playedElsewhere ? "Enter this season's weekly scores under Fantrax Scores." : "ESPN has no standings for this season."}
         />
         <Card
           title="Most Points Scored"
           blurb="Total regular-season points for."
           rows={byPoints.slice(0, 5).map((t, i) => ({ key: String(t.id), name: t.name, sub: rec(t), value: pts(t.pointsFor), rank: i + 1 }))}
-          note="ESPN has no standings for this season."
+          note={playedElsewhere ? "Enter this season's weekly scores under Fantrax Scores." : "ESPN has no standings for this season."}
         />
       </div>
       <p className="text-xs text-muted max-w-prose">
