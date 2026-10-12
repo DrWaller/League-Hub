@@ -283,7 +283,7 @@ export default function AdminGraphicsPage() {
       <div className="space-y-10">
         {cards.map((c) => (
           <Fragment key={c.title}>
-            <GraphicCard title={c.title} url={c.url} portrait={format === "portrait" || Boolean(c.alwaysPortrait)} />
+            <GraphicCard title={c.title} url={c.url} portrait={format === "portrait" || Boolean(c.alwaysPortrait)} lazy />
             {c.title === "Weekly Scoreboard" && (
               <>
                 <CloseMatchupCards week={week} mode="live" title="Close Matchups - live (going into the weekend)" />

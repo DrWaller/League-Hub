@@ -12,7 +12,9 @@ import { getTeamLogos } from "./content";
 // Logos are keyed by team id and belong to the CURRENT season's teams, so past
 // seasons get none (a past team id may have belonged to someone else).
 
-const cache = new Map<string, string | null>();
+// Holds the in-flight download as well as the result, so twenty graphics rendering at the same moment
+// (the Graphics page opens that many) share ONE download of each logo instead of starting twenty.
+const cache = new Map<string, Promise<string | null>>();
 
 function detectMime(b: Uint8Array): string | null {
   if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
@@ -21,8 +23,15 @@ function detectMime(b: Uint8Array): string | null {
   return null;
 }
 
-async function toDataUri(url: string): Promise<string | null> {
-  if (cache.has(url)) return cache.get(url)!;
+function toDataUri(url: string): Promise<string | null> {
+  const hit = cache.get(url);
+  if (hit) return hit;
+  const p = downloadLogo(url);
+  cache.set(url, p);
+  return p;
+}
+
+async function downloadLogo(url: string): Promise<string | null> {
   let result: string | null = null;
   try {
     // Cached in Next's shared data cache for a day (a replaced logo gets a new URL), so a busy
@@ -37,7 +46,6 @@ async function toDataUri(url: string): Promise<string | null> {
   } catch (err) {
     console.warn("Team logo download failed:", url, err);
   }
-  cache.set(url, result);
   return result;
 }
 

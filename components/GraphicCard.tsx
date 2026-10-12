@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type State =
   | { status: "loading" }
@@ -11,9 +11,28 @@ type State =
 // answers with an error instead of a picture -- "no final matchups yet",
 // "ESPN isn't connected", a crash -- the actual message shows up here
 // instead of a blank broken-image icon.
-export default function GraphicCard({ title, url, portrait, fresh = true, onBlob }: { title: string; url: string; portrait?: boolean; fresh?: boolean; onBlob?: (blob: Blob | null) => void }) {
+export default function GraphicCard({ title, url, portrait, fresh = true, onBlob, lazy = false }: { title: string; url: string; portrait?: boolean; fresh?: boolean; onBlob?: (blob: Blob | null) => void; lazy?: boolean }) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [copied, setCopied] = useState<"idle" | "ok" | "error">("idle");
+  // lazy: don't make the image until the card is near the screen. A page with 20 graphics otherwise
+  // renders all 20 on every visit, which burns server time and Blob transfer for images nobody scrolled to.
+  const [visible, setVisible] = useState(!lazy);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (visible || !box.current) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        setVisible(true);
+        io.disconnect();
+      }
+    }, { rootMargin: "300px" });
+    io.observe(box.current);
+    return () => io.disconnect();
+  }, [visible]);
 
   async function copyCaption() {
     try {
@@ -29,6 +48,7 @@ export default function GraphicCard({ title, url, portrait, fresh = true, onBlob
   }
 
   useEffect(() => {
+    if (!visible) return;
     let cancelled = false;
     let objectUrl: string | null = null;
     setState({ status: "loading" });
@@ -64,10 +84,10 @@ export default function GraphicCard({ title, url, portrait, fresh = true, onBlob
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [url]);
+  }, [url, visible]);
 
   return (
-    <div>
+    <div ref={box}>
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-display text-lg">{title}</h2>
         {state.status === "ok" && (
@@ -81,7 +101,7 @@ export default function GraphicCard({ title, url, portrait, fresh = true, onBlob
           </div>
         )}
       </div>
-      {state.status === "loading" && <p className="text-sm text-muted border border-ice-line p-4">Generating…</p>}
+      {state.status === "loading" && <p className="text-sm text-muted border border-ice-line p-4" style={visible ? undefined : { minHeight: 240 }}>{visible ? "Generating…" : "Loads when you scroll to it"}</p>}
       {state.status === "error" && (
         <p className="text-sm border border-center-red/40 bg-ice-panel p-4 whitespace-pre-wrap">{state.message}</p>
       )}
