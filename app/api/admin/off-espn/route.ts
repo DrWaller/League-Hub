@@ -4,6 +4,7 @@ import {
   getManualSeasonData,
   replaceManualSeason,
   setManualTeamManager,
+  renameManualTeam,
   deleteManualSeason,
   getPlayedElsewhereSeasons,
 } from "@/lib/content";
@@ -30,6 +31,18 @@ export async function POST(req: NextRequest) {
     if (!teamId) return NextResponse.json({ error: "teamId is required" }, { status: 400 });
     await setManualTeamManager(teamId, body.managerId ? Number(body.managerId) : null);
     return NextResponse.json({ ok: true });
+  }
+
+  if (body.action === "rename") {
+    const teamId = Number(body.teamId);
+    const name = String(body.name ?? "").replace(/\s+/g, " ").trim();
+    if (!teamId || !name) return NextResponse.json({ error: "teamId and a name are required" }, { status: 400 });
+    try {
+      await renameManualTeam(teamId, name);
+      return NextResponse.json({ ok: true, name });
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Couldn't rename" }, { status: 400 });
+    }
   }
 
   // default: import a pasted block of scores for one season

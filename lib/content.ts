@@ -622,6 +622,20 @@ export async function setManualTeamManager(teamId: number, managerId: number | n
   await sql`UPDATE manual_teams SET manager_id = ${managerId} WHERE id = ${teamId};`;
 }
 
+// Renames a hand-entered team (the games keep pointing at it by id, so scores
+// and the manager link stay as they are). Throws if another team that season
+// already has that name.
+export async function renameManualTeam(teamId: number, name: string) {
+  await ensureSchema();
+  const { rows } = await sql`SELECT season FROM manual_teams WHERE id = ${teamId};`;
+  if (rows.length === 0) throw new Error("That team no longer exists.");
+  const season = rows[0].season as number;
+  const clash = await sql`SELECT 1 FROM manual_teams WHERE season = ${season} AND name = ${name} AND id <> ${teamId};`;
+  if (clash.rows.length > 0) throw new Error(`Another ${season} team is already called "${name}".`);
+  await sql`UPDATE manual_teams SET name = ${name} WHERE id = ${teamId};`;
+  await sql`UPDATE manager_team_seasons SET team_name = ${name} WHERE team_id = ${teamId} AND season = ${season};`;
+}
+
 export async function deleteManualSeason(season: number) {
   await ensureSchema();
   await sql`DELETE FROM excluded_games WHERE season = ${season};`;

@@ -96,6 +96,23 @@ export default function OffEspnEditor() {
     setTeams((ts) => ts.map((t) => (t.id === teamId ? { ...t, managerId: managerId ? Number(managerId) : null } : t)));
   }
 
+  async function rename(teamId: number, current: string) {
+    const name = prompt("Team name for this season:", current)?.trim();
+    if (!name || name === current) return;
+    const res = await fetch("/api/admin/off-espn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "rename", teamId, name }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.ok) {
+      setTeams((ts) => ts.map((t) => (t.id === teamId ? { ...t, name: data.name } : t)));
+      setMsg({ ok: true, text: `Renamed to ${data.name}.` });
+    } else {
+      setMsg({ ok: false, text: data.error ?? "Couldn't rename" });
+    }
+  }
+
   async function removeSeason() {
     if (!confirm(`Delete all hand-entered games and teams for ${seasonNum}? This can't be undone.`)) return;
     await fetch(`/api/admin/off-espn?season=${seasonNum}`, { method: "DELETE" });
@@ -213,7 +230,12 @@ export default function OffEspnEditor() {
           <ul className="space-y-2">
             {teams.map((t) => (
               <li key={t.id} className="flex items-center justify-between gap-3 flex-wrap">
-                <span className="text-sm font-body">{t.name}</span>
+                <span className="text-sm font-body">
+                  {t.name}{" "}
+                  <button type="button" onClick={() => rename(t.id, t.name)} className="text-xs text-rink hover:underline">
+                    Rename
+                  </button>
+                </span>
                 <select
                   className="border border-ice-line px-2 py-1.5 text-sm"
                   value={t.managerId ?? ""}
