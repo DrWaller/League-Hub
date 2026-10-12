@@ -128,6 +128,7 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
           ? [
               { title: `Player Radar - ${picked.name}`, url: `${graphicsBase}/player-radar?playerId=${picked.id}&format=portrait` },
               { title: `Player Bars - ${picked.name}`, url: `${graphicsBase}/player-bars?playerId=${picked.id}&format=portrait` },
+              { title: `Player Spotlight, full season - ${picked.name}`, url: `${graphicsBase}/player-spotlight-season?playerId=${picked.id}&position=any` },
               { title: `Player Spotlight - ${picked.name} (week ${week})`, url: `${graphicsBase}/player-spotlight?week=${week}&playerId=${picked.id}&position=any&format=portrait` },
             ]
           : []),
