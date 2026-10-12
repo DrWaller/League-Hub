@@ -1,4 +1,5 @@
 import { BANNER_LABELS, textOn, TeamBanner } from "@/lib/banner-types";
+import { smallImageUrl } from "@/lib/blob-url";
 
 // One hanging pennant, drawn as SVG so it stays sharp at any size. Colours come
 // from the team's banner colours; the logo is the team's uploaded logo.
@@ -30,7 +31,7 @@ export default function TeamBannerPennant({ banner }: { banner: TeamBanner }) {
 
       {/* logo, or the team's initials until a logo is uploaded */}
       {logoUrl ? (
-        <image href={logoUrl} x="32" y="26" width="96" height="84" preserveAspectRatio="xMidYMid meet" />
+        <image href={smallImageUrl(logoUrl, 256)} x="32" y="26" width="96" height="84" preserveAspectRatio="xMidYMid meet" />
       ) : (
         <g>
           <circle cx="80" cy="68" r="34" fill="none" stroke={trim} strokeWidth="3" />

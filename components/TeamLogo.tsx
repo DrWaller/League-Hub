@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { isBlobUrl } from "@/lib/blob-url";
 
 export default function TeamLogo({
   url,
@@ -16,7 +17,9 @@ export default function TeamLogo({
         alt={name}
         width={size}
         height={size}
-        unoptimized
+        // Stored logos are served resized by Next's optimizer. Any other host isn't on the allowed
+        // list in next.config.js, so it is shown as-is rather than breaking the page.
+        unoptimized={!isBlobUrl(url) && !/^https:\/\/([a-z0-9-]+\.)*espncdn\.com\//i.test(url)}
         className="rounded-sm object-cover shrink-0 border border-ice-line"
         style={{ width: size, height: size }}
       />

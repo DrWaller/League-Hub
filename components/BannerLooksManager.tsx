@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { BANNER_LABELS, BannerColors, BannerKind, readableOn, TeamBanner } from "@/lib/banner-types";
 import { suggestColorsFromImage } from "@/lib/logo-colors";
-import { prepareImage, readResult } from "@/lib/admin-upload";
+import { prepareImage, readResult, isGif, LOGO_SIZE_LIMITS } from "@/lib/admin-upload";
 import TeamBannerPennant from "./TeamBannerPennant";
 
 export interface BannerLookItem {
@@ -75,7 +75,7 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
   async function upload(row: BannerLookItem, original: File) {
     say(row.id, "Uploading…");
     try {
-      const file = await prepareImage(original);
+      const file = await prepareImage(original, LOGO_SIZE_LIMITS);
       const form = new FormData();
       form.append("season", String(row.season));
       form.append("teamKey", row.teamKey);
@@ -92,6 +92,50 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
       if (!row.custom) await useLogoColors(row, file);
     } catch {
       say(row.id, "Upload failed — check your connection and try again");
+    }
+  }
+
+  // One tap: shrink every season logo that is big. Each is read through the server, reduced in the
+  // browser, and saved back as that season's logo (colours are left alone).
+  const [shrinkStatus, setShrinkStatus] = useState("");
+  const [shrinking, setShrinking] = useState(false);
+  async function shrinkAll() {
+    setShrinking(true);
+    let before = 0;
+    let after = 0;
+    let done = 0;
+    const own = rows.filter((r) => r.custom && r.logoUrl);
+    try {
+      for (let i = 0; i < own.length; i++) {
+        const r = own[i];
+        setShrinkStatus(`Checking ${i + 1} of ${own.length}: ${r.season} ${r.teamName}…`);
+        const res = await fetch(`/api/admin/logos/file?season=${r.season}&teamKey=${encodeURIComponent(r.teamKey)}`, { cache: "no-store" });
+        if (!res.ok) continue; // this season uses the team's general logo, nothing of its own to shrink
+        const blob = await res.blob();
+        if (await isGif(blob)) continue;
+        const original = new File([blob], `season-${r.season}`, { type: blob.type });
+        const shrunk = await prepareImage(original, LOGO_SIZE_LIMITS);
+        if (shrunk === original || shrunk.size > original.size * 0.85) continue; // already small enough
+        const form = new FormData();
+        form.append("season", String(r.season));
+        form.append("teamKey", r.teamKey);
+        form.append("file", shrunk);
+        const up = await readResult(await fetch("/api/admin/banner-looks", { method: "POST", body: form }));
+        if (!up.url) {
+          say(r.id, up.error ?? "Couldn't save the smaller logo");
+          continue;
+        }
+        patch(r.id, { logoUrl: up.url });
+        before += original.size;
+        after += shrunk.size;
+        done++;
+      }
+      const kb = (n: number) => `${Math.round(n / 1024)} KB`;
+      setShrinkStatus(done === 0 ? "Every season logo is already small. Nothing to do." : `Shrunk ${done} season logo${done === 1 ? "" : "s"}: ${kb(before)} down to ${kb(after)}.`);
+    } catch {
+      setShrinkStatus("Something went wrong part way through. Reload to see which logos were saved.");
+    } finally {
+      setShrinking(false);
     }
   }
 
@@ -116,6 +160,13 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
   }
 
   return (
+    <div>
+    <div className="flex flex-wrap items-center gap-3 mb-4">
+      <button type="button" onClick={shrinkAll} disabled={shrinking} className="border border-ice-line px-3 py-2 text-sm hover:bg-ice-panel disabled:opacity-40">
+        Shrink all season logos
+      </button>
+      <span className="text-xs text-muted max-w-prose">{shrinkStatus || "Season logos can be a few MB each and every banner downloads one. This reduces them to 512px; the banners look the same."}</span>
+    </div>
     <div className="grid sm:grid-cols-2 gap-4">
       {rows.map((r) => {
         const preview: TeamBanner = {
@@ -195,6 +246,7 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
           </div>
         );
       })}
+    </div>
     </div>
   );
 }

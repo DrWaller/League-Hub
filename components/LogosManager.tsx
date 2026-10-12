@@ -4,14 +4,13 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { BannerColors, DEFAULT_BANNER_COLORS, readableOn, TeamBanner } from "@/lib/banner-types";
 import { suggestColorsFromImage } from "@/lib/logo-colors";
-import { prepareImage, readResult } from "@/lib/admin-upload";
+import { prepareImage, readResult, isGif, LOGO_SIZE_LIMITS } from "@/lib/admin-upload";
+import { isBlobUrl } from "@/lib/blob-url";
+import BlobCleanup from "./BlobCleanup";
 import TeamBannerPennant from "./TeamBannerPennant";
 
 type TeamOption = { id: number; name: string };
 
-// Logos only ever show small, but every graphic and page downloads them, so they are kept small:
-// anything over about 120 KB is reduced to 512px (transparency kept).
-const LOGO_SIZE_LIMITS = { maxSide: 512, skipBelowBytes: 120 * 1024 };
 const kb = (n: number) => `${Math.round(n / 1024)} KB`;
 
 export default function LogosManager({
@@ -36,7 +35,7 @@ export default function LogosManager({
 
   // One tap: shrink every big logo already saved. Each is read through the server, reduced in the
   // browser, and saved back as that team's logo (colours are left alone). Old files stay in storage
-  // but nothing uses them any more.
+  // but nothing uses them any more; "Find unused files" below clears them out.
   const [shrinkStatus, setShrinkStatus] = useState("");
   const [shrinking, setShrinking] = useState(false);
   async function shrinkAll() {
@@ -52,7 +51,7 @@ export default function LogosManager({
         const res = await fetch(`/api/admin/logos/file?teamId=${t.id}`, { cache: "no-store" });
         if (!res.ok) continue;
         const blob = await res.blob();
-        if (blob.type === "image/gif") continue; // would lose its animation
+        if (await isGif(blob)) continue; // would lose its animation
         const original = new File([blob], `team-${t.id}`, { type: blob.type });
         const shrunk = await prepareImage(original, LOGO_SIZE_LIMITS);
         if (shrunk === original || shrunk.size > original.size * 0.85) continue; // already small enough
@@ -172,12 +171,13 @@ export default function LogosManager({
       </button>
       <span className="text-xs text-muted max-w-prose">{shrinkStatus || "Big logos slow down every graphic and use up Vercel storage bandwidth. This reduces them to 512px; they look the same on the site and graphics."}</span>
     </div>
+    <BlobCleanup />
     <div className="grid sm:grid-cols-2 gap-4">
       {teams.map((t) => (
         <div key={t.id} className="border border-ice-line p-4 flex items-center gap-4">
           <div className="w-16 h-16 border border-ice-line flex items-center justify-center overflow-hidden shrink-0 bg-ice-panel">
             {logos[t.id] ? (
-              <Image src={logos[t.id]} alt={t.name} width={64} height={64} className="object-cover w-full h-full" unoptimized />
+              <Image src={logos[t.id]} alt={t.name} width={64} height={64} className="object-cover w-full h-full" unoptimized={!isBlobUrl(logos[t.id])} />
             ) : (
               <span className="text-xs text-muted text-center px-1">No logo</span>
             )}

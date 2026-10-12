@@ -18,6 +18,16 @@ export async function readResult(res: Response): Promise<AdminResult> {
   }
 }
 
+// Logos only ever show small, but every graphic and page downloads them, so they are kept small:
+// anything over about 120 KB is reduced to 512px (transparency kept).
+export const LOGO_SIZE_LIMITS = { maxSide: 512, skipBelowBytes: 120 * 1024 };
+
+// A GIF would lose its animation if redrawn, so it is left alone.
+export async function isGif(blob: Blob): Promise<boolean> {
+  const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+  return head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46; // "GIF"
+}
+
 const MAX_SIDE = 1024;
 const SKIP_BELOW_BYTES = 1.5 * 1024 * 1024;
 

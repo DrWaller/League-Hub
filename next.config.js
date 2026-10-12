@@ -4,6 +4,8 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "**.espncdn.com" },
       { protocol: "https", hostname: "g.espncdn.com" },
+      // Team logos live in Vercel Blob; serving them resized keeps bandwidth down.
+      { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
     ],
   },
   // Belt-and-suspenders: Next.js's automatic file tracing should already
