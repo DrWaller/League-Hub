@@ -141,7 +141,7 @@ export default async function SeasonAwardsPage() {
       rank: e.rank,
       prev: r.through > 1 ? e.prevRank : undefined,
     }));
-    return <Card key={r.award.key} title={r.award.title} blurb={r.award.blurb} rows={rows} note="No finished weeks saved yet." />;
+    return <Card key={r.award.key} title={r.award.title} blurb={`${r.award.blurb}${PAST_WINNERS[r.award.key] ? ` Past winners: ${PAST_WINNERS[r.award.key].join(", ")}.` : ""}`} rows={rows} note="No finished weeks saved yet." />;
   });
 
   const through = races[0]?.through ?? 0;

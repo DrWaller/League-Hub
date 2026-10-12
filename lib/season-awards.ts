@@ -89,8 +89,13 @@ export async function getPlayerRaces(season: number, throughWeek?: number, top =
 
 // Winners from earlier years, shown on each award's card.
 export const PAST_WINNERS: Record<string, string[]> = {
+  hart: ["2026: Nathan MacKinnon", "2025: Cale Makar", "2024: Nathan MacKinnon", "2023: Connor McDavid", "2022: Auston Matthews", "2021: Connor McDavid", "2020: David Pastrnak"],
+  artross: ["2026: Nathan MacKinnon", "2025: Nathan MacKinnon", "2024: Nathan MacKinnon", "2023: Connor McDavid", "2022: Auston Matthews", "2021: Connor McDavid", "2020: David Pastrnak"],
+  norris: ["2023: Erik Karlsson", "2022: Roman Josi"],
+  vezina: ["2026: Connor Hellebuyck (manager vote)", "2023: Linus Ullmark", "2022: Jacob Markstrom"],
+  calder: ["2026: Matthew Schaefer", "2025: Dustin Wolf", "2024: Connor Bedard", "2023: Logan Thompson", "2022: Moritz Seider", "2021: Kirill Kaprizov", "2020: Mackenzie Blackwood"],
+  breakout: ["2026: Macklin Celebrini", "2025: Brandon Hagel", "2024: Evan Bouchard", "2023: Tage Thompson", "2022: Jack Hughes", "2021: Jakob Chychrun", "2020: JT Miller"],
   sleeping: ["2023: Linus Ullmark", "2022: Filip Forsberg"],
-  breakout: ["2023: Tage Thompson", "2022: Jack Hughes"],
   improved: ["2023: Erik Karlsson", "2022: Matt Duchene"],
   jennings: ["2023: The Akibergs", "2022: DannyC DannyDo"],
 };
