@@ -15,7 +15,7 @@ export default async function AdminDashboard() {
     { href: "/admin/power-breakdown", label: "Power Rankings Breakdown", desc: "See exactly why each team is ranked where it is: all-play, points, roster strength and record." },
     { href: "/admin/weekly", label: "Weekly Checklist", desc: "One page for the weekly routine: blurbs, awards, writeup, graphics, power rankings, luck chart." },
     { href: "/admin/awards", label: "Weekly Awards", desc: "3 Stars, Forward/Defense/Goalie of the Week + runners-up." },
-    { href: "/admin/newsletter-graphics", label: "Newsletter Graphics", desc: "The 11 graphics for the weekly newsletter in send order, with one-tap share to the group." },
+    { href: "/admin/newsletter-graphics", label: "Newsletter Graphics", desc: "The cover plus the 11 graphics for the weekly newsletter in send order, with one-tap share to the group." },
     { href: "/admin/graphics", label: "Graphics", desc: "Auto-generated shareable images from real weekly stats." },
     { href: "/admin/big-night-cards", label: "Big Night Cards", desc: "A shareable card, and a caption, for every player who had a big night." },
     { href: "/admin/monthly-periods", label: "Monthly Periods", desc: "Define the week ranges Monthly Awards use." },

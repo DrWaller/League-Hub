@@ -4,10 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import GraphicCard from "@/components/GraphicCard";
 
 // The weekly newsletter, in the order it gets sent to the group. Each graphic
-// is the same one the Graphics page makes -- this just puts the 11 you send in
+// is the same one the Graphics page makes -- this just puts the cover and the 11 you send in
 // order, ready to share in one go. All are the phone/Instagram shape except the
 // Luck Chart, which is a wide table and is made in landscape.
+// What the cover lists under "In this issue": every part after the cover, in send order.
+const COVER_SECTIONS = ["Weekly Scoreboard", "Standings", "Power Rankings", "3 Stars of the Week", "Top 3 Forwards", "Top 3 Defensemen", "Top 3 Goalies", "Team of the Week", "Player Spotlight", "Luck Chart", "Next Week's Matchups"];
+
 const PARTS: { slug: string; title: string; path: (week: number) => string; landscape?: boolean }[] = [
+  { slug: "cover", title: "Cover", path: (w) => `cover?week=${w}&sections=${encodeURIComponent(COVER_SECTIONS.join("|"))}` },
   { slug: "scoreboard", title: "Weekly Scoreboard", path: (w) => `scoreboard?week=${w}` },
   { slug: "standings", title: "Standings", path: (w) => `standings?week=${w}` },
   { slug: "power-rankings", title: "Power Rankings", path: (w) => `power-rankings?week=${w}` },

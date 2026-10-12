@@ -862,3 +862,60 @@ export async function renderPortraitStandings(opts: {
     ),
   });
 }
+
+// ---------------------------------------------------------------- newsletter cover
+// The first image of the weekly newsletter: league name, the week, what's inside, and every team's logo.
+export async function renderPortraitCover(opts: {
+  footer?: string;
+  week: number;
+  leagueName: string;
+  seasonLabel: string; // e.g. "2026-27 SEASON"
+  sections: string[]; // the graphics inside, in send order
+  teams: { id: number; name: string }[];
+  logos?: Record<number, string>;
+}) {
+  const logos = opts.logos ?? {};
+  const half = Math.ceil(opts.sections.length / 2);
+  const columns = [opts.sections.slice(0, half), opts.sections.slice(half)];
+  return frame({
+    footer: opts.footer,
+    title: "Weekly Newsletter",
+    subtitle: `Week ${opts.week}`,
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "space-between", paddingTop: 18, paddingBottom: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 8, color: OG.goldText }}>
+            <GoldStar size={32} />
+            <div style={{ display: "flex" }}>{`WEEK ${opts.week} RECAP`}</div>
+            <GoldStar size={32} />
+          </div>
+          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: Math.max(64, Math.min(112, Math.floor(920 / Math.max(opts.leagueName.length * 0.5, 1)))), lineHeight: 1.05, textAlign: "center", color: OG.board, textTransform: "uppercase", marginTop: 18, maxWidth: 960, justifyContent: "center" }}>{opts.leagueName}</div>
+          <div style={{ display: "flex", width: 220, height: 6, background: OG.centerRed, marginTop: 22 }} />
+          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 32, letterSpacing: 6, color: OG.muted, marginTop: 18 }}>{opts.seasonLabel}</div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", background: "#FFFFFF", border: CARD_BORDER, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW, padding: "22px 36px 26px 36px" }}>
+          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: 6, color: OG.rink, paddingBottom: 12, marginBottom: 10, borderBottom: `3px solid ${OG.gold}` }}>IN THIS ISSUE</div>
+          <div style={{ display: "flex", flexDirection: "row", gap: 28 }}>
+            {columns.map((col, c) => (
+              <div key={c} style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+                {col.map((name, k) => (
+                  <div key={name} style={{ display: "flex", alignItems: "center", gap: 16, height: 50 }}>
+                    <div style={{ display: "flex", width: 40, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 30, color: OG.centerRed }}>{(c === 0 ? 0 : half) + k + 1}</div>
+                    <div style={{ display: "flex", fontSize: 29, fontWeight: 600, color: OG.board, whiteSpace: "nowrap" }}>{name}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 12 }}>
+          {opts.teams.map((t) => (
+            <TeamBadge key={t.id} name={t.name} logo={logos[t.id]} size={Math.min(88, Math.floor(920 / Math.max(opts.teams.length, 1)) - 12)} fontFamily={display} />
+          ))}
+        </div>
+      </div>
+    ),
+  });
+}
