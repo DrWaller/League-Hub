@@ -9,6 +9,11 @@ import TeamBannerPennant from "./TeamBannerPennant";
 
 type TeamOption = { id: number; name: string };
 
+// Logos only ever show small, but every graphic and page downloads them, so they are kept small:
+// anything over about 120 KB is reduced to 512px (transparency kept).
+const LOGO_SIZE_LIMITS = { maxSide: 512, skipBelowBytes: 120 * 1024 };
+const kb = (n: number) => `${Math.round(n / 1024)} KB`;
+
 export default function LogosManager({
   teams,
   initialLogos,
@@ -28,6 +33,50 @@ export default function LogosManager({
   const saveSeq = useRef<Record<number, number>>({});
 
   const colorsFor = (id: number): BannerColors => colors[id] ?? DEFAULT_BANNER_COLORS;
+
+  // One tap: shrink every big logo already saved. Each is read through the server, reduced in the
+  // browser, and saved back as that team's logo (colours are left alone). Old files stay in storage
+  // but nothing uses them any more.
+  const [shrinkStatus, setShrinkStatus] = useState("");
+  const [shrinking, setShrinking] = useState(false);
+  async function shrinkAll() {
+    setShrinking(true);
+    let before = 0;
+    let after = 0;
+    let done = 0;
+    const withLogo = teams.filter((t) => logos[t.id]);
+    try {
+      for (let i = 0; i < withLogo.length; i++) {
+        const t = withLogo[i];
+        setShrinkStatus(`Checking ${i + 1} of ${withLogo.length}: ${t.name}…`);
+        const res = await fetch(`/api/admin/logos/file?teamId=${t.id}`, { cache: "no-store" });
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        if (blob.type === "image/gif") continue; // would lose its animation
+        const original = new File([blob], `team-${t.id}`, { type: blob.type });
+        const shrunk = await prepareImage(original, LOGO_SIZE_LIMITS);
+        if (shrunk === original || shrunk.size > original.size * 0.85) continue; // already small enough
+        const form = new FormData();
+        form.append("teamId", String(t.id));
+        form.append("file", shrunk);
+        const up = await readResult(await fetch("/api/admin/logos", { method: "POST", body: form }));
+        if (!up.url) {
+          setUploadStatus((prev) => ({ ...prev, [t.id]: up.error ?? "Couldn't save the smaller logo" }));
+          continue;
+        }
+        setLogos((prev) => ({ ...prev, [t.id]: up.url as string }));
+        setUploadStatus((prev) => ({ ...prev, [t.id]: `Logo saved, shrunk (${kb(original.size)} to ${kb(shrunk.size)})` }));
+        before += original.size;
+        after += shrunk.size;
+        done++;
+      }
+      setShrinkStatus(done === 0 ? "Every logo is already small. Nothing to do." : `Shrunk ${done} logo${done === 1 ? "" : "s"}: ${kb(before)} down to ${kb(after)}.`);
+    } catch {
+      setShrinkStatus("Something went wrong part way through. Reload to see which logos were saved.");
+    } finally {
+      setShrinking(false);
+    }
+  }
 
   // A sample banner with this team's logo and the colours currently picked.
   const previewFor = (t: TeamOption): TeamBanner => {
@@ -94,7 +143,7 @@ export default function LogosManager({
     setUploadingId(teamId);
     say("Uploading…");
     try {
-      const file = await prepareImage(original);
+      const file = await prepareImage(original, LOGO_SIZE_LIMITS);
       const form = new FormData();
       form.append("teamId", String(teamId));
       form.append("file", file);
@@ -116,6 +165,13 @@ export default function LogosManager({
   }
 
   return (
+    <div>
+    <div className="flex flex-wrap items-center gap-3 mb-4">
+      <button type="button" onClick={shrinkAll} disabled={shrinking || uploadingId !== null} className="border border-ice-line px-3 py-2 text-sm hover:bg-ice-panel disabled:opacity-40">
+        Shrink all logos
+      </button>
+      <span className="text-xs text-muted max-w-prose">{shrinkStatus || "Big logos slow down every graphic and use up Vercel storage bandwidth. This reduces them to 512px; they look the same on the site and graphics."}</span>
+    </div>
     <div className="grid sm:grid-cols-2 gap-4">
       {teams.map((t) => (
         <div key={t.id} className="border border-ice-line p-4 flex items-center gap-4">
@@ -192,6 +248,7 @@ export default function LogosManager({
           </div>
         </div>
       ))}
+    </div>
     </div>
   );
 }

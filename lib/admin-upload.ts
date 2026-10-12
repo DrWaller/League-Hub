@@ -24,11 +24,12 @@ const SKIP_BELOW_BYTES = 1.5 * 1024 * 1024;
 // Phone photos and big exports can pass Vercel's ~4.5 MB request limit. Logos
 // never need to be that large, so shrink anything big to 1024px (as PNG, which
 // keeps transparency). Small files are sent untouched.
-export async function prepareImage(file: File): Promise<File> {
-  if (file.size <= SKIP_BELOW_BYTES) return file;
+export async function prepareImage(file: File, opts?: { maxSide?: number; skipBelowBytes?: number }): Promise<File> {
+  const maxSide = opts?.maxSide ?? MAX_SIDE;
+  if (file.size <= (opts?.skipBelowBytes ?? SKIP_BELOW_BYTES)) return file;
   try {
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
     const w = Math.max(1, Math.round(bitmap.width * scale));
     const h = Math.max(1, Math.round(bitmap.height * scale));
     const canvas = document.createElement("canvas");
