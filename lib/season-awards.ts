@@ -3,6 +3,7 @@
 // they are easy to rename or redefine in one place.
 
 import { getAllStored, type StoredVor } from "./vor-store";
+import { sql } from "./db";
 
 export interface PlayerAward {
   key: string;
@@ -81,4 +82,80 @@ export function buildRaces(rows: StoredVor[], throughWeek?: number, top = 5): Pl
 
 export async function getPlayerRaces(season: number, throughWeek?: number, top = 5): Promise<PlayerRace[]> {
   return buildRaces(await getAllStored(season), throughWeek, top);
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// More year-long races: the goaltending tandem and the draft's biggest sleeper.
+
+// Winners from earlier years, shown on each award's card.
+export const PAST_WINNERS: Record<string, string[]> = {
+  sleeping: ["2023: Linus Ullmark", "2022: Filip Forsberg"],
+  breakout: ["2023: Tage Thompson", "2022: Jack Hughes"],
+  improved: ["2023: Erik Karlsson", "2022: Matt Duchene"],
+  jennings: ["2023: The Akibergs", "2022: DannyC DannyDo"],
+};
+
+export interface TandemEntry {
+  teamId: number;
+  points: number;
+  goalies: { name: string; points: number }[];
+  rank: number;
+}
+
+// The most dominant goaltending tandem: each team's two best goalies, by the fantasy points they scored while on
+// that team's roster (started or not, the same way VOR counts points).
+export function buildTandems(rows: StoredVor[], top = 5): TandemEntry[] {
+  const byTeam = new Map<number, Map<number, { name: string; points: number }>>();
+  for (const r of rows) {
+    if (r.position !== "G") continue;
+    const team = byTeam.get(r.teamId) ?? new Map<number, { name: string; points: number }>();
+    const g = team.get(r.playerId);
+    if (g) g.points += r.points;
+    else team.set(r.playerId, { name: r.name, points: r.points });
+    byTeam.set(r.teamId, team);
+  }
+  const list = [...byTeam.entries()].map(([teamId, goalies]) => {
+    const best = [...goalies.values()].sort((a, b) => b.points - a.points).slice(0, 2);
+    return { teamId, goalies: best, points: best.reduce((n, g) => n + g.points, 0) };
+  });
+  return list
+    .sort((a, b) => b.points - a.points)
+    .slice(0, top)
+    .map((t, i) => ({ ...t, rank: i + 1 }));
+}
+
+export interface SleeperEntry {
+  id: number;
+  name: string;
+  position: string;
+  teamId: number;
+  pick: number; // where he was drafted
+  finish: number; // where he ranks by VOR among everyone drafted
+  margin: number; // pick minus finish: bigger = more of a steal
+  vor: number;
+  rank: number;
+}
+
+// Sleeping Beauty: the drafted player who out-produced his draft slot by the most. His finish is his rank by
+// season VOR among every drafted player (VOR so goalies and skaters sit on one scale); keeper picks are not real
+// draft slots, so they are only used as comparisons.
+export async function getSleepingBeauty(season: number, top = 5): Promise<SleeperEntry[]> {
+  const picks = await sql`
+    SELECT overall_pick, player_id, player_name, position, team_id, is_keeper FROM draft_picks WHERE season = ${season} AND source = 'espn';
+  `;
+  if (picks.rows.length === 0) return [];
+  const vorBy = new Map<number, number>();
+  for (const r of await getAllStored(season)) vorBy.set(r.playerId, (vorBy.get(r.playerId) ?? 0) + r.vor);
+  const drafted = picks.rows
+    .map((p) => ({ id: Number(p.player_id), name: String(p.player_name), position: String(p.position), teamId: Number(p.team_id), pick: Number(p.overall_pick), keeper: Boolean(p.is_keeper) }))
+    .filter((p) => vorBy.has(p.id));
+  const order = [...drafted].sort((a, b) => (vorBy.get(b.id) ?? 0) - (vorBy.get(a.id) ?? 0));
+  const finish = new Map(order.map((p, i) => [p.id, i + 1]));
+  return drafted
+    .filter((p) => !p.keeper)
+    .map((p) => ({ ...p, finish: finish.get(p.id) ?? 0, margin: p.pick - (finish.get(p.id) ?? 0), vor: vorBy.get(p.id) ?? 0 }))
+    .filter((p) => p.margin > 0)
+    .sort((a, b) => b.margin - a.margin || b.vor - a.vor)
+    .slice(0, top)
+    .map((p, i) => ({ id: p.id, name: p.name, position: p.position, teamId: p.teamId, pick: p.pick, finish: p.finish, margin: p.margin, vor: p.vor, rank: i + 1 }));
 }

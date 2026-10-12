@@ -1,8 +1,10 @@
 import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
-import { regularSeasonFinals } from "@/lib/luck";
+import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncSeasonVor } from "@/lib/vor-store";
 import { syncSeasonLineups, getStoredLineups, summarizeSeason } from "@/lib/lineup-store";
-import { getPlayerRaces } from "@/lib/season-awards";
+import { getPlayerRaces, buildTandems, getSleepingBeauty, PAST_WINNERS } from "@/lib/season-awards";
+import { getAllStored } from "@/lib/vor-store";
+import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
 import { pts } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +74,13 @@ export default async function SeasonAwardsPage() {
     notes.push(`Lineup data: ${e instanceof Error ? e.message : String(e)}`);
   }
 
+  try {
+    const p = await syncPoolStats(meta.season);
+    if (p.waiting > 0) notes.push(`${p.waiting} season(s) of league-wide player stats still loading`);
+  } catch (e) {
+    notes.push(`League-wide player stats: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
   let races: Awaited<ReturnType<typeof getPlayerRaces>> = [];
   try {
     races = await getPlayerRaces(meta.season);
@@ -84,6 +93,37 @@ export default async function SeasonAwardsPage() {
   } catch {
     /* empty */
   }
+
+  let tandems: ReturnType<typeof buildTandems> = [];
+  try {
+    tandems = buildTandems(await getAllStored(meta.season));
+  } catch {
+    /* empty */
+  }
+  let sleepers: Awaited<ReturnType<typeof getSleepingBeauty>> = [];
+  try {
+    sleepers = await getSleepingBeauty(meta.season);
+  } catch {
+    /* empty: the draft may not be stored yet */
+  }
+  let trends: ReturnType<typeof buildTrendAwards> = [];
+  try {
+    trends = buildTrendAwards(await loadPoolStats(meta.season), meta.season);
+  } catch {
+    /* empty */
+  }
+  // Hard Luck: actual wins minus the wins the all-play record says a team earned (most negative = unluckiest).
+  const lastWeek = finished[finished.length - 1] ?? 0;
+  const hardLuck = lastWeek > 0
+    ? computeLuck(matchups, lastWeek).rows
+        .map((r) => {
+          const games = r.actW + r.actL + r.actT;
+          const expected = r.expWinPct * games;
+          const actual = r.actW + r.actT * 0.5;
+          return { ...r, games, expected, actual, gap: actual - expected };
+        })
+        .sort((a, b) => a.gap - b.gap)
+    : [];
 
   const byRecord = [...teams].sort((a, b) => b.wins - b.losses - (a.wins - a.losses) || b.pointsFor - a.pointsFor);
   const byPoints = [...teams].sort((a, b) => b.pointsFor - a.pointsFor);
@@ -142,6 +182,42 @@ export default async function SeasonAwardsPage() {
             gap: i === 0 ? "leader" : `-${pts(byPoints[0].pointsFor - t.pointsFor)}`, rank: i + 1,
           }))}
         />
+        <Card
+          title="Hard Luck Manager"
+          blurb={`Actual wins vs. expected wins (every team against every other team, every week). The biggest shortfall wins. Past winners: none recorded.`}
+          rows={top5(hardLuck).map((r, i) => ({
+            key: String(r.teamId), name: name(r.teamId), sub: `${r.actW}-${r.actL}${r.actT ? `-${r.actT}` : ""} actual, ${r.expected.toFixed(1)} expected`,
+            value: `${r.gap >= 0 ? "+" : ""}${r.gap.toFixed(1)} W`, gap: i === 0 ? "most unlucky" : `${(r.gap - hardLuck[0].gap).toFixed(1)} from the top`, rank: i + 1,
+          }))}
+          note="No finished weeks yet."
+        />
+        <Card
+          title="William M. Jennings"
+          blurb={`Most dominant goaltending tandem: each team's two best goalies, by fantasy points. Past winners: ${PAST_WINNERS.jennings.join(", ")}.`}
+          rows={tandems.map((t) => ({
+            key: String(t.teamId), name: name(t.teamId), sub: t.goalies.map((g) => `${g.name} ${pts(g.points)}`).join(" · "), value: `${pts(t.points)} pts`,
+            gap: t.rank === 1 ? "leader" : `-${pts(tandems[0].points - t.points)}`, rank: t.rank,
+          }))}
+          note="No finished weeks saved yet."
+        />
+        <Card
+          title="Sleeping Beauty"
+          blurb={`The drafted player who out-produced his draft slot by the most (draft pick minus his finish by VOR among everyone drafted; keepers excluded). Past winners: ${PAST_WINNERS.sleeping.join(", ")}.`}
+          rows={sleepers.map((p) => ({
+            key: String(p.id), name: p.name, sub: `${p.position} · ${name(p.teamId)} · drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin} spots`,
+            gap: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`, rank: p.rank,
+          }))}
+          note="Needs the draft saved and at least one finished week."
+        />
+        {trends.map((t) => (
+          <Card
+            key={t.key}
+            title={t.title}
+            blurb={`${t.blurb}${PAST_WINNERS[t.key] ? ` Past winners: ${PAST_WINNERS[t.key].join(", ")}.` : ""}`}
+            rows={t.entries.map((e) => ({ key: String(e.id), name: e.name, sub: `${e.position} · ${e.detail}`, value: e.value, gap: "", rank: e.rank }))}
+            note="Nothing qualifies yet. Early in the season few players have enough games."
+          />
+        ))}
         <Card title="Calder Trophy" blurb="Best qualifying rookie (any player, owned or not)." rows={[]} note="Coming once the rookie rules are set." />
       </div>
     </div>
