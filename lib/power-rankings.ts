@@ -19,10 +19,10 @@ import { Team, PowerRankingEntry, Matchup } from "./types";
 import { regularSeasonFinals } from "./luck";
 
 export const WEIGHTS = {
-  allPlay: 0.35,
-  ppg: 0.25,
-  roster: 0.25,
-  winPct: 0.15,
+  allPlay: 0.4, // primary driver
+  ppg: 0.35, // primary driver
+  roster: 0.15,
+  winPct: 0.1,
 };
 
 // How much a week counts relative to the week after it (0.8 = each week back
@@ -45,12 +45,28 @@ function zScores(values: number[]): number[] {
   return values.map((v) => (v - mean) / sd);
 }
 
-export function calculatePowerRankings(
+// One team's line in the ranking, with every piece shown so the page at
+// /admin/power-breakdown can explain exactly why a team landed where it did.
+export interface PowerBreakdownRow {
+  teamId: number;
+  rank: number;
+  score: number;
+  allPlay: number; // recency-weighted all-play win % (0-1)
+  ppg: number; // recency-weighted points per week
+  winPct: number; // recency-weighted actual win % (0-1)
+  roster: number | null; // recency-weighted best-lineup VOR, null if unavailable
+  // How much each piece added to (or took from) the final score.
+  contrib: { allPlay: number; ppg: number; winPct: number; roster: number | null };
+  // The weight each piece actually carried (roster's share is spread out when it's unavailable).
+  weights: { allPlay: number; ppg: number; winPct: number; roster: number | null };
+}
+
+export function explainPowerRankings(
   teams: Team[],
   matchups: Matchup[],
   throughWeek: number,
   weeklyStrength?: WeeklyStrength
-): PowerRankingEntry[] {
+): PowerBreakdownRow[] {
   const finals = regularSeasonFinals(matchups).filter((m) => m.week <= throughWeek);
 
   // Recency-weighted running totals per team.
@@ -135,26 +151,43 @@ export function calculatePowerRankings(
     }
   }
 
-  const parts: { z: number[]; weight: number }[] = [
-    { z: zScores(allPlay), weight: WEIGHTS.allPlay },
-    { z: zScores(ppg), weight: WEIGHTS.ppg },
-    { z: zScores(winPct), weight: WEIGHTS.winPct },
-  ];
-  if (roster) parts.push({ z: zScores(roster), weight: WEIGHTS.roster });
-  const totalWeight = parts.reduce((s, p) => s + p.weight, 0);
+  const totalWeight = WEIGHTS.allPlay + WEIGHTS.ppg + WEIGHTS.winPct + (roster ? WEIGHTS.roster : 0);
+  const w = {
+    allPlay: WEIGHTS.allPlay / totalWeight,
+    ppg: WEIGHTS.ppg / totalWeight,
+    winPct: WEIGHTS.winPct / totalWeight,
+    roster: roster ? WEIGHTS.roster / totalWeight : null,
+  };
+  const zAllPlay = zScores(allPlay);
+  const zPpg = zScores(ppg);
+  const zWin = zScores(winPct);
+  const zRoster = roster ? zScores(roster) : null;
 
-  const scored = teams.map((t, i) => ({
-    teamId: t.id,
-    score: parts.reduce((s, p) => s + p.z[i] * p.weight, 0) / totalWeight,
-    ppg: ppg[i],
-  }));
+  const rows = teams.map((t, i) => {
+    const contrib = {
+      allPlay: zAllPlay[i] * w.allPlay,
+      ppg: zPpg[i] * w.ppg,
+      winPct: zWin[i] * w.winPct,
+      roster: zRoster && w.roster !== null ? zRoster[i] * w.roster : null,
+    };
+    const score = contrib.allPlay + contrib.ppg + contrib.winPct + (contrib.roster ?? 0);
+    return { teamId: t.id, score, allPlay: allPlay[i], ppg: ppg[i], winPct: winPct[i], roster: roster ? roster[i] : null, contrib, weights: w };
+  });
 
-  scored.sort((a, b) => b.score - a.score || b.ppg - a.ppg);
+  rows.sort((a, b) => b.score - a.score || b.ppg - a.ppg);
+  return rows.map((r, i) => ({ ...r, rank: i + 1 }));
+}
 
-  return scored.map((s, i) => ({
-    teamId: s.teamId,
-    score: Math.round(s.score * 100) / 100,
-    rank: i + 1,
+export function calculatePowerRankings(
+  teams: Team[],
+  matchups: Matchup[],
+  throughWeek: number,
+  weeklyStrength?: WeeklyStrength
+): PowerRankingEntry[] {
+  return explainPowerRankings(teams, matchups, throughWeek, weeklyStrength).map((r) => ({
+    teamId: r.teamId,
+    score: Math.round(r.score * 100) / 100,
+    rank: r.rank,
   }));
 }
 
