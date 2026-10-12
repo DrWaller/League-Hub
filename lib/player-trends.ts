@@ -4,6 +4,7 @@
 
 import { sql } from "./db";
 import { getPlayerPool } from "./espn";
+import { getImportedSeason } from "./imported-seasons";
 import type { Group } from "./radar";
 
 const POS: Record<number, string> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
@@ -39,9 +40,17 @@ async function loadSeason(season: number): Promise<PoolRow[]> {
 }
 
 async function saveSeason(season: number, currentSeason: number): Promise<boolean> {
-  const groups: Group[] = ["F", "D", "G"];
-  const pools = await Promise.all(groups.map((g) => getPlayerPool(g, season === currentSeason ? undefined : season)));
-  const rows = pools.flat().map((p) => ({ player_id: p.id, name: p.name, position: POS[p.positionId] ?? "?", gp: p.gp, points: p.appliedTotal }));
+  // A season played on Fantrax was imported with the league's own scoring, so it is used instead of ESPN (which has
+  // no player stats for it). Its ids are the NHL's, saved as negatives and matched to ESPN ids by name when loaded.
+  const imp = await getImportedSeason(season).catch(() => null);
+  let rows: { player_id: number; name: string; position: string; gp: number; points: number }[];
+  if (imp && imp.players.length > 0) {
+    rows = imp.players.map((p, i) => ({ player_id: -(p.nhlId ?? 1_000_000_000 + i), name: p.name, position: POS[p.positionId] ?? "?", gp: p.gp, points: p.appliedTotal }));
+  } else {
+    const groups: Group[] = ["F", "D", "G"];
+    const pools = await Promise.all(groups.map((g) => getPlayerPool(g, season === currentSeason ? undefined : season)));
+    rows = pools.flat().map((p) => ({ player_id: p.id, name: p.name, position: POS[p.positionId] ?? "?", gp: p.gp, points: p.appliedTotal }));
+  }
   if (rows.length === 0) return false; // ESPN gave nothing: don't record this season as fetched
   const json = JSON.stringify(rows);
   await sql`DELETE FROM pool_season_stats WHERE season = ${season};`;
@@ -96,7 +105,20 @@ export async function loadPoolStats(currentSeason: number): Promise<PoolRow[]> {
   const r = await sql`
     SELECT season, player_id, name, position, gp, points FROM pool_season_stats WHERE season >= ${currentSeason - 3} AND season <= ${currentSeason};
   `;
-  return r.rows.map((x) => ({ season: Number(x.season), id: Number(x.player_id), name: String(x.name), position: String(x.position), gp: Number(x.gp), points: Number(x.points) }));
+  const rows = r.rows.map((x) => ({ season: Number(x.season), id: Number(x.player_id), name: String(x.name), position: String(x.position), gp: Number(x.gp), points: Number(x.points) }));
+  return matchImportedIds(rows);
+}
+
+const nameKey = (n: string) => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+
+// Imported (Fantrax) seasons carry NHL ids saved as negatives. So the same player lines up across seasons, give each one
+// the ESPN id of the same name (and goalie/skater group) found in any ESPN season.
+export function matchImportedIds(rows: PoolRow[]): PoolRow[] {
+  if (!rows.some((x) => x.id < 0)) return rows;
+  const grp = (pos: string) => (pos === "G" ? "G" : "S");
+  const espn = new Map<string, number>();
+  for (const x of rows) if (x.id > 0) espn.set(`${nameKey(x.name)}|${grp(x.position)}`, x.id);
+  return rows.map((x) => (x.id < 0 ? { ...x, id: espn.get(`${nameKey(x.name)}|${grp(x.position)}`) ?? x.id } : x));
 }
 
 // ---------------------------------------------------------------------------------------------------------
