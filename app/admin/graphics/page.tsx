@@ -101,6 +101,11 @@ export default function AdminGraphicsPage() {
       title: "Player Spotlight",
       url: `/api/admin/graphics/player-spotlight?week=${week}&position=${spotlightPosition}${seasonQS}`,
     },
+    {
+      title: "Player Spotlight - Full Season",
+      url: `/api/admin/graphics/player-spotlight-season?position=${spotlightPosition}${seasonQS}`,
+      alwaysPortrait: true,
+    },
     ...TOP_THREE_POSITIONS.map((p) => ({
       title: p.label,
       url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}${seasonQS}`,
