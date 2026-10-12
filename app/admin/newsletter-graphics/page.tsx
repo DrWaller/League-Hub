@@ -5,8 +5,9 @@ import GraphicCard from "@/components/GraphicCard";
 
 // The weekly newsletter, in the order it gets sent to the group. Each graphic
 // is the same one the Graphics page makes -- this just puts the 11 you send in
-// order, always in the phone/Instagram shape, ready to share in one go.
-const PARTS: { slug: string; title: string; path: (week: number) => string }[] = [
+// order, ready to share in one go. All are the phone/Instagram shape except the
+// Luck Chart, which is a wide table and is made in landscape.
+const PARTS: { slug: string; title: string; path: (week: number) => string; landscape?: boolean }[] = [
   { slug: "scoreboard", title: "Weekly Scoreboard", path: (w) => `scoreboard?week=${w}` },
   { slug: "standings", title: "Standings", path: (w) => `standings?week=${w}` },
   { slug: "power-rankings", title: "Power Rankings", path: (w) => `power-rankings?week=${w}` },
@@ -16,7 +17,7 @@ const PARTS: { slug: string; title: string; path: (week: number) => string }[] =
   { slug: "top-goalies", title: "Top 3 Goalies", path: (w) => `top-three?week=${w}&position=goalie` },
   { slug: "team-of-the-week", title: "Team of the Week", path: (w) => `team-of-week?week=${w}` },
   { slug: "player-spotlight", title: "Player Spotlight", path: (w) => `player-spotlight?week=${w}&position=any` },
-  { slug: "luck-chart", title: "Luck Chart", path: (w) => `luck-chart?week=${w}` },
+  { slug: "luck-chart", title: "Luck Chart", path: (w) => `luck-chart?week=${w}`, landscape: true }, // wide table reads best landscape
   { slug: "next-week-matchups", title: "Next Week's Matchups", path: (w) => `matchup-preview?week=${w + 1}` },
 ];
 
@@ -143,8 +144,8 @@ export default function NewsletterGraphicsPage() {
           <GraphicCard
             key={p.slug}
             title={`${i + 1}. ${p.title}`}
-            url={`/api/admin/graphics/${p.path(week)}&format=portrait`}
-            portrait
+            url={`/api/admin/graphics/${p.path(week)}&format=${p.landscape ? "landscape" : "portrait"}`}
+            portrait={!p.landscape}
             onBlob={(b) => onBlob(i, b)}
           />
         ))}

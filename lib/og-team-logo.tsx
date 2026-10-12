@@ -25,7 +25,9 @@ async function toDataUri(url: string): Promise<string | null> {
   if (cache.has(url)) return cache.get(url)!;
   let result: string | null = null;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    // Cached in Next's shared data cache for a day (a replaced logo gets a new URL), so a busy
+    // graphics session reads each logo from Vercel Blob once instead of once per image and instance.
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000), next: { revalidate: 86400 } });
     if (res.ok) {
       const bytes = new Uint8Array(await res.arrayBuffer());
       const mime = detectMime(bytes);
