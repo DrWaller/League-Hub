@@ -75,6 +75,22 @@ export async function syncPoolStats(currentSeason: number, limit = 2): Promise<{
   return { saved, waiting: Math.max(0, stale.length - limit) };
 }
 
+// Past-season rebuilds: makes sure the given seasons are saved, at most `limit` per call (each is three ESPN reads).
+// Seasons ESPN has nothing for are reported back so the page can say so.
+export async function syncPoolSeasons(seasons: number[], currentSeason: number, limit = 1): Promise<{ saved: number; waiting: number; empty: number[] }> {
+  await ensureTables();
+  const have = await sql`SELECT DISTINCT season FROM pool_season_stats;`;
+  const haveSet = new Set(have.rows.map((x) => Number(x.season)));
+  const missing = seasons.filter((s) => !haveSet.has(s));
+  let saved = 0;
+  const empty: number[] = [];
+  for (const s of missing.slice(0, limit)) {
+    if (await saveSeason(s, currentSeason).catch(() => false)) saved++;
+    else empty.push(s);
+  }
+  return { saved, waiting: Math.max(0, missing.length - limit), empty };
+}
+
 export async function loadPoolStats(currentSeason: number): Promise<PoolRow[]> {
   await ensureTables();
   const r = await sql`

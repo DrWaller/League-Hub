@@ -1,0 +1,173 @@
+import Link from "next/link";
+import { getLeagueMeta, getMatchups, getPastSeasonTeams } from "@/lib/espn";
+import { fetchLineupSlots } from "@/lib/vor";
+import { regularSeasonFinals, computeLuck } from "@/lib/luck";
+import { syncPoolSeasons, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
+import { seasonLeaders, type PastEntry } from "@/lib/past-awards";
+import { PAST_WINNERS } from "@/lib/season-awards";
+import { pts } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+const FIRST_SEASON = 2020;
+
+type Row = { key: string; name: string; sub: string; value: string; rank: number };
+
+function Card({ title, blurb, rows, recorded, note }: { title: string; blurb: string; rows: Row[]; recorded?: string; note?: string }) {
+  return (
+    <div className="border border-ice-line bg-white p-4">
+      <h2 className="font-display text-xl">{title}</h2>
+      <p className="text-xs text-muted mb-1">{blurb}</p>
+      {recorded && <p className="text-xs mb-3"><b>Recorded winner:</b> {recorded}</p>}
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted">{note ?? "Nothing to show."}</p>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="border-t border-ice-line">
+                <td className="py-1.5 pr-2 w-6 font-display">{r.rank}</td>
+                <td className="py-1.5 pr-2">
+                  <div>{r.name}</div>
+                  <div className="text-xs text-muted">{r.sub}</div>
+                </td>
+                <td className="py-1.5 text-right whitespace-nowrap font-bold">{r.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+const playerRows = (list: PastEntry[]): Row[] => list.map((e) => ({ key: String(e.id), name: e.name, sub: `${e.position} · ${e.detail}`, value: e.value, rank: e.rank }));
+
+// Rebuilds one finished season's awards from ESPN's saved history. Loads at most one season of player stats per visit
+// (three ESPN reads); everything is then kept in the database, so each season is only ever fetched once.
+export default async function PastAwardsPage({ searchParams }: { searchParams: { season?: string } }) {
+  const meta = await getLeagueMeta();
+  const seasons: number[] = [];
+  for (let s = meta.season - 1; s >= FIRST_SEASON; s--) seasons.push(s);
+  const season = Number(searchParams.season) >= FIRST_SEASON && Number(searchParams.season) < meta.season ? Number(searchParams.season) : seasons[0];
+
+  const notes: string[] = [];
+  const needed = [season, season - 1, season - 2, season - 3];
+  let missingPriors: number[] = [];
+  try {
+    const sync = await syncPoolSeasons(needed, meta.season, 1);
+    if (sync.waiting > 0) notes.push(`${sync.waiting} more season(s) of player stats to load. Refresh to continue.`);
+    if (sync.empty.length > 0) notes.push(`ESPN returned no player stats for ${sync.empty.join(", ")}.`);
+  } catch (e) {
+    notes.push(`Player stats: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  let rows: Awaited<ReturnType<typeof loadPoolStats>> = [];
+  try {
+    rows = await loadPoolStats(season);
+  } catch (e) {
+    notes.push(`Could not read saved stats: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const haveSeason = new Set(rows.map((r) => r.season));
+  missingPriors = [season - 1, season - 2, season - 3].filter((s) => !haveSeason.has(s));
+
+  const [teams, matchupData, counts] = await Promise.all([
+    getPastSeasonTeams(season).catch(() => null),
+    getMatchups(undefined, season).catch(() => ({ matchups: [], live: false })),
+    fetchLineupSlots(season).catch(() => null),
+  ]);
+  const teamName = (id: number) => teams?.find((t) => t.id === id)?.name ?? `Team ${id}`;
+  const recordedFor = (key: string) => PAST_WINNERS[key]?.find((w) => w.startsWith(`${season}:`))?.replace(`${season}: `, "");
+
+  const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? 0) : null;
+  const trends = haveSeason.has(season) && missingPriors.length === 0 ? buildTrendAwards(rows, season) : [];
+
+  // Hard Luck: actual wins against the wins the all-play record says the team earned, as a share of expected wins.
+  const finals = regularSeasonFinals(matchupData.matchups);
+  const lastWeek = finals.reduce((m, x) => Math.max(m, x.week), 0);
+  const hardLuck = lastWeek > 0
+    ? computeLuck(matchupData.matchups, lastWeek).rows
+        .map((r) => {
+          const games = r.actW + r.actL + r.actT;
+          const expected = r.expWinPct * games;
+          const actual = r.actW + r.actT * 0.5;
+          return { ...r, expected, actual, pctGap: expected > 0 ? (actual - expected) / expected : 0 };
+        })
+        .sort((a, b) => a.pctGap - b.pctGap)
+    : [];
+
+  const byRecord = teams ? [...teams].sort((a, b) => b.wins - b.losses - (a.wins - a.losses) || b.pointsFor - a.pointsFor) : [];
+  const byPoints = teams ? [...teams].sort((a, b) => b.pointsFor - a.pointsFor) : [];
+  const rec = (t: { wins: number; losses: number; ties: number }) => `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`;
+
+  const estimate = "Estimate: season totals, one replacement level for the whole year.";
+
+  return (
+    <div>
+      <h1 className="font-display text-3xl mb-1">Past Season Awards</h1>
+      <p className="text-muted mb-3 max-w-prose">
+        Rebuilds a finished season's award races from ESPN's saved history. These are computed leaders, shown next to the winner you recorded where there is one. Where the real award was a manager vote, your recorded winner stands.
+      </p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {seasons.map((s) => (
+          <Link key={s} href={`/admin/past-awards?season=${s}`} className={`px-3 py-1 border text-sm ${s === season ? "bg-ink text-white" : "border-ice-line bg-white"}`}>
+            {s}
+          </Link>
+        ))}
+      </div>
+      <p className="text-sm text-muted mb-1">{season} here means the {season - 1}-{String(season).slice(2)} season, matching your award banners.</p>
+      {notes.length > 0 && <p className="text-sm text-muted mb-1">{notes.join(" ")}</p>}
+      {!haveSeason.has(season) && <p className="text-sm mb-3">Player stats for {season} are not saved yet. Refresh this page to load them.</p>}
+      {haveSeason.has(season) && missingPriors.length > 0 && (
+        <p className="text-sm text-muted mb-3">Breakout, Bounce Back, Most Improved and Calder need the three earlier seasons ({missingPriors.join(", ")} still missing). Refresh to load them.</p>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 mb-4 mt-3">
+        {leaders && (
+          <>
+            <Card title="Hart Trophy" blurb={`Highest season VOR, any position. ${estimate}`} rows={playerRows(leaders.hart)} recorded={recordedFor("hart")} note="Needs the league's lineup slots." />
+            <Card title="Art Ross Trophy" blurb="Most fantasy points among skaters (exact)." rows={playerRows(leaders.artross)} recorded={recordedFor("artross")} />
+            <Card title="Norris Trophy" blurb={`Highest season VOR among D. ${estimate}`} rows={playerRows(leaders.norris)} recorded={recordedFor("norris")} note="Needs the league's lineup slots." />
+            <Card title="Vezina Trophy" blurb={`Highest season VOR among G. ${estimate}`} rows={playerRows(leaders.vezina)} recorded={recordedFor("vezina")} note="Needs the league's lineup slots." />
+            <Card title="Forward of the Year" blurb={`Highest season VOR among C, LW and RW. ${estimate}`} rows={playerRows(leaders.forward)} note="Needs the league's lineup slots." />
+          </>
+        )}
+        {trends.map((t) => (
+          <Card
+            key={t.key}
+            title={t.title}
+            blurb={t.blurb}
+            rows={t.entries.map((e) => ({ key: String(e.id), name: e.name, sub: `${e.position} · ${e.detail}`, value: e.value, rank: e.rank }))}
+            recorded={recordedFor(t.key)}
+            note="Nothing qualifies."
+          />
+        ))}
+        <Card
+          title="Hard Luck Manager"
+          blurb="Actual wins against expected wins (every team against every other team, every week), as a share of expected wins. The biggest shortfall wins."
+          rows={hardLuck.slice(0, 5).map((r, i) => ({
+            key: String(r.teamId), name: teamName(r.teamId), sub: `${r.actW}-${r.actL}${r.actT ? `-${r.actT}` : ""} actual, ${r.expected.toFixed(1)} expected`,
+            value: `${r.pctGap >= 0 ? "+" : "−"}${Math.abs(r.pctGap * 100).toFixed(0)}% xWINS`, rank: i + 1,
+          }))}
+          recorded={recordedFor("hardluck")}
+          note="ESPN has no finished matchups for this season."
+        />
+        <Card
+          title="Presidents' Trophy"
+          blurb="Best regular-season record (wins minus losses, then points for)."
+          rows={byRecord.slice(0, 5).map((t, i) => ({ key: String(t.id), name: t.name, sub: `${pts(t.pointsFor)} PF`, value: rec(t), rank: i + 1 }))}
+          note="ESPN has no standings for this season."
+        />
+        <Card
+          title="Most Points Scored"
+          blurb="Total regular-season points for."
+          rows={byPoints.slice(0, 5).map((t, i) => ({ key: String(t.id), name: t.name, sub: rec(t), value: pts(t.pointsFor), rank: i + 1 }))}
+          note="ESPN has no standings for this season."
+        />
+      </div>
+      <p className="text-xs text-muted max-w-prose">
+        Not rebuilt here: William M. Jennings and Sleeping Beauty (they need a season of week-by-week roster data, which is heavy to pull) and the lineup efficiency award (first year is the current season).
+      </p>
+    </div>
+  );
+}

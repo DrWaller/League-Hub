@@ -13,6 +13,7 @@ export default async function AdminDashboard() {
     { href: "/admin/keeper-import", label: "Import Keepers", desc: "Pull keepers from the Keeper History Google Sheet (preview first)." },
     { href: "/admin/formula-test", label: "Formula Test", desc: "Backtest the power rankings formula against every past season." },
     { href: "/admin/season-awards", label: "Season Awards", desc: "Year-long award races (Hart, Norris, Vezina, lineup efficiency and more), updated as each week finishes." },
+    { href: "/admin/past-awards", label: "Past Season Awards", desc: "Rebuild any finished season's award leaders from ESPN history (Hart, Art Ross, Calder, Hard Luck and more), one season at a time." },
     { href: "/admin/lineup-season", label: "Lineup Efficiency Race", desc: "Season-long lineup efficiency (points vs. the best possible lineup) for the end-of-season lineup award." },
     { href: "/admin/lineup-check", label: "Lineup Efficiency Check", desc: "Audit the Max Pts graphic: every night a bench player should have started, who he should have replaced, and the points lost." },
     { href: "/admin/power-breakdown", label: "Power Rankings Breakdown", desc: "See exactly why each team is ranked where it is: all-play, points, roster strength and record." },

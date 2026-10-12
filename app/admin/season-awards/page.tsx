@@ -184,10 +184,10 @@ export default async function SeasonAwardsPage() {
         />
         <Card
           title="Hard Luck Manager"
-          blurb={`Actual wins vs. expected wins (every team against every other team, every week). The biggest shortfall wins. Past winners: none recorded.`}
+          blurb={`Actual wins vs. expected wins (every team against every other team, every week). The gap is shown as a share of expected wins (like -16% xWINS). The biggest shortfall wins.`}
           rows={top5(hardLuck).map((r, i) => ({
             key: String(r.teamId), name: name(r.teamId), sub: `${r.actW}-${r.actL}${r.actT ? `-${r.actT}` : ""} actual, ${r.expected.toFixed(1)} expected`,
-            value: `${r.gap >= 0 ? "+" : ""}${r.gap.toFixed(1)} W`, gap: i === 0 ? "most unlucky" : `${(r.gap - hardLuck[0].gap).toFixed(1)} from the top`, rank: i + 1,
+            value: `${r.gap >= 0 ? "+" : "−"}${r.expected > 0 ? Math.abs((r.gap / r.expected) * 100).toFixed(0) : "0"}% xWINS`, gap: i === 0 ? "most unlucky" : `${(r.gap - hardLuck[0].gap).toFixed(1)} from the top`, rank: i + 1,
           }))}
           note="No finished weeks yet."
         />
