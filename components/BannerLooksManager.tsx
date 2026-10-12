@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { BannerColors, BannerKind, readableOn, TeamBanner } from "@/lib/banner-types";
 import { suggestColorsFromImage } from "@/lib/logo-colors";
+import { prepareImage, readResult } from "@/lib/admin-upload";
 import TeamBannerPennant from "./TeamBannerPennant";
 
 export interface BannerLookItem {
@@ -27,20 +28,37 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...change } : r)));
   const say = (id: string, msg: string) => setStatus((prev) => ({ ...prev, [id]: msg }));
 
+  // Colour picks save by themselves a moment after the last change.
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const seqs = useRef<Record<string, number>>({});
+
+  function pick(row: BannerLookItem, change: Partial<BannerLookItem>) {
+    const next = { ...row, ...change };
+    patch(row.id, change);
+    say(row.id, "Unsaved…");
+    clearTimeout(timers.current[row.id]);
+    timers.current[row.id] = setTimeout(() => saveColors(next), 700);
+  }
+
   async function saveColors(row: BannerLookItem, colors?: BannerColors) {
+    clearTimeout(timers.current[row.id]);
     const c = colors ?? { primary: row.primary, trim: row.trim };
-    say(row.id, "Saving…");
+    const seq = (seqs.current[row.id] = (seqs.current[row.id] ?? 0) + 1);
+    const tell = (msg: string) => {
+      if (seqs.current[row.id] === seq) say(row.id, msg);
+    };
+    tell("Saving…");
     try {
       const res = await fetch("/api/admin/banner-looks", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ season: row.season, teamKey: row.teamKey, primary: c.primary, trim: c.trim, text: row.text }),
       });
-      const data = await res.json();
+      const data = await readResult(res);
       if (data.ok) patch(row.id, { ...c, custom: true });
-      say(row.id, data.ok ? "Saved" : data.error ?? "Couldn't save");
+      tell(data.ok ? "Saved" : data.error ?? "Couldn't save");
     } catch {
-      say(row.id, "Couldn't save");
+      tell("Couldn't save — check your connection and press Save");
     }
   }
 
@@ -54,24 +72,26 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
     await saveColors(row, found);
   }
 
-  async function upload(row: BannerLookItem, file: File) {
+  async function upload(row: BannerLookItem, original: File) {
     say(row.id, "Uploading…");
     try {
+      const file = await prepareImage(original);
       const form = new FormData();
       form.append("season", String(row.season));
       form.append("teamKey", row.teamKey);
       form.append("file", file);
       const res = await fetch("/api/admin/banner-looks", { method: "POST", body: form });
-      const data = await res.json();
+      const data = await readResult(res);
       if (!data.url) {
         say(row.id, data.error ?? "Upload failed");
         return;
       }
       patch(row.id, { logoUrl: data.url, custom: true });
       say(row.id, "Logo saved");
-      await useLogoColors(row, file); // a new logo also sets that season's colours
+      // A new logo also sets that season's colours, unless this season already has colours you chose.
+      if (!row.custom) await useLogoColors(row, file);
     } catch {
-      say(row.id, "Upload failed");
+      say(row.id, "Upload failed — check your connection and try again");
     }
   }
 
@@ -83,8 +103,8 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ season: row.season, teamKey: row.teamKey }),
       });
-      const data = await res.json();
-      patch(row.id, { custom: false });
+      const data = await readResult(res);
+      if (data.ok) patch(row.id, { custom: false });
       say(row.id, data.ok ? "Reset — reload to see the team's general look" : data.error ?? "Couldn't reset");
     } catch {
       say(row.id, "Couldn't reset");
@@ -134,24 +154,25 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
                 className="text-xs mb-2"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
+                  e.target.value = ""; // lets the same file be picked again to retry
                   if (f) upload(r, f);
                 }}
               />
               <div className="flex items-center gap-2 text-xs text-muted flex-wrap">
                 <label className="flex items-center gap-1">
-                  <input type="color" value={r.primary} onChange={(e) => patch(r.id, { primary: e.target.value })} aria-label="banner colour" />
+                  <input type="color" value={r.primary} onChange={(e) => pick(r, { primary: e.target.value })} aria-label="banner colour" />
                   banner
                 </label>
                 <label className="flex items-center gap-1">
-                  <input type="color" value={r.trim} onChange={(e) => patch(r.id, { trim: e.target.value })} aria-label="trim colour" />
+                  <input type="color" value={r.trim} onChange={(e) => pick(r, { trim: e.target.value })} aria-label="trim colour" />
                   outline
                 </label>
                 <label className="flex items-center gap-1">
-                  <input type="color" value={r.text ?? readableOn(r.primary)} onChange={(e) => patch(r.id, { text: e.target.value })} aria-label="text colour" />
+                  <input type="color" value={r.text ?? readableOn(r.primary)} onChange={(e) => pick(r, { text: e.target.value })} aria-label="text colour" />
                   {r.text ? "text" : "text (auto)"}
                 </label>
                 {r.text && (
-                  <button type="button" onClick={() => patch(r.id, { text: null })} className="border border-ice-line px-2 py-0.5 rounded hover:bg-ice-panel">
+                  <button type="button" onClick={() => pick(r, { text: null })} className="border border-ice-line px-2 py-0.5 rounded hover:bg-ice-panel">
                     Auto
                   </button>
                 )}
@@ -169,7 +190,7 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
                   </button>
                 )}
               </div>
-              {status[r.id] && <p className="text-xs text-muted mt-1">{status[r.id]}</p>}
+              {status[r.id] && <p className={`text-xs mt-1 ${/^(saved|saving|unsaved|uploading|logo saved|resetting|reset)/i.test(status[r.id]) ? "text-muted" : "text-red-700"}`}>{status[r.id]}</p>}
             </div>
           </div>
         );

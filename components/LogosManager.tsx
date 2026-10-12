@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { BannerColors, DEFAULT_BANNER_COLORS, readableOn, TeamBanner } from "@/lib/banner-types";
 import { suggestColorsFromImage } from "@/lib/logo-colors";
+import { prepareImage, readResult } from "@/lib/admin-upload";
 import TeamBannerPennant from "./TeamBannerPennant";
 
 type TeamOption = { id: number; name: string };
@@ -19,8 +20,12 @@ export default function LogosManager({
 }) {
   const [logos, setLogos] = useState<Record<number, string>>(initialLogos);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<Record<number, string>>({});
   const [colors, setColors] = useState<Record<number, BannerColors>>(initialColors ?? {});
   const [colorStatus, setColorStatus] = useState<Record<number, string>>({});
+  // Colour picks save by themselves a moment after the last change.
+  const saveTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const saveSeq = useRef<Record<number, number>>({});
 
   const colorsFor = (id: number): BannerColors => colors[id] ?? DEFAULT_BANNER_COLORS;
 
@@ -44,23 +49,31 @@ export default function LogosManager({
   };
 
   function pickColor(teamId: number, field: keyof BannerColors, value: string | null) {
-    setColors((prev) => ({ ...prev, [teamId]: { ...colorsFor(teamId), [field]: value } }));
-    setColorStatus((prev) => ({ ...prev, [teamId]: "" }));
+    const next: BannerColors = { ...colorsFor(teamId), [field]: value };
+    setColors((prev) => ({ ...prev, [teamId]: next }));
+    setColorStatus((prev) => ({ ...prev, [teamId]: "Unsaved…" }));
+    clearTimeout(saveTimers.current[teamId]);
+    saveTimers.current[teamId] = setTimeout(() => saveColors(teamId, next), 700);
   }
 
   async function saveColors(teamId: number, override?: BannerColors) {
+    clearTimeout(saveTimers.current[teamId]);
     const c = override ?? colorsFor(teamId);
-    setColorStatus((prev) => ({ ...prev, [teamId]: "Saving…" }));
+    const seq = (saveSeq.current[teamId] = (saveSeq.current[teamId] ?? 0) + 1);
+    const say = (msg: string) => {
+      if (saveSeq.current[teamId] === seq) setColorStatus((prev) => ({ ...prev, [teamId]: msg }));
+    };
+    say("Saving…");
     try {
       const res = await fetch("/api/admin/logos", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId, primary: c.primary, trim: c.trim, text: c.text ?? null }),
       });
-      const data = await res.json();
-      setColorStatus((prev) => ({ ...prev, [teamId]: data.ok ? "Saved" : data.error ?? "Couldn't save" }));
+      const data = await readResult(res);
+      say(data.ok ? "Saved" : data.error ?? "Couldn't save");
     } catch {
-      setColorStatus((prev) => ({ ...prev, [teamId]: "Couldn't save" }));
+      say("Couldn't save — check your connection and press Save");
     }
   }
 
@@ -76,19 +89,27 @@ export default function LogosManager({
     await saveColors(teamId, merged);
   }
 
-  async function handleUpload(teamId: number, file: File) {
+  async function handleUpload(teamId: number, original: File) {
+    const say = (msg: string) => setUploadStatus((prev) => ({ ...prev, [teamId]: msg }));
     setUploadingId(teamId);
+    say("Uploading…");
     try {
+      const file = await prepareImage(original);
       const form = new FormData();
       form.append("teamId", String(teamId));
       form.append("file", file);
       const res = await fetch("/api/admin/logos", { method: "POST", body: form });
-      const data = await res.json();
-      if (data.url) {
-        setLogos((prev) => ({ ...prev, [teamId]: data.url }));
-        // A new logo sets the banner colours too, unless colours were already chosen.
-        if (!colors[teamId]) await autoColors(teamId, file);
+      const data = await readResult(res);
+      if (!data.url) {
+        say(data.error ?? "Upload failed");
+        return;
       }
+      setLogos((prev) => ({ ...prev, [teamId]: data.url as string }));
+      say("Logo saved");
+      // A new logo sets the banner colours too, unless colours were already chosen.
+      if (!colors[teamId]) await autoColors(teamId, file);
+    } catch {
+      say("Upload failed — check your connection and try again");
     } finally {
       setUploadingId(null);
     }
@@ -112,12 +133,15 @@ export default function LogosManager({
               accept="image/*"
               onChange={(e) => {
                 const file = e.target.files?.[0];
+                e.target.value = ""; // lets the same file be picked again to retry
                 if (file) handleUpload(t.id, file);
               }}
               disabled={uploadingId === t.id}
               className="text-xs"
             />
-            {uploadingId === t.id && <p className="text-xs text-muted mt-1">Uploading…</p>}
+            {uploadStatus[t.id] && (
+              <p className={`text-xs mt-1 ${/saved|uploading/i.test(uploadStatus[t.id]) ? "text-muted" : "text-red-700"}`}>{uploadStatus[t.id]}</p>
+            )}
             <div className="flex items-center gap-2 mt-3 text-xs text-muted flex-wrap">
               <span>Colours</span>
               <label className="flex items-center gap-1">
