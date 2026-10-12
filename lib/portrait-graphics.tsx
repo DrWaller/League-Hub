@@ -475,7 +475,7 @@ export async function renderPortraitThreeStars(opts: {
         {star1 ? (
           <div
             style={{
-              display: "flex", position: "relative", overflow: "hidden", flexDirection: "column", justifyContent: "space-between", flex: 1.85, padding: "20px 28px 24px 28px",
+              display: "flex", position: "relative", overflow: "hidden", flexDirection: "column", justifyContent: "space-between", flex: 1.85, padding: "18px 28px 26px 28px",
               background: "#F1F8FF", border: `4px solid ${OG.gold}`, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW,
             }}
           >
@@ -486,18 +486,18 @@ export async function renderPortraitThreeStars(opts: {
               </div>
             ) : null}
             <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 34, flexGrow: 1 }}>
-              <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={276} fontFamily={display} fontSize={96} border={`${AVATAR_BORDER + 4}px solid ${OG.gold}`} />
-              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 6, maxWidth: 600 }}>
+              <PlayerAvatar name={star1.name} src={headshotUrl(star1.id)} hasHeadshot={opts.headshots.has(star1.id)} size={244} fontFamily={display} fontSize={86} border={`${AVATAR_BORDER + 4}px solid ${OG.gold}`} />
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 4, maxWidth: 620 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, fontFamily: display, fontWeight: 700, fontSize: 32, letterSpacing: 6, color: OG.goldText }}>
                   <GoldStar size={30} />
                   <div style={{ display: "flex" }}>{(opts.labels[0] ?? "1ST STAR").toUpperCase()}</div>
                 </div>
-                <div style={{ display: "flex", fontFamily: display, fontSize: Math.max(40, Math.min(66, Math.floor(1160 / Math.max(star1.name.length, 1)))), fontWeight: 700, color: OG.board, lineHeight: 1.1, flexShrink: 0, maxWidth: 600, overflow: "hidden", whiteSpace: "nowrap" }}>{star1.name}</div>
+                <div style={{ display: "flex", fontFamily: display, fontSize: Math.max(40, Math.min(60, Math.floor(1060 / Math.max(star1.name.length, 1)))), fontWeight: 700, color: OG.board, lineHeight: 1.1, flexShrink: 0, maxWidth: 600, overflow: "hidden", whiteSpace: "nowrap" }}>{star1.name}</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 104, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(star1)}</div>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 34, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>{heroLabel(star1)}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 92, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(star1)}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 30, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 6 }}>{heroLabel(star1)}</div>
                 </div>
-                <SecondaryLine p={star1} display={display} size={32} />
+                <SecondaryLine p={star1} display={display} size={28} />
                 <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 6, minWidth: 0 }}>
                   <div style={{ display: "flex", minWidth: 0, overflow: "hidden" }}>
                     <TeamLine name={star1.teamName} logo={logos[star1.teamId]} size={LOGO_SIZE} fontSize={26} align="flex-start" />
@@ -508,15 +508,15 @@ export async function renderPortraitThreeStars(opts: {
             </div>
             {/* stat tiles: the player's line for the week, like the Player Spotlight */}
             {star1.statLine ? (
-              <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 18 }}>
+              <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 20 }}>
                 {star1.statLine.split(" \u00b7 ").map((part, k) => {
                   const m = part.match(/^(\S+)\s+(.+)$/);
                   const value = m ? m[1] : part;
                   const label = m ? m[2] : "SV%";
                   return (
-                    <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, height: 108, borderRadius: 14, borderTop: `5px solid ${OG.gold}`, backgroundImage: "linear-gradient(180deg, #1A4C7E 0%, #0C2740 100%)" }}>
-                      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 54, lineHeight: 1, color: "#FFFFFF" }}>{value}</div>
-                      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 4, color: "#C9D6E6", marginTop: 2 }}>{label}</div>
+                    <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, height: 96, borderRadius: 14, borderTop: `5px solid ${OG.gold}`, backgroundImage: "linear-gradient(180deg, #1A4C7E 0%, #0C2740 100%)" }}>
+                      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 50, lineHeight: 1, color: "#FFFFFF" }}>{value}</div>
+                      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 20, letterSpacing: 4, color: "#C9D6E6", marginTop: 2 }}>{label}</div>
                     </div>
                   );
                 })}
@@ -531,26 +531,26 @@ export async function renderPortraitThreeStars(opts: {
             <div
               key={p.id}
               style={{
-                display: "flex", position: "relative", overflow: "hidden", flexDirection: "row", alignItems: "center", flex: 0.88, gap: 24, padding: "0 32px",
+                display: "flex", position: "relative", overflow: "hidden", flexDirection: "row", alignItems: "center", flex: 0.88, gap: 24, padding: "14px 32px 18px 32px",
                 background: "#FFFFFF", border: CARD_BORDER, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW,
               }}
             >
-              <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={170} fontFamily={display} fontSize={60} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
-              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 6, minWidth: 0 }}>
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 28, letterSpacing: 5, color: medalText(opts.colors[i]) }}>{(opts.labels[i] ?? "").toUpperCase()}</div>
-                <div style={{ display: "flex", fontFamily: display, fontSize: 44, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 520, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
-                {p.statLine ? <div style={{ display: "flex", fontSize: 24, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 520, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}
+              <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={148} fontFamily={display} fontSize={52} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 3, minWidth: 0 }}>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 5, color: medalText(opts.colors[i]) }}>{(opts.labels[i] ?? "").toUpperCase()}</div>
+                <div style={{ display: "flex", fontFamily: display, fontSize: 40, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 520, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
+                {p.statLine ? <div style={{ display: "flex", fontSize: 22, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 520, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
                   <div style={{ display: "flex", minWidth: 0, overflow: "hidden" }}>
-                    <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE - 6} fontSize={22} align="flex-start" />
+                    <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE - 10} fontSize={21} align="flex-start" />
                   </div>
                   <TierPill tier={p.tier} size={19} align="flex-start" />
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 6 }}>
-                <div style={{ display: "flex", fontFamily: display, fontSize: 72, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
-                <div style={{ display: "flex", fontFamily: display, fontSize: 26, fontWeight: 700, letterSpacing: 3, color: OG.muted }}>{heroLabel(p)}</div>
-                <SecondaryLine p={p} display={display} size={22} />
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 4 }}>
+                <div style={{ display: "flex", fontFamily: display, fontSize: 64, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
+                <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 3, color: OG.muted }}>{heroLabel(p)}</div>
+                <SecondaryLine p={p} display={display} size={20} />
               </div>
               <TeamAccent teamId={p.teamId} />
             </div>
