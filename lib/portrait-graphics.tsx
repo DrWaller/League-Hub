@@ -931,6 +931,8 @@ export interface EfficiencyRow {
 export async function renderPortraitLineupEfficiency(opts: {
   footer?: string;
   week: number;
+  title?: string; // season version: "Best Manager Race"
+  subtitle?: string;
   rows: EfficiencyRow[]; // already in the order to show
   logos?: Record<number, string>;
 }) {
@@ -943,8 +945,8 @@ export async function renderPortraitLineupEfficiency(opts: {
 
   return frame({
     footer: opts.footer,
-    title: "Lineup Efficiency",
-    subtitle: `Week ${opts.week} - points vs. best possible lineup`,
+    title: opts.title ?? "Lineup Efficiency",
+    subtitle: opts.subtitle ?? `Week ${opts.week} - points vs. best possible lineup`,
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 22, height: 44, fontSize: 22, color: OG.muted, borderBottom: `2px solid ${OG.rink}` }}>

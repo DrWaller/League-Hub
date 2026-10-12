@@ -12,6 +12,7 @@ export default async function AdminDashboard() {
     { href: "/admin/week-days", label: "Week Days", desc: "Tell the site how many days are in each matchup week (needed for player graphics)." },
     { href: "/admin/keeper-import", label: "Import Keepers", desc: "Pull keepers from the Keeper History Google Sheet (preview first)." },
     { href: "/admin/formula-test", label: "Formula Test", desc: "Backtest the power rankings formula against every past season." },
+    { href: "/admin/lineup-season", label: "Best Manager Race", desc: "Season-long lineup efficiency (points vs. the best possible lineup) for the end-of-season Best Manager award." },
     { href: "/admin/lineup-check", label: "Lineup Efficiency Check", desc: "Audit the Max Pts graphic: every night a bench player should have started, who he should have replaced, and the points lost." },
     { href: "/admin/power-breakdown", label: "Power Rankings Breakdown", desc: "See exactly why each team is ranked where it is: all-play, points, roster strength and record." },
     { href: "/admin/weekly", label: "Weekly Checklist", desc: "One page for the weekly routine: blurbs, awards, writeup, graphics, power rankings, luck chart." },

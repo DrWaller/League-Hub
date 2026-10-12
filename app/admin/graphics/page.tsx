@@ -111,6 +111,7 @@ export default function AdminGraphicsPage() {
       url: `/api/admin/graphics/top-three?week=${week}&position=${p.value}${seasonQS}`,
     })),
     { title: "Lineup Efficiency (points vs. best lineup)", url: `/api/admin/graphics/lineup-efficiency?week=${week}`, alwaysPortrait: true },
+    { title: "Best Manager Race (season to date)", url: `/api/admin/graphics/lineup-season?week=${week}`, alwaysPortrait: true },
     { title: "League Awards", url: `/api/admin/graphics/league-awards?week=${week}`, alwaysPortrait: true },
     { title: "Team of the Week", url: `/api/admin/graphics/team-of-week?week=${week}${seasonQS}` },
     ...(period
