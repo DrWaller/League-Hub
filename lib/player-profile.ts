@@ -303,7 +303,7 @@ export function debugJson(p: Profile) {
   };
 }
 
-export function profileCaption(p: Profile, title: string, teamName?: string): string {
+export function profileCaption(p: Profile, title: string, teamName?: string, leagueTier?: string | null): string {
   const lines = p.axes.map((a) => `${a.label} ${Math.round(a.pct)}`).join(" | ");
   const counts = p.counts.map((c) => `${c.label} ${c.value}`).join(" | ");
   const pts = p.points;
@@ -315,7 +315,7 @@ export function profileCaption(p: Profile, title: string, teamName?: string): st
     lines,
     ...(counts ? ["", `Season totals: ${counts}`] : []),
     "",
-    ...(tierFor(p) ? [`Tier: ${tierFor(p)} (fantasy points per game vs ${p.groupName})`, ""] : []),
+    ...(leagueTier ? [`League tier: ${leagueTier}`, ""] : []),
     `${p.me.gp} GP${p.qualified ? "" : " (not yet qualified)"} | ${pts.total.value.toFixed(2)} fantasy pts (#${pts.total.all.rank} of all players, #${pts.total.position.rank} of ${p.groupName}) | ${pts.avg.value.toFixed(2)} per game (#${pts.avg.all.rank} of all, #${pts.avg.position.rank} of ${p.groupName})`,
     "",
     "#FantasyHockey",

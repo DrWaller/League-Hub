@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { loadProfile, loadExtras, debugJson, profileCaption, tierFor } from "@/lib/player-profile";
+import { loadProfile, loadExtras, debugJson, profileCaption } from "@/lib/player-profile";
 import { renderPortraitRadar } from "@/lib/radar-image";
 import { graphicTiers } from "@/lib/og-tier";
 import { seasonFooter } from "@/lib/portrait-graphics";
@@ -22,13 +22,14 @@ export async function GET(req: NextRequest) {
     if (params.get("debug")) return Response.json(debugJson(p));
 
     const { teamName, hasHeadshot, photoUrl } = await loadExtras(p, Number(params.get("playerId")) || undefined);
-    if (params.get("caption")) return captionResponse(profileCaption(p, "PLAYER RADAR", teamName));
+    const leagueTier = (await graphicTiers(p.isPast))[p.me.id] ?? null;
+    if (params.get("caption")) return captionResponse(profileCaption(p, "PLAYER RADAR", teamName, leagueTier));
 
     return await renderPortraitRadar({
       footer: seasonFooter(p.meta.name, p.seasonParam),
       subtitle: p.isPast ? `${p.seasonParam} season \u00b7 final \u00b7 your league's categories` : "Season to date \u00b7 your league's categories",
       playerId: p.me.id,
-      leagueTier: (await graphicTiers(p.isPast))[p.me.id] ?? null,
+      leagueTier,
       name: p.me.name,
       position: p.position,
       teamName,
@@ -40,7 +41,6 @@ export async function GET(req: NextRequest) {
       points: p.points,
       positionLabel: p.groupName.toUpperCase(),
       note: `Ranked vs ${p.eligible} NHL ${p.groupName} \u00b7 per game \u00b7 ${p.minGP}+ GP \u00b7 dashed ring = median`,
-      tier: tierFor(p),
       qualified: p.qualified,
       smallSample: p.qualified ? undefined : `NOT QUALIFIED \u00b7 ${p.me.gp} of ${p.minGP} GP`,
     });
