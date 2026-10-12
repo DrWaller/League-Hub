@@ -1,5 +1,5 @@
 // Server-side only. Keeps each finished week's lineup efficiency (actual vs. best possible lineup, per team)
-// in Postgres so the season-long "best manager" tally never has to re-read a whole season from ESPN.
+// in Postgres so the season-long lineup-efficiency tally never has to re-read a whole season from ESPN.
 // Weeks are saved once they are final (finished weeks never change), a few at a time, the first time the
 // season page or graphic is opened.
 

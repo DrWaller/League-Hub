@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
     if (eff.length >= 2) {
       const best = [...eff].sort((a, b) => b.pct - a.pct)[0];
       const worst = [...eff].sort((a, b) => a.pct - b.pct)[0];
-      awards.push({ label: "BEST MANAGER", teamId: best.teamId, teamName: name(best.teamId), big: `${(best.pct * 100).toFixed(1)}%`, bigUnit: "OF MAX", sub: `${pts(best.actual)} of ${pts(best.max)} max pts`, tone: "good" });
-      awards.push({ label: "WORST MANAGER", teamId: worst.teamId, teamName: name(worst.teamId), big: `${(worst.pct * 100).toFixed(1)}%`, bigUnit: "OF MAX", sub: `${pts(worst.actual)} of ${pts(worst.max)} max pts`, tone: "bad" });
+      awards.push({ label: "MOST EFFICIENT LINEUP", teamId: best.teamId, teamName: name(best.teamId), big: `${(best.pct * 100).toFixed(1)}%`, bigUnit: "OF MAX", sub: `${pts(best.actual)} of ${pts(best.max)} max pts`, tone: "good" });
+      awards.push({ label: "LEAST EFFICIENT LINEUP", teamId: worst.teamId, teamName: name(worst.teamId), big: `${(worst.pct * 100).toFixed(1)}%`, bigUnit: "OF MAX", sub: `${pts(worst.actual)} of ${pts(worst.max)} max pts`, tone: "bad" });
     }
 
     // Matchup awards (final games only).

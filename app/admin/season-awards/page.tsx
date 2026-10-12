@@ -118,7 +118,7 @@ export default async function SeasonAwardsPage() {
       <div className="grid gap-4 md:grid-cols-2 mb-4">
         {playerCards}
         <Card
-          title="Jack Adams (Best Manager)"
+          title="Most Efficient Lineups"
           blurb="Highest season lineup efficiency: points scored vs. the best possible lineup, night by night."
           rows={top5(managers).map((m, i) => ({
             key: String(m.teamId), name: name(m.teamId), sub: `${pts(m.actual)} of ${pts(m.max)}`, value: pct(m.pct),

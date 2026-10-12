@@ -931,17 +931,18 @@ export interface EfficiencyRow {
 export async function renderPortraitLineupEfficiency(opts: {
   footer?: string;
   week: number;
-  title?: string; // season version: "Best Manager Race"
+  title?: string; // season version: "Efficiency Race"
   subtitle?: string;
   rows: EfficiencyRow[]; // already in the order to show
   logos?: Record<number, string>;
 }) {
   const logos = opts.logos ?? {};
   const biggest = Math.max(1, ...opts.rows.map((r) => r.max));
-  const avail = H - CHROME - 24 - 44;
-  const rowH = Math.min(100, Math.floor(avail / Math.max(1, opts.rows.length)));
+  const avail = H - CHROME - 24 - 40;
+  const rowH = Math.min(104, Math.floor(avail / Math.max(1, opts.rows.length)));
   const pctColor = (p: number) => (p >= 0.9 ? GREEN : p < 0.75 ? OG.centerRed : OG.rink);
-  const BAR_W = 668; // fixed pixel width of the middle column, so every row lines up
+  const BAR_W = 690; // fixed pixel width of the middle column, so every row lines up
+  const BAR_H = 42;
 
   return frame({
     footer: opts.footer,
@@ -949,34 +950,36 @@ export async function renderPortraitLineupEfficiency(opts: {
     subtitle: opts.subtitle ?? `Week ${opts.week} - points vs. best possible lineup`,
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 22, height: 44, fontSize: 22, color: OG.muted, borderBottom: `2px solid ${OG.rink}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 22, height: 40, fontSize: 22, color: OG.muted, borderBottom: `2px solid ${OG.rink}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ display: "flex", width: 26, height: 14, borderRadius: 4, background: OG.rink }} />
+            <div style={{ display: "flex", width: 28, height: 16, borderRadius: 4, background: OG.rink }} />
             <div style={{ display: "flex" }}>Points scored</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ display: "flex", width: 26, height: 14, borderRadius: 4, background: "#C5D5E6" }} />
-            <div style={{ display: "flex" }}>Left on the bench</div>
+            <div style={{ display: "flex", width: 28, height: 16, borderRadius: 4, background: "#FFFFFF", border: `2px solid ${OG.rink}` }} />
+            <div style={{ display: "flex" }}>Best possible lineup</div>
           </div>
         </div>
         {opts.rows.map((r, i) => {
           const pct = r.max > 0 ? r.actual / r.max : 0;
+          const trackW = Math.max(120, Math.round((r.max / biggest) * BAR_W));
+          const fillW = Math.max(60, Math.round(pct * trackW));
           return (
             <div key={r.teamId} style={{ display: "flex", alignItems: "center", height: rowH, gap: 14, padding: "0 8px", background: i % 2 === 0 ? "#FFFFFF" : OG.icePanel }}>
               <div style={{ display: "flex", width: 40, flexShrink: 0, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 30, color: OG.rink }}>{i + 1}</div>
               <div style={{ display: "flex", flexShrink: 0 }}>
-                <TeamBadge name={r.name} logo={logos[r.teamId]} size={Math.min(60, rowH - 18)} fontFamily={display} />
+                <TeamBadge name={r.name} logo={logos[r.teamId]} size={Math.min(64, rowH - 16)} fontFamily={display} />
               </div>
-              <div style={{ display: "flex", flexDirection: "column", width: BAR_W, flexShrink: 0, gap: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
-                  <div style={{ display: "flex", fontSize: 27, fontWeight: 700, color: OG.board, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 400 }}>{r.name}</div>
-                  <div style={{ display: "flex", flexShrink: 0, fontSize: 22, color: OG.muted }}>{`${r.actual.toFixed(2)} of ${r.max.toFixed(2)}`}</div>
-                </div>
-                <div style={{ display: "flex", width: Math.max(40, Math.round((r.max / biggest) * BAR_W)), height: 22, borderRadius: 11, background: "#C5D5E6", overflow: "hidden" }}>
-                  <div style={{ display: "flex", width: `${Math.min(100, pct * 100)}%`, height: 22, background: OG.rink }} />
+              <div style={{ display: "flex", flexDirection: "column", width: BAR_W, flexShrink: 0, gap: 5 }}>
+                <div style={{ display: "flex", fontSize: 27, fontWeight: 700, color: OG.board, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: BAR_W }}>{r.name}</div>
+                {/* outlined track = the best possible lineup; solid fill = what was scored, with the numbers inside */}
+                <div style={{ display: "flex", alignItems: "center", width: trackW, height: BAR_H, borderRadius: 10, background: "#FFFFFF", border: `3px solid ${OG.rink}`, overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", width: fillW, height: BAR_H, paddingLeft: 12, backgroundImage: "linear-gradient(180deg, #1F5C95 0%, #123A61 100%)", fontFamily: display, fontWeight: 700, fontSize: 23, letterSpacing: 1, color: "#FFFFFF", whiteSpace: "nowrap" }}>
+                    {`${r.actual.toFixed(2)} of ${r.max.toFixed(2)} MAX`}
+                  </div>
                 </div>
               </div>
-              <div style={{ display: "flex", width: 128, flexShrink: 0, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 40, color: pctColor(pct) }}>{`${(pct * 100).toFixed(1)}%`}</div>
+              <div style={{ display: "flex", width: 118, flexShrink: 0, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 40, color: pctColor(pct) }}>{`${(pct * 100).toFixed(1)}%`}</div>
             </div>
           );
         })}
@@ -988,7 +991,7 @@ export async function renderPortraitLineupEfficiency(opts: {
 
 // ---------------------------------------------------------------- league awards
 export interface AwardCard {
-  label: string; // "BEST MANAGER"
+  label: string; // "MOST EFFICIENT LINEUP"
   teamId?: number;
   teamName?: string;
   big: string; // "92.4%"

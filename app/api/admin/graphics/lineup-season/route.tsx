@@ -9,7 +9,7 @@ import { captionResponse } from "@/lib/captions";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Season-long lineup efficiency (regular season): the "best manager" race, or the final award graphic.
+// Season-long lineup efficiency (regular season): the lineup efficiency race, or the final award graphic.
 export async function GET(req: NextRequest) {
   try {
     const meta = await getLeagueMeta();
@@ -29,12 +29,12 @@ export async function GET(req: NextRequest) {
 
     if (req.nextUrl.searchParams.get("caption")) {
       const lines = out.map((r, i) => `${i + 1}. ${r.name}: ${((r.actual / r.max) * 100).toFixed(1)}% (${r.actual.toFixed(2)} of ${r.max.toFixed(2)})`);
-      return captionResponse(["BEST MANAGER RACE", `Season lineup efficiency through week ${through}`, "", ...lines, "", "#FantasyHockey"].join("\n"));
+      return captionResponse(["LINEUP EFFICIENCY RACE", `Season lineup efficiency through week ${through}`, "", ...lines, "", "#FantasyHockey"].join("\n"));
     }
     const logos = await loadLogoData(false);
     return await renderPortraitLineupEfficiency({
       week: through,
-      title: "Best Manager Race",
+      title: "Efficiency Race",
       subtitle: complete ? `Season lineup efficiency - through week ${through}` : `Through week ${through} - ${sync.waiting + sync.failed.length} week(s) still loading, refresh`,
       rows: out,
       logos,

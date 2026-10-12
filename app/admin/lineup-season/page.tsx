@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
-// The season-long Best Manager race: every finished regular-season week, points scored vs. the best lineup
+// The season-long lineup efficiency race: every finished regular-season week, points scored vs. the best lineup
 // that was available each night. Finished weeks are saved to the database a few at a time as the page loads.
 export default async function LineupSeasonPage() {
   const meta = await getLeagueMeta();
@@ -35,10 +35,10 @@ export default async function LineupSeasonPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl mb-1">Best Manager Race</h1>
+      <h1 className="font-display text-3xl mb-1">Lineup Efficiency Race</h1>
       <p className="text-muted mb-4 max-w-prose">
         Season-long lineup efficiency, regular season only: all the points a team scored divided by all the points its best possible
-        lineup would have scored, night by night. The team with the highest percentage at the end of the season is the Best Manager.
+        lineup would have scored, night by night. The team with the highest percentage at the end of the season wins the lineup award.
         Weeks are saved as they finish, so this stays fast.
       </p>
       {error && <p className="text-red-700 mb-3">Problem: {error}</p>}
