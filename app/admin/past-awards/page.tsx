@@ -57,7 +57,9 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
   const season = Number(searchParams.season) >= FIRST_SEASON && Number(searchParams.season) < meta.season ? Number(searchParams.season) : seasons[0];
 
   const notes: string[] = [];
-  const needed = [season, season - 1, season - 2, season - 3];
+  // Only seasons from the first one on record count: an early year (2021, say) is compared with whatever came before it.
+  const priorSeasons = [season - 1, season - 2, season - 3].filter((y) => y >= FIRST_SEASON);
+  const needed = [season, ...priorSeasons];
   let missingPriors: number[] = [];
   try {
     const sync = await syncPoolSeasons(needed, meta.season, 1);
@@ -80,7 +82,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
     notes.push(`Could not read saved stats: ${e instanceof Error ? e.message : String(e)}`);
   }
   const haveSeason = new Set(rows.map((r) => r.season));
-  missingPriors = [season - 1, season - 2, season - 3].filter((s) => !haveSeason.has(s));
+  missingPriors = priorSeasons.filter((y) => !haveSeason.has(y));
 
   // Standings and matchups come from the same provider as League History: a season played on Fantrax never touches
   // ESPN (it uses the weekly scores entered by hand, or nothing), any other season comes from ESPN.
@@ -100,7 +102,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
   const recordedFor = (key: string) => PAST_WINNERS[key]?.find((w) => w.startsWith(`${season}:`))?.replace(`${season}: `, "");
 
   const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? meta.size) : null;
-  const trendsReady = haveSeason.has(season) && missingPriors.length === 0;
+  const trendsReady = haveSeason.has(season) && priorSeasons.length > 0 && missingPriors.length === 0;
   const trends = trendsReady ? buildTrendAwards(rows, season, 5, rosterableBar(rows, season, counts, teams?.length ?? meta.size)) : [];
   const noStats = haveSeason.has(season) ? "" : `Player stats for ${season} are not loaded yet.`;
 
@@ -179,7 +181,12 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
       {notes.length > 0 && <p className="text-sm text-muted mb-1">{notes.join(" ")}</p>}
       {!haveSeason.has(season) && <p className="text-sm mb-3">Player stats for {season} are not saved yet. Refresh this page to load them (one season per visit).</p>}
       {haveSeason.has(season) && missingPriors.length > 0 && (
-        <p className="text-sm text-muted mb-3">Breakout, Bounce Back, Most Improved and Calder need the three earlier seasons ({missingPriors.join(", ")} still missing). Refresh to load them.</p>
+        <p className="text-sm text-muted mb-3">Breakout, Bounce Back, Most Improved and Calder compare with the earlier seasons ({missingPriors.join(", ")} still loading). Refresh to continue.</p>
+      )}
+      {trendsReady && priorSeasons.length < 3 && (
+        <p className="text-sm text-muted mb-3">
+          Only {priorSeasons.length === 1 ? `${priorSeasons[0]} is` : `${priorSeasons.join(" and ")} are`} on record before {season}, so the year-over-year awards use just that history{priorSeasons.length < 2 ? " (Bounce Back needs two earlier seasons, so it cannot be computed)" : ""}. Calder is approximate: a player who debuted before the first season on record could look like a rookie.
+        </p>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 mb-4 mt-3">
@@ -197,7 +204,13 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
         />
         {!trendsReady &&
           ["Breakout Player", "Bounce Back Player", "Most Improved Player", "Calder Trophy"].map((title) => (
-            <Card key={title} title={title} blurb="Needs this season and the three before it." rows={[]} note={noStats || `Waiting on earlier seasons (${missingPriors.join(", ")}). Refresh to load them.`} />
+            <Card
+              key={title}
+              title={title}
+              blurb="Compared with the seasons before it."
+              rows={[]}
+              note={noStats || (priorSeasons.length === 0 ? `${season} is the first season on record, so there is nothing earlier to compare with.` : `Waiting on earlier seasons (${missingPriors.join(", ")}). Refresh to load them.`)}
+            />
           ))}
         {trends.map((t) => (
           <Card
