@@ -3,12 +3,18 @@
 import { TIER_STYLE, type Tier } from "@/lib/tier-style";
 import { getTierIndex, type TierIndex } from "@/lib/tier-index";
 
-export function TierPill({ tier, size = 20, align = "center", mt = 0 }: { tier?: Tier | null; size?: number; align?: "flex-start" | "center"; mt?: number }) {
+// Shown as a small colour dot plus the tier name in plain text (no filled badge), so it reads as part of the
+// line it sits on. `onDark` flips the text for the navy graphics.
+export function TierPill({ tier, size = 20, align = "center", mt = 0, onDark = false }: { tier?: Tier | null; size?: number; align?: "flex-start" | "center"; mt?: number; onDark?: boolean }) {
   if (!tier) return null;
   const s = TIER_STYLE[tier];
+  const dot = Math.max(8, Math.round(size * 0.62));
   return (
-    <div style={{ display: "flex", justifyContent: align, marginTop: mt }}>
-      <div style={{ display: "flex", padding: `${Math.round(size * 0.12)}px ${Math.round(size * 0.55)}px`, borderRadius: 6, background: s.bg, color: s.fg, fontWeight: 700, fontSize: size, letterSpacing: 1.5, textTransform: "uppercase" }}>{tier}</div>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: align, marginTop: mt }}>
+      <div style={{ display: "flex", alignItems: "center", gap: Math.round(size * 0.4) }}>
+        <div style={{ display: "flex", width: dot, height: dot, borderRadius: dot, background: s.bg, border: `${Math.max(1, Math.round(size * 0.07))}px solid ${onDark ? "rgba(255,255,255,0.55)" : "rgba(12,39,64,0.35)"}` }} />
+        <div style={{ display: "flex", fontWeight: 700, fontSize: size, letterSpacing: Math.max(1, size * 0.1), textTransform: "uppercase", color: onDark ? "#C9D6E6" : "#4A5E75" }}>{tier}</div>
+      </div>
     </div>
   );
 }

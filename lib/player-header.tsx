@@ -32,7 +32,7 @@ export function PlayerHeader(p: {
           <div style={{ display: "flex", fontFamily: p.display, fontWeight: 700, fontSize: nameSize, lineHeight: 1, color: "#FFFFFF", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap", maxWidth: 640, overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ display: "flex", fontSize: 30, color: "#C9D6E6", maxWidth: 520, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.teamName ? `${p.position} \u00b7 ${p.teamName}` : p.position}</div>
-            <TierPill tier={p.leagueTier} size={22} />
+            <TierPill tier={p.leagueTier} size={22} onDark />
           </div>
           {p.notQualified ? (
             <div style={{ display: "flex", alignSelf: "flex-start", alignItems: "center", background: "#FFF1CF", border: `2px solid ${GOLD}`, borderRadius: 8, padding: "2px 12px", fontSize: 20, fontWeight: 700, letterSpacing: 1, color: OG.goldText }}>{p.notQualified}</div>

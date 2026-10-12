@@ -449,8 +449,8 @@ export async function renderPortraitPlayerList(opts: {
 }
 
 // ---------------------------------------------------------------- 3 stars (one big first star, two smaller beneath)
-// Deliberately NOT a leaderboard: the 1st Star is the feature, the 2nd and 3rd sit side by side
-// under it, like the NHL's three-stars presentation.
+// Deliberately NOT a leaderboard: the 1st Star is the feature card; the 2nd and 3rd are full-width
+// rows beneath it (avatar left, VOR right) so nothing is squeezed vertically.
 export async function renderPortraitThreeStars(opts: {
   footer?: string;
   title: string;
@@ -475,7 +475,7 @@ export async function renderPortraitThreeStars(opts: {
         {star1 ? (
           <div
             style={{
-              display: "flex", position: "relative", overflow: "hidden", flexDirection: "column", justifyContent: "space-between", flex: 1.35, padding: "20px 28px 24px 28px",
+              display: "flex", position: "relative", overflow: "hidden", flexDirection: "column", justifyContent: "space-between", flex: 1.85, padding: "20px 28px 24px 28px",
               background: "#F1F8FF", border: `4px solid ${OG.gold}`, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW,
             }}
           >
@@ -498,22 +498,24 @@ export async function renderPortraitThreeStars(opts: {
                   <div style={{ display: "flex", fontFamily: display, fontSize: 34, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 8 }}>{heroLabel(star1)}</div>
                 </div>
                 <SecondaryLine p={star1} display={display} size={32} />
-                <div style={{ display: "flex", marginTop: 6 }}>
-                  <TeamLine name={star1.teamName} logo={logos[star1.teamId]} size={LOGO_SIZE} fontSize={26} align="flex-start" />
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 6, minWidth: 0 }}>
+                  <div style={{ display: "flex", minWidth: 0, overflow: "hidden" }}>
+                    <TeamLine name={star1.teamName} logo={logos[star1.teamId]} size={LOGO_SIZE} fontSize={26} align="flex-start" />
+                  </div>
+                  <TierPill tier={star1.tier} size={22} align="flex-start" />
                 </div>
-                <TierPill tier={star1.tier} size={24} align="flex-start" />
               </div>
             </div>
             {/* stat tiles: the player's line for the week, like the Player Spotlight */}
             {star1.statLine ? (
-              <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 24 }}>
+              <div style={{ display: "flex", flexDirection: "row", gap: 16, marginTop: 18 }}>
                 {star1.statLine.split(" \u00b7 ").map((part, k) => {
                   const m = part.match(/^(\S+)\s+(.+)$/);
                   const value = m ? m[1] : part;
                   const label = m ? m[2] : "SV%";
                   return (
-                    <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, height: 112, borderRadius: 14, borderTop: `5px solid ${OG.gold}`, backgroundImage: "linear-gradient(180deg, #1A4C7E 0%, #0C2740 100%)" }}>
-                      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 60, lineHeight: 1, color: "#FFFFFF" }}>{value}</div>
+                    <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, height: 108, borderRadius: 14, borderTop: `5px solid ${OG.gold}`, backgroundImage: "linear-gradient(180deg, #1A4C7E 0%, #0C2740 100%)" }}>
+                      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 54, lineHeight: 1, color: "#FFFFFF" }}>{value}</div>
                       <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 4, color: "#C9D6E6", marginTop: 2 }}>{label}</div>
                     </div>
                   );
@@ -523,35 +525,37 @@ export async function renderPortraitThreeStars(opts: {
             <TeamAccent teamId={star1.teamId} />
           </div>
         ) : null}
-        {runnersUp.length > 0 ? (
-          <div style={{ display: "flex", flexDirection: "row", flex: 1, gap: 22 }}>
-            {runnersUp.map((p, k) => {
-              const i = k + 1;
-              return (
-                <div
-                  key={p.id}
-                  style={{
-                    display: "flex", position: "relative", overflow: "hidden", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 3, padding: "10px 0 10px 0",
-                    background: "#FFFFFF", border: CARD_BORDER, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW,
-                  }}
-                >
-                  <div style={{ display: "flex", flexShrink: 0, fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: 4, color: medalText(opts.colors[i]) }}>{(opts.labels[i] ?? "").toUpperCase()}</div>
-                  <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={92} fontFamily={display} fontSize={34} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 36, fontWeight: 700, color: OG.board, lineHeight: 1.2, flexShrink: 0, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
-                  <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 44, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
-                    <div style={{ display: "flex", fontFamily: display, fontSize: 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: 4 }}>{heroLabel(p)}</div>
+        {runnersUp.map((p, k) => {
+          const i = k + 1;
+          return (
+            <div
+              key={p.id}
+              style={{
+                display: "flex", position: "relative", overflow: "hidden", flexDirection: "row", alignItems: "center", flex: 0.88, gap: 24, padding: "0 32px",
+                background: "#FFFFFF", border: CARD_BORDER, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW,
+              }}
+            >
+              <PlayerAvatar name={p.name} src={headshotUrl(p.id)} hasHeadshot={opts.headshots.has(p.id)} size={170} fontFamily={display} fontSize={60} border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`} />
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 6, minWidth: 0 }}>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 28, letterSpacing: 5, color: medalText(opts.colors[i]) }}>{(opts.labels[i] ?? "").toUpperCase()}</div>
+                <div style={{ display: "flex", fontFamily: display, fontSize: 44, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: 520, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
+                {p.statLine ? <div style={{ display: "flex", fontSize: 24, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 520, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}
+                <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+                  <div style={{ display: "flex", minWidth: 0, overflow: "hidden" }}>
+                    <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE - 6} fontSize={22} align="flex-start" />
                   </div>
-                  <SecondaryLine p={p} display={display} size={26} />
-                  {p.statLine ? <div style={{ display: "flex", flexShrink: 0, fontSize: 23, fontWeight: 600, letterSpacing: 0.5, color: OG.rink, maxWidth: 430, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.statLine}</div> : null}
-                  <TeamLine name={p.teamName} logo={logos[p.teamId]} size={LOGO_SIZE - 8} fontSize={21} />
-                  <TierPill tier={p.tier} size={20} />
-                  <TeamAccent teamId={p.teamId} />
+                  <TierPill tier={p.tier} size={19} align="flex-start" />
                 </div>
-              );
-            })}
-          </div>
-        ) : null}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 6 }}>
+                <div style={{ display: "flex", fontFamily: display, fontSize: 72, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
+                <div style={{ display: "flex", fontFamily: display, fontSize: 26, fontWeight: 700, letterSpacing: 3, color: OG.muted }}>{heroLabel(p)}</div>
+                <SecondaryLine p={p} display={display} size={22} />
+              </div>
+              <TeamAccent teamId={p.teamId} />
+            </div>
+          );
+        })}
         {opts.players.length === 0 && <div style={{ display: "flex", color: OG.muted, fontSize: 28 }}>{opts.emptyMessage}</div>}
       </div>
     ),
