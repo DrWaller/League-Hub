@@ -1,8 +1,8 @@
-// Shapes and tiny helpers for the team banners (Regular Season Champions and
-// League Champions). No database or ESPN calls in here, so both server and
+// Shapes and tiny helpers for the team banners (Regular Season Champions,
+// League Champions and Runner-Up). No database or ESPN calls in here, so both server and
 // client code can import it.
 
-export type BannerKind = "regular" | "champion";
+export type BannerKind = "regular" | "champion" | "runnerUp";
 
 export interface TeamBanner {
   key: string;
@@ -61,3 +61,10 @@ export function readableOn(hex: string): "#FFFFFF" | "#111111" {
 export function textOn(primary: string, chosen?: string | null): string {
   return chosen && isHexColor(chosen) ? chosen : readableOn(primary);
 }
+
+// What each banner is called in the admin lists and screen-reader text.
+export const BANNER_LABELS: Record<BannerKind, string> = {
+  regular: "Regular Season Champions",
+  champion: "League Champions",
+  runnerUp: "Runner-Up",
+};

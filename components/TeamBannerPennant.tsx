@@ -1,4 +1,4 @@
-import { textOn, TeamBanner } from "@/lib/banner-types";
+import { BANNER_LABELS, textOn, TeamBanner } from "@/lib/banner-types";
 
 // One hanging pennant, drawn as SVG so it stays sharp at any size. Colours come
 // from the team's banner colours; the logo is the team's uploaded logo.
@@ -12,7 +12,7 @@ export default function TeamBannerPennant({ banner }: { banner: TeamBanner }) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-  const label = kind === "champion" ? "League Champions" : "Regular Season Champions";
+  const label = BANNER_LABELS[kind];
   const font = { fontFamily: "var(--font-display), sans-serif" } as const;
 
   return (
@@ -43,6 +43,10 @@ export default function TeamBannerPennant({ banner }: { banner: TeamBanner }) {
       {kind === "champion" ? (
         <text x="80" y="148" textAnchor="middle" fontSize="19" fontWeight="700" letterSpacing="1" fill={text} style={font}>
           CHAMPIONS
+        </text>
+      ) : kind === "runnerUp" ? (
+        <text x="80" y="148" textAnchor="middle" fontSize="17" fontWeight="700" letterSpacing="1" fill={text} style={font}>
+          RUNNER-UP
         </text>
       ) : (
         <>

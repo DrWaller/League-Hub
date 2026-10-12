@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { BannerColors, BannerKind, readableOn, TeamBanner } from "@/lib/banner-types";
+import { BANNER_LABELS, BannerColors, BannerKind, readableOn, TeamBanner } from "@/lib/banner-types";
 import { suggestColorsFromImage } from "@/lib/logo-colors";
 import { prepareImage, readResult } from "@/lib/admin-upload";
 import TeamBannerPennant from "./TeamBannerPennant";
@@ -121,7 +121,7 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
         const preview: TeamBanner = {
           key: r.id,
           season: r.season,
-          kind: r.kinds.includes("champion") ? "champion" : "regular",
+          kind: r.kinds.includes("champion") ? "champion" : r.kinds.includes("regular") ? "regular" : "runnerUp",
           teamName: r.teamName,
           managerId: null,
           managerName: r.managerName,
@@ -142,7 +142,7 @@ export default function BannerLooksManager({ items }: { items: BannerLookItem[] 
                 <span className="font-display">{r.season}</span> · {r.teamName}
               </div>
               <div className="text-xs text-muted mb-2">
-                {r.kinds.map((k) => (k === "champion" ? "League Champions" : "Regular Season Champions")).join(" + ")}
+                {r.kinds.map((k) => BANNER_LABELS[k]).join(" + ")}
                 {r.managerName ? ` · ${r.managerName}` : ""}
               </div>
               <p className="text-xs text-muted mb-2">

@@ -79,7 +79,8 @@ export default async function HistoryPage() {
     })
   );
 
-  const banners = await getTeamBanners().catch(() => []);
+  // Runner-Up banners hang on manager pages only; League History keeps the champions.
+  const banners = (await getTeamBanners().catch(() => [])).filter((b) => b.kind !== "runnerUp");
 
   return (
     <div>

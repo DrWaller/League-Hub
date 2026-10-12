@@ -116,32 +116,27 @@ export async function getTeamBanners(): Promise<TeamBanner[]> {
         out.push(make("regular", season, rows[0].name, rows[0].teamId, rows[0].managerId));
       }
 
-      const champion = curated.find((c) => c.season === season)?.champion;
-      if (champion) {
-        const row = findTeamByText(rows, champion, (r) => r.name, (r) => managerName(r.managerId));
+      // Playoff results are typed in as text, so match them back to a team.
+      const entry = curated.find((c) => c.season === season);
+      const playoffBanner = (kind: BannerKind, typed: string | null | undefined) => {
+        if (!typed) return;
+        const row = findTeamByText(rows, typed, (r) => r.name, (r) => managerName(r.managerId));
         const ms = findTeamByText(
           managerSeasons.filter((m) => m.season === season),
-          champion,
+          typed,
           (m) => m.teamName,
           (m) => managerName(m.managerId)
         );
-        out.push(
-          make(
-            "champion",
-            season,
-            row?.name ?? champion,
-            row?.teamId ?? ms?.teamId ?? null,
-            row?.managerId ?? ms?.managerId ?? null
-          )
-        );
-      }
+        out.push(make(kind, season, row?.name ?? typed, row?.teamId ?? ms?.teamId ?? null, row?.managerId ?? ms?.managerId ?? null));
+      };
+      playoffBanner("champion", entry?.champion);
+      playoffBanner("runnerUp", entry?.runnerUp);
       return out;
     })
   );
 
   // Oldest first, like banners hung in the rafters; within a season the
-  // regular-season banner comes before the championship.
-  return perSeason
-    .flat()
-    .sort((a, b) => a.season - b.season || (a.kind === b.kind ? 0 : a.kind === "regular" ? -1 : 1));
+  // regular-season banner comes before the championship, then the runner-up.
+  const order: Record<BannerKind, number> = { regular: 0, champion: 1, runnerUp: 2 };
+  return perSeason.flat().sort((a, b) => a.season - b.season || order[a.kind] - order[b.kind]);
 }
