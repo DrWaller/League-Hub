@@ -919,3 +919,130 @@ export async function renderPortraitCover(opts: {
     ),
   });
 }
+
+// ---------------------------------------------------------------- lineup efficiency (points vs. the best possible lineup)
+export interface EfficiencyRow {
+  teamId: number;
+  name: string;
+  actual: number;
+  max: number;
+}
+
+export async function renderPortraitLineupEfficiency(opts: {
+  footer?: string;
+  week: number;
+  rows: EfficiencyRow[]; // already in the order to show
+  logos?: Record<number, string>;
+}) {
+  const logos = opts.logos ?? {};
+  const biggest = Math.max(1, ...opts.rows.map((r) => r.max));
+  const avail = H - CHROME - 24 - 44;
+  const rowH = Math.min(100, Math.floor(avail / Math.max(1, opts.rows.length)));
+  const pctColor = (p: number) => (p >= 0.9 ? GREEN : p < 0.75 ? OG.centerRed : OG.rink);
+  const BAR_W = 668; // fixed pixel width of the middle column, so every row lines up
+
+  return frame({
+    footer: opts.footer,
+    title: "Lineup Efficiency",
+    subtitle: `Week ${opts.week} - points vs. best possible lineup`,
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 22, height: 44, fontSize: 22, color: OG.muted, borderBottom: `2px solid ${OG.rink}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", width: 26, height: 14, borderRadius: 4, background: OG.rink }} />
+            <div style={{ display: "flex" }}>Points scored</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", width: 26, height: 14, borderRadius: 4, background: "#C5D5E6" }} />
+            <div style={{ display: "flex" }}>Left on the bench</div>
+          </div>
+        </div>
+        {opts.rows.map((r, i) => {
+          const pct = r.max > 0 ? r.actual / r.max : 0;
+          return (
+            <div key={r.teamId} style={{ display: "flex", alignItems: "center", height: rowH, gap: 14, padding: "0 8px", background: i % 2 === 0 ? "#FFFFFF" : OG.icePanel }}>
+              <div style={{ display: "flex", width: 40, flexShrink: 0, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 30, color: OG.rink }}>{i + 1}</div>
+              <div style={{ display: "flex", flexShrink: 0 }}>
+                <TeamBadge name={r.name} logo={logos[r.teamId]} size={Math.min(60, rowH - 18)} fontFamily={display} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", width: BAR_W, flexShrink: 0, gap: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
+                  <div style={{ display: "flex", fontSize: 27, fontWeight: 700, color: OG.board, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 400 }}>{r.name}</div>
+                  <div style={{ display: "flex", flexShrink: 0, fontSize: 22, color: OG.muted }}>{`${r.actual.toFixed(2)} of ${r.max.toFixed(2)}`}</div>
+                </div>
+                <div style={{ display: "flex", width: Math.max(40, Math.round((r.max / biggest) * BAR_W)), height: 22, borderRadius: 11, background: "#C5D5E6", overflow: "hidden" }}>
+                  <div style={{ display: "flex", width: `${Math.min(100, pct * 100)}%`, height: 22, background: OG.rink }} />
+                </div>
+              </div>
+              <div style={{ display: "flex", width: 128, flexShrink: 0, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 40, color: pctColor(pct) }}>{`${(pct * 100).toFixed(1)}%`}</div>
+            </div>
+          );
+        })}
+        {opts.rows.length === 0 && <div style={{ display: "flex", color: OG.muted, fontSize: 28, marginTop: 24 }}>No lineups to compare for this week yet.</div>}
+      </div>
+    ),
+  });
+}
+
+// ---------------------------------------------------------------- league awards
+export interface AwardCard {
+  label: string; // "BEST MANAGER"
+  teamId?: number;
+  teamName?: string;
+  big: string; // "92.4%"
+  bigUnit?: string; // "EFFICIENCY"
+  sub?: string; // "162.80 of 176.10 max"
+  title?: string; // a player's name, shown instead of the team as the headline
+  tone?: "good" | "bad" | "neutral";
+}
+
+export async function renderPortraitAwards(opts: {
+  footer?: string;
+  week: number;
+  awards: AwardCard[];
+  logos?: Record<number, string>;
+}) {
+  const logos = opts.logos ?? {};
+  const rows: AwardCard[][] = [];
+  for (let i = 0; i < opts.awards.length; i += 2) rows.push(opts.awards.slice(i, i + 2));
+  const toneColor = (t?: AwardCard["tone"]) => (t === "good" ? GREEN : t === "bad" ? OG.centerRed : OG.rink);
+
+  return frame({
+    footer: opts.footer,
+    title: "League Awards",
+    subtitle: `Week ${opts.week}`,
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 18 }}>
+        {rows.map((row, ri) => (
+          <div key={ri} style={{ display: "flex", flexDirection: "row", flex: 1, gap: 18 }}>
+            {row.map((a) => (
+              <div key={a.label} style={{ display: "flex", flexDirection: "column", flex: 1, position: "relative", overflow: "hidden", background: "#FFFFFF", border: CARD_BORDER, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW }}>
+                <div style={{ display: "flex", alignItems: "center", height: 46, padding: "0 20px", background: OG.rink, borderBottom: `4px solid ${OG.gold}`, fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 3, color: "#FFFFFF" }}>{a.label}</div>
+                <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center", gap: 8, padding: "10px 20px 14px 20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                    {a.teamName && !a.title ? <TeamBadge name={a.teamName} logo={a.teamId != null ? logos[a.teamId] : undefined} size={48} fontFamily={display} /> : null}
+                    <div style={{ display: "flex", fontSize: a.title ? 32 : 28, fontWeight: 700, color: OG.board, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: a.title ? 420 : 340 }}>{a.title ?? a.teamName ?? ""}</div>
+                  </div>
+                  {a.title && a.teamName ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                      <TeamBadge name={a.teamName} logo={a.teamId != null ? logos[a.teamId] : undefined} size={34} fontFamily={display} />
+                      <div style={{ display: "flex", fontSize: 22, color: OG.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 380 }}>{a.teamName}</div>
+                    </div>
+                  ) : null}
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
+                    <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 68, lineHeight: 1, color: toneColor(a.tone) }}>{a.big}</div>
+                    {a.bigUnit ? <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 2, color: OG.muted, marginBottom: 6 }}>{a.bigUnit}</div> : null}
+                  </div>
+                  {a.sub ? <div style={{ display: "flex", fontSize: 23, color: OG.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 440 }}>{a.sub}</div> : null}
+                </div>
+                {a.teamId != null ? <TeamAccent teamId={a.teamId} /> : null}
+              </div>
+            ))}
+            {row.length === 1 ? <div style={{ display: "flex", flex: 1 }} /> : null}
+          </div>
+        ))}
+        {opts.awards.length === 0 && <div style={{ display: "flex", color: OG.muted, fontSize: 28 }}>No awards yet: no games have finished this week.</div>}
+      </div>
+    ),
+  });
+}
