@@ -203,10 +203,11 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
           note={noStats || sleeperNote || "No drafted player out-produced his slot."}
         />
         {!trendsReady &&
-          ["Breakout Player", "Bounce Back Player", "Most Improved Player", "Calder Trophy"].map((title) => (
+          ([["breakout", "Breakout Player"], ["bounce", "Bounce Back Player"], ["improved", "Most Improved Player"], ["calder", "Calder Trophy"]] as const).map(([key, title]) => (
             <Card
               key={title}
               title={title}
+              recorded={recordedFor(key)}
               blurb="Compared with the seasons before it."
               rows={[]}
               note={noStats || (priorSeasons.length === 0 ? `${season} is the first season on record, so there is nothing earlier to compare with.` : `Waiting on earlier seasons (${missingPriors.join(", ")}). Refresh to load them.`)}
