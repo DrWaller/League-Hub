@@ -14,7 +14,7 @@ import { AWARD_LABELS, AwardCategory } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import PowerRankingsList from "@/components/PowerRankingsList";
 import LuckTable from "@/components/LuckTable";
-import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
+import { calculatePowerRankingsWithRoster } from "@/lib/roster-strength";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
 import { pts, ptsComma } from "@/lib/format";
 
@@ -155,13 +155,13 @@ export default async function NewsletterPage({
 
   // Power rankings and the luck chart "as of" this week. Current season only
   // (they're built from this season's live standings and results).
-  let ranking: ReturnType<typeof calculatePowerRankingsWithMovement> | null = null;
+  let ranking: Awaited<ReturnType<typeof calculatePowerRankingsWithRoster>> | null = null;
   let luck: ReturnType<typeof computeLuck> | null = null;
   if (season === meta.season) {
     const all = await getMatchups();
     const finalsThrough = regularSeasonFinals(all.matchups).filter((m) => m.week <= week);
     if (finalsThrough.length > 0) {
-      ranking = calculatePowerRankingsWithMovement(teams, all.matchups, week);
+      ranking = await calculatePowerRankingsWithRoster(teams, all.matchups, season, week);
       luck = computeLuck(all.matchups, ranking.throughWeek);
     }
   }

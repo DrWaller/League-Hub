@@ -5,7 +5,7 @@ import { getTeamLogos } from "@/lib/content";
 import TeamLogo from "@/components/TeamLogo";
 import PlayersOfTheWeek from "@/components/PlayersOfTheWeek";
 import LastNight from "@/components/LastNight";
-import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
+import { calculatePowerRankingsWithRoster } from "@/lib/roster-strength";
 import { regularSeasonFinals } from "@/lib/luck";
 import { pts } from "@/lib/format";
 
@@ -20,7 +20,7 @@ export default async function HomePage() {
   ]);
   const matchups = all.matchups.filter((m) => m.week === meta.currentWeek);
   const latestFinalWeek = regularSeasonFinals(all.matchups).reduce((max, m) => Math.max(max, m.week), 0);
-  const power = latestFinalWeek > 0 ? calculatePowerRankingsWithMovement(teams, all.matchups) : null;
+  const power = latestFinalWeek > 0 ? await calculatePowerRankingsWithRoster(teams, all.matchups, meta.season) : null;
   const teamNames = Object.fromEntries(teams.map((t) => [t.id, t.name])) as Record<number, string>;
 
   const top3 = teams.slice(0, 3);

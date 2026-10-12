@@ -207,7 +207,7 @@ export async function renderPortraitPowerRankings(opts: {
             </div>
           );
         })}
-        <div style={{ display: "flex", marginTop: 16, fontSize: 22, color: OG.muted }}>Blend of win %, point differential and streak - regular season only.</div>
+        <div style={{ display: "flex", marginTop: 16, fontSize: 22, color: OG.muted }}>Team strength: all-play, points, roster and record - recent weeks count more.</div>
       </div>
     ),
   });

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
-import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
+import { calculatePowerRankingsWithRoster } from "@/lib/roster-strength";
 import { renderPreview, PreviewGame, PreviewSide } from "@/lib/preview-image";
 import { isPortrait, renderPortraitPreview, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     let teams: Team[] = standings.teams;
     const rankOf = new Map<number, number>();
     if (week > 1) {
-      const r = calculatePowerRankingsWithMovement(standings.teams, all.matchups, week - 1);
+      const r = await calculatePowerRankingsWithRoster(standings.teams, all.matchups, meta.season, week - 1);
       if (r.throughWeek > 0) {
         teams = r.teams;
         for (const e of r.rankings) rankOf.set(e.teamId, e.rank);

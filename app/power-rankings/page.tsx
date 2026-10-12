@@ -4,7 +4,7 @@ import { getSeasonBundle } from "@/lib/season-data";
 import { getTeamLogos, getPlayedElsewhereSeasons } from "@/lib/content";
 import PlayedElsewhereNotice from "@/components/PlayedElsewhereNotice";
 import { getAvailableSeasons } from "@/lib/seasons";
-import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
+import { calculatePowerRankingsWithRoster } from "@/lib/roster-strength";
 import { computeLuck, regularSeasonFinals } from "@/lib/luck";
 import PowerRankingsList from "@/components/PowerRankingsList";
 import LuckTable from "@/components/LuckTable";
@@ -23,9 +23,10 @@ export default async function PowerRankingsPage({
     getAvailableSeasons(meta.season),
     getMatchups(),
   ]);
-  const { rankings, teams, throughWeek: rankThroughWeek } = calculatePowerRankingsWithMovement(
+  const { rankings, teams, throughWeek: rankThroughWeek } = await calculatePowerRankingsWithRoster(
     standingsTeams,
-    currentMatchups.matchups
+    currentMatchups.matchups,
+    meta.season
   );
   const teamById = (id: number) => teams.find((t) => t.id === id);
 
@@ -73,8 +74,9 @@ export default async function PowerRankingsPage({
         {live ? "Live from ESPN." : "Preview data — connect ESPN for live power rankings."}
       </p>
       <p className="text-sm text-muted mb-3 max-w-prose">
-        Not ESPN&apos;s built-in rankings. This blends win percentage, point differential per
-        game, and current streak — so a team quietly outscoring the league shows up here even
+        Not ESPN&apos;s built-in rankings. This ranks team strength, not just results: all-play
+        record, points scored, roster strength (value over replacement) and actual record, with
+        recent weeks counting more — so a team quietly outscoring the league shows up here even
         before it shows up in the standings.
       </p>
       {rankThroughWeek > 1 && (

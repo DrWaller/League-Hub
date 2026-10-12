@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getMatchups, getStandings, getLeagueMeta } from "@/lib/espn";
-import { calculatePowerRankingsWithMovement } from "@/lib/power-rankings";
+import { calculatePowerRankingsWithRoster } from "@/lib/roster-strength";
 import { renderPowerRankings } from "@/lib/power-rankings-image";
 import { isPortrait, renderPortraitPowerRankings, seasonFooter } from "@/lib/portrait-graphics";
 import { loadLogoData } from "@/lib/og-team-logo";
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     if (!live) return new Response("ESPN isn't connected, so there are no real results to rank.", { status: 400 });
 
     const week = Number(req.nextUrl.searchParams.get("week")) || undefined;
-    const { rankings, teams: ranked, throughWeek } = calculatePowerRankingsWithMovement(teams, m.matchups, week);
+    const { rankings, teams: ranked, throughWeek } = await calculatePowerRankingsWithRoster(teams, m.matchups, meta.season, week);
     if (throughWeek === 0) return new Response("No completed regular-season games yet, so there's nothing to rank.", { status: 400 });
 
     if (req.nextUrl.searchParams.get("caption")) {

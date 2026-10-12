@@ -106,7 +106,7 @@ export async function renderPowerRankings(opts: {
             </div>
           ))}
           <div style={{ display: "flex", marginTop: 14, fontSize: 14, color: OG.muted }}>
-            Blend of win %, point differential and streak - regular season only.
+            Team strength: all-play, points, roster and record - recent weeks count more.
           </div>
         </div>
       </div>
