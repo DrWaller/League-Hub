@@ -5,7 +5,8 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { fetchLineupSlots } from "@/lib/vor";
 import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncPoolSeasons, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
-import { seasonLeaders, type PastEntry } from "@/lib/past-awards";
+import { seasonLeaders, sleepingBeautyEstimate, type PastEntry, type DraftPickLite } from "@/lib/past-awards";
+import { sql } from "@/lib/db";
 import { PAST_WINNERS } from "@/lib/season-awards";
 import { pts } from "@/lib/format";
 
@@ -110,6 +111,23 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
   const byPoints = teams ? [...teams].sort((a, b) => b.pointsFor - a.pointsFor) : [];
   const rec = (t: { wins: number; losses: number; ties: number }) => `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`;
 
+  // Sleeping Beauty: this season's saved draft against the estimated season VOR.
+  let sleepers: ReturnType<typeof sleepingBeautyEstimate> = [];
+  let draftStored = false;
+  if (leaders) {
+    try {
+      const d = await sql`SELECT overall_pick, player_id, player_name, position, team_name, is_keeper, source FROM draft_picks WHERE season = ${season} ORDER BY overall_pick;`;
+      const source = d.rows.some((r) => r.source === "espn") ? "espn" : d.rows[0]?.source;
+      const picks: DraftPickLite[] = d.rows
+        .filter((r) => r.source === source)
+        .map((r) => ({ overallPick: Number(r.overall_pick), playerId: r.player_id == null ? null : Number(r.player_id), name: String(r.player_name ?? ""), position: String(r.position ?? ""), teamName: String(r.team_name ?? ""), keeper: Boolean(r.is_keeper) }));
+      draftStored = picks.length > 0;
+      sleepers = sleepingBeautyEstimate(picks, leaders.vorAll);
+    } catch {
+      /* no draft table or rows: the card says so */
+    }
+  }
+
   const estimate = "Estimate: season totals, one replacement level for the whole year.";
 
   return (
@@ -157,6 +175,15 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
             note="Nothing qualifies."
           />
         ))}
+        {leaders && (
+          <Card
+            title="Sleeping Beauty"
+            blurb={`The drafted player who out-produced his draft slot by the most (draft pick minus his finish by season VOR among everyone drafted; keepers excluded). ${estimate}`}
+            rows={sleepers.map((p) => ({ key: `${p.pick}`, name: p.name, sub: `${p.position} · ${p.teamName} · drafted #${p.pick}, finished #${p.finish}`, value: `+${p.margin} spots`, rank: p.rank }))}
+            recorded={recordedFor("sleeping")}
+            note={draftStored ? "No drafted player matched the saved stats." : "No draft saved for this season."}
+          />
+        )}
         <Card
           title="Hard Luck Manager"
           blurb="Actual wins against expected wins (every team against every other team, every week), as a share of expected wins. The biggest shortfall wins."
@@ -181,7 +208,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
         />
       </div>
       <p className="text-xs text-muted max-w-prose">
-        Not rebuilt here: William M. Jennings and Sleeping Beauty (they need a season of week-by-week roster data, which is heavy to pull) and the lineup efficiency award (first year is the current season).
+        Not rebuilt here: William M. Jennings (it needs each team's goalies from week-by-week rosters, which is heavy to pull) and the lineup efficiency award (first year is the current season).
       </p>
     </div>
   );

@@ -24,6 +24,7 @@ export interface PastLeaders {
   norris: PastEntry[];
   vezina: PastEntry[];
   forward: PastEntry[];
+  vorAll: { id: number; name: string; position: string; vor: number }[]; // every player's estimated season VOR
 }
 
 const f1 = (n: number) => n.toFixed(1);
@@ -80,5 +81,48 @@ export function seasonLeaders(rows: PoolRow[], season: number, counts: Record<nu
     norris: vorEntries(["D"]),
     vezina: vorEntries(["G"]),
     forward: vorEntries(FWD),
+    vorAll: vorList.map((x) => ({ id: x.r.id, name: x.r.name, position: x.r.position, vor: x.vor })),
   };
+}
+
+export interface DraftPickLite {
+  overallPick: number;
+  playerId: number | null;
+  name: string;
+  position: string;
+  teamName: string;
+  keeper: boolean;
+}
+
+export interface PastSleeper {
+  name: string;
+  position: string;
+  teamName: string;
+  pick: number;
+  finish: number;
+  margin: number;
+  rank: number;
+}
+
+// Sleeping Beauty for a past season: draft slot minus his finish by season VOR among everyone drafted (keeper picks
+// are not real slots, so they only serve as comparisons). Matches a pick to a player by id, then by name.
+export function sleepingBeautyEstimate(picks: DraftPickLite[], vorAll: PastLeaders["vorAll"], top = 5): PastSleeper[] {
+  const byId = new Map(vorAll.map((v) => [v.id, v]));
+  const byName = new Map(vorAll.map((v) => [v.name.toLowerCase().replace(/[^a-z0-9]/g, ""), v]));
+  const matched = picks
+    .map((p) => {
+      const v = (p.playerId != null ? byId.get(p.playerId) : undefined) ?? byName.get(p.name.toLowerCase().replace(/[^a-z0-9]/g, ""));
+      return v ? { p, vor: v.vor } : null;
+    })
+    .filter((x): x is { p: DraftPickLite; vor: number } => x !== null);
+  const order = [...matched].sort((a, b) => b.vor - a.vor);
+  const finish = new Map(order.map((x, i) => [x.p.overallPick, i + 1]));
+  return matched
+    .filter((x) => !x.p.keeper)
+    .map((x) => ({ x, finish: finish.get(x.p.overallPick) ?? 0 }))
+    .map(({ x, finish: f }) => ({ name: x.p.name, position: x.p.position, teamName: x.p.teamName, pick: x.p.overallPick, finish: f, margin: x.p.overallPick - f, vor: x.vor }))
+    .filter((x) => x.margin > 0)
+    .sort((a, b) => b.margin - a.margin || b.vor - a.vor)
+    .slice(0, top)
+    .map((x, i) => ({ name: x.name, position: x.position, teamName: x.teamName, pick: x.pick, finish: x.finish, margin: x.margin, rank: i + 1 }));
 }
