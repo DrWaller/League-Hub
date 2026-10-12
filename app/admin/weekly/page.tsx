@@ -53,7 +53,10 @@ export default async function WeeklyChecklistPage({ searchParams }: { searchPara
       title: "Weekly graphics",
       status: "info",
       detail: "3 Stars, Player Spotlight, Forward/Defense/Goalie, Team of the Week and the Luck Chart, all for this week.",
-      links: [{ href: `/admin/graphics?week=${week}`, label: `Generate week ${week} graphics` }],
+      links: [
+        { href: `/admin/newsletter-graphics?week=${week}`, label: `Newsletter graphics, in send order` },
+        { href: `/admin/graphics?week=${week}`, label: `All week ${week} graphics` },
+      ],
     },
     {
       title: "Power rankings",
