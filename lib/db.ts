@@ -252,5 +252,19 @@ export async function ensureSchema() {
   await sql`ALTER TABLE team_banner_colors ADD COLUMN IF NOT EXISTS text_color TEXT;`;
   await sql`ALTER TABLE team_season_looks ADD COLUMN IF NOT EXISTS text_color TEXT;`;
 
+  // One-time data fix (Oct 2026): the 2025 Fantrax team was entered as "Evan";
+  // its team name is "Brady Bunch". Does nothing once renamed, so it's safe to
+  // delete whenever.
+  try {
+    await sql`
+      UPDATE manual_teams SET name = 'Brady Bunch'
+      WHERE season = 2025 AND name = 'Evan'
+        AND NOT EXISTS (SELECT 1 FROM manual_teams WHERE season = 2025 AND name = 'Brady Bunch');
+    `;
+    await sql`UPDATE manager_team_seasons SET team_name = 'Brady Bunch' WHERE season = 2025 AND team_name = 'Evan';`;
+  } catch (err) {
+    console.error("2025 team rename skipped", err);
+  }
+
   schemaReady = true;
 }
