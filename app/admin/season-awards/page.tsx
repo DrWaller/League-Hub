@@ -5,6 +5,8 @@ import { syncSeasonLineups, getStoredLineups, summarizeSeason } from "@/lib/line
 import { getPlayerRaces, buildTandems, getSleepingBeauty, PAST_WINNERS } from "@/lib/season-awards";
 import { getAllStored } from "@/lib/vor-store";
 import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
+import { rosterableBar } from "@/lib/past-awards";
+import { fetchLineupSlots } from "@/lib/vor";
 import { pts } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -108,7 +110,9 @@ export default async function SeasonAwardsPage() {
   }
   let trends: ReturnType<typeof buildTrendAwards> = [];
   try {
-    trends = buildTrendAwards(await loadPoolStats(meta.season), meta.season);
+    const poolRows = await loadPoolStats(meta.season);
+    const slots = await fetchLineupSlots(meta.season).catch(() => null);
+    trends = buildTrendAwards(poolRows, meta.season, 5, rosterableBar(poolRows, meta.season, slots, teams.length));
   } catch {
     /* empty */
   }
