@@ -15,6 +15,7 @@ export default function AdminGraphicsPage() {
   const [weekSeason, setWeekSeason] = useState<string>("");
   const [luckSeason, setLuckSeason] = useState<string>("");
   const [spotlightPosition, setSpotlightPosition] = useState<string>("any");
+  const [awardRace, setAwardRace] = useState<string>("norris");
 
   // Player Radar picker: search ESPN's player list by name; with nobody picked the
   // radar uses the week's top scorer.
@@ -112,6 +113,7 @@ export default function AdminGraphicsPage() {
     })),
     { title: "Lineup Efficiency (points vs. best lineup)", url: `/api/admin/graphics/lineup-efficiency?week=${week}`, alwaysPortrait: true },
     { title: "Best Manager Race (season to date)", url: `/api/admin/graphics/lineup-season?week=${week}`, alwaysPortrait: true },
+    { title: `Award Watch - ${awardRace}`, url: `/api/admin/graphics/award-watch?award=${awardRace}&week=${week}`, alwaysPortrait: true },
     { title: "League Awards", url: `/api/admin/graphics/league-awards?week=${week}`, alwaysPortrait: true },
     { title: "Team of the Week", url: `/api/admin/graphics/team-of-week?week=${week}${seasonQS}` },
     ...(period
@@ -249,6 +251,17 @@ export default function AdminGraphicsPage() {
             <option value="forward">Forward</option>
             <option value="defense">Defenseman</option>
             <option value="goalie">Goalie</option>
+          </select>
+        </label>
+
+        <label className="text-sm inline-block">
+          <div className="text-muted mb-1">Award Watch race</div>
+          <select value={awardRace} onChange={(e) => setAwardRace(e.target.value)} className="border border-ice-line px-3 py-2 w-44 bg-white">
+            <option value="hart">Hart (MVP)</option>
+            <option value="norris">Norris (D)</option>
+            <option value="vezina">Vezina (G)</option>
+            <option value="forward">Forward of the Year</option>
+            <option value="artross">Art Ross (points)</option>
           </select>
         </label>
 

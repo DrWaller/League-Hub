@@ -157,3 +157,10 @@ export async function getBiggestMonths(season: number, periods: MonthlyPeriod[],
   }
   return all.sort((a, b) => b.vor - a.vor || b.points - a.points).slice(0, limit);
 }
+
+// Every stored player-week for a season (used by the season-long award races).
+export async function getAllStored(season: number): Promise<StoredVor[]> {
+  await ensureTable();
+  const r = await sql`SELECT * FROM vor_weekly WHERE season = ${season} ORDER BY week;`;
+  return r.rows.map(toStored);
+}
