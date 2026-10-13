@@ -126,6 +126,8 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
     ? [
         ...(picked.id > 0
           ? [
+              { title: `Scorecard - ${picked.name}`, url: `${graphicsBase}/player-scorecard?playerId=${picked.id}`, portrait: true },
+              { title: `Hockey Card - ${picked.name}`, url: `${graphicsBase}/player-hockey-card?playerId=${picked.id}`, portrait: true },
               { title: `Player Radar - ${picked.name}`, url: `${graphicsBase}/player-radar?playerId=${picked.id}&format=portrait` },
               { title: `Player Bars - ${picked.name}`, url: `${graphicsBase}/player-bars?playerId=${picked.id}&format=portrait` },
               { title: `Player Spotlight, full season - ${picked.name}`, url: `${graphicsBase}/player-spotlight-season?playerId=${picked.id}&position=any` },
@@ -135,6 +137,8 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
         // A previous season's final cards (the imported 2025 Fantrax season included), each its own card.
         ...(pastSeason && pastUsable(pastSeason, picked)
           ? [
+              { title: `Scorecard - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-scorecard?${pastQuery(pastSeason, picked)}` },
+              { title: `Hockey Card - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-hockey-card?${pastQuery(pastSeason, picked)}` },
               { title: `Player Radar - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-radar?${pastQuery(pastSeason, picked)}` },
               { title: `Player Bars - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-bars?${pastQuery(pastSeason, picked)}` },
             ]
