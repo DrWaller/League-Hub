@@ -100,25 +100,37 @@ async function saveFantraxOwnership(season: number): Promise<{ saved: number; pe
   const imp = (await listImportedSeasons()).includes(season) ? await getImportedSeason(season) : null;
   if (!imp) return { saved: 0, periods: 0, note: `${season} was played off ESPN and no Fantrax player list is imported for it.` };
   const [managers, assignments] = await Promise.all([getManagers(), getManagerSeasons()]);
-  const teams = assignments.filter((a) => a.season === season && a.managerId != null);
+  // team name -> manager for that season (linked ESPN-style seasons plus hand-entered teams)
+  const teamManager: { name: string; managerId: number }[] = assignments
+    .filter((a) => a.season === season && a.managerId != null)
+    .map((a) => ({ name: a.teamName, managerId: a.managerId as number }));
+  try {
+    const mt = await sql`SELECT name, manager_id FROM manual_teams WHERE season = ${season} AND manager_id IS NOT NULL;`;
+    for (const r of mt.rows) teamManager.push({ name: String(r.name), managerId: Number(r.manager_id) });
+  } catch {
+    /* no hand-entered teams */
+  }
   const saved = new Map<string, number>();
   try {
     const m = await sql`SELECT owner, team_id FROM fantrax_owner_map WHERE season = ${season};`;
-    for (const r of m.rows) saved.set(norm(String(r.owner)), Number(r.team_id));
+    for (const r of m.rows) saved.set(norm(String(r.owner)), Number(r.team_id)); // the saved value is a manager id
   } catch {
     /* no map yet */
   }
-  const ownerKey = (owner: string) => {
+  // Returns a MANAGER id: a saved choice first, then a name that matches the manager or one of their team names.
+  const ownerKey = (owner: string): number | null => {
     const o = norm(owner);
     if (!o) return null;
     if (saved.has(o)) return saved.get(o)!;
-    return (
-      teams.find((t) => {
-        const mn = norm(managers.find((m) => m.id === t.managerId)?.name ?? "");
-        const tn = norm(t.teamName);
-        return o === mn || o === tn || (mn.length >= 3 && o.includes(mn)) || (tn.length >= 3 && tn.includes(o)) || (o.length >= 3 && mn.includes(o));
-      })?.teamId ?? null
-    );
+    const byManager = managers.find((m) => {
+      const mn = norm(m.name);
+      return mn === o || (mn.length >= 3 && o.length >= 3 && (o.includes(mn) || mn.includes(o)));
+    });
+    if (byManager) return byManager.id;
+    return teamManager.find((t) => {
+      const tn = norm(t.name);
+      return tn === o || (tn.length >= 3 && o.length >= 3 && (tn.includes(o) || o.includes(tn)));
+    })?.managerId ?? null;
   };
   const unmatched = new Map<string, number>();
   const rows: { team: number; id: number; name: string; pos: string; n: number }[] = [];
@@ -129,26 +141,26 @@ async function saveFantraxOwnership(season: number): Promise<{ saved: number; pe
       unmatched.set(p.owner, (unmatched.get(p.owner) ?? 0) + 1);
       return;
     }
-    rows.push({ team, id: -(p.nhlId ?? 1_000_000_000 + i), name: p.name, pos: p.position, n: MIN_SAMPLES });
+    rows.push({ team: -team, id: -(p.nhlId ?? 1_000_000_000 + i), name: p.name, pos: p.position, n: MIN_SAMPLES });
   });
   // Everyone drafted that year counts too (a player dropped or traded before the end of the year is missing from the owner list).
   let drafted = 0;
   try {
     const d = await sql`SELECT overall_pick, team_name, player_name, position FROM draft_picks WHERE season = ${season} AND source = 'fantrax';`;
-    const have = new Set(rows.map((r) => `${r.team}|${norm(r.name)}`));
+    const have = new Set(rows.map((r) => `${-r.team}|${norm(r.name)}`));
     for (const p of d.rows) {
       const team = ownerKey(String(p.team_name ?? ""));
       if (team == null) continue;
       const name = String(p.player_name ?? "");
       if (!name || have.has(`${team}|${norm(name)}`)) continue;
       have.add(`${team}|${norm(name)}`);
-      rows.push({ team, id: -(1_500_000_000 + Number(p.overall_pick)), name, pos: String(p.position ?? "?"), n: MIN_SAMPLES });
+      rows.push({ team: -team, id: -(1_500_000_000 + Number(p.overall_pick)), name, pos: String(p.position ?? "?"), n: MIN_SAMPLES });
       drafted++;
     }
   } catch {
     /* no draft saved for that season: owners alone */
   }
-  if (rows.length === 0) return { saved: 0, periods: 0, note: `Could not match any Fantrax owner names (${[...unmatched.keys()].slice(0, 6).join(", ")}) to ${season}'s teams.` };
+  if (rows.length === 0) return { saved: 0, periods: 0, note: `Could not match any Fantrax owner names (${[...unmatched.keys()].slice(0, 6).join(", ")}) to managers: use the owner names section on this page.` };
   await sql`DELETE FROM roster_owned WHERE season = ${season};`;
   await bulkInsert(season, rows, "fantrax");
   await sql`INSERT INTO roster_owned_meta (season, periods, source, saved_at) VALUES (${season}, 0, 'fantrax', now()) ON CONFLICT (season) DO UPDATE SET periods = 0, source = 'fantrax', saved_at = now();`;
@@ -174,7 +186,8 @@ export async function loadOwnedPlayers(managerId: number, top = 6): Promise<{ pl
   const byPlayer = new Map<string, OwnedPlayer & { seen: Set<number> }>();
   const seasons = new Set<number>();
   for (const r of rows.rows) {
-    if (!mine.has(`${r.season}|${r.team_id}`)) continue;
+    const isMine = mine.has(`${r.season}|${r.team_id}`) || (String(r.source) === "fantrax" && Number(r.team_id) === -managerId);
+    if (!isMine) continue;
     if (Number(r.samples) < MIN_SAMPLES) continue;
     const season = Number(r.season);
     seasons.add(season);
@@ -212,24 +225,22 @@ export async function getOwnerSetup(season: number) {
     counts.set(p.owner, (counts.get(p.owner) ?? 0) + 1);
   }
   const saved = new Map(mapRows.rows.map((r) => [norm(String(r.owner)), Number(r.team_id)]));
-  const teams = assignments
-    .filter((a) => a.season === season)
-    .map((a) => ({ teamId: a.teamId, teamName: a.teamName, manager: managers.find((m) => m.id === a.managerId)?.name ?? null }));
+  const teamOf = new Map(assignments.filter((a) => a.season === season && a.managerId != null).map((a) => [a.managerId as number, a.teamName]));
+  const choices = managers.map((m) => ({ managerId: m.id, name: m.name, teamName: teamOf.get(m.id) ?? null }));
   const owners = [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([owner, count]) => {
       const o = norm(owner);
       const guess =
         saved.get(o) ??
-        teams.find((t) => {
-          const mn = norm(t.manager ?? "");
-          const tn = norm(t.teamName);
-          return o === mn || o === tn || (mn.length >= 3 && (o.includes(mn) || mn.includes(o))) || (tn.length >= 3 && tn.includes(o));
-        })?.teamId ??
+        managers.find((m) => {
+          const mn = norm(m.name);
+          return mn === o || (mn.length >= 3 && o.length >= 3 && (o.includes(mn) || mn.includes(o)));
+        })?.id ??
         null;
       return { owner, count, teamId: guess, fromSaved: saved.has(o) };
     });
-  return { owners, teams };
+  return { owners, teams: choices.map((c) => ({ teamId: c.managerId, teamName: c.name, manager: c.teamName })) };
 }
 
 export async function saveOwnerMap(season: number, map: Record<string, number | null>) {

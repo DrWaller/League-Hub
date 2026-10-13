@@ -74,7 +74,7 @@ export default function OwnershipPage() {
 
       <h2 className="font-display text-2xl mb-1">Fantrax owner names</h2>
       <p className="text-muted mb-3 max-w-prose text-sm">
-        A Fantrax season lists each player&apos;s owner by a short code. Pick the team each code belongs to, then save. This rebuilds that season right away.
+        A Fantrax season lists each player&apos;s owner by a short code. Pick the manager each code belongs to (the team name is shown if one is linked), then save. This rebuilds that season right away.
       </p>
       <div className="flex items-center gap-2 mb-3 text-sm">
         Season <input type="number" value={fxSeason} onChange={(e) => setFxSeason(Number(e.target.value))} className="w-24 border border-ice-line px-2 py-1" />
@@ -89,7 +89,7 @@ export default function OwnershipPage() {
                 <span className="w-24 font-bold">{o.owner} <span className="text-xs text-muted font-normal">({o.count})</span></span>
                 <select value={map[o.owner] ?? ""} onChange={(e) => setMap({ ...map, [o.owner]: e.target.value ? Number(e.target.value) : null })} className="flex-1 border border-ice-line px-2 py-1 bg-white">
                   <option value="">— not matched —</option>
-                  {setup.teams.map((t) => <option key={t.teamId} value={t.teamId}>{t.teamName}{t.manager ? ` (${t.manager})` : ""}</option>)}
+                  {setup.teams.map((t) => <option key={t.teamId} value={t.teamId}>{t.teamName}{t.manager ? ` — ${t.manager}` : ""}</option>)}
                 </select>
               </li>
             ))}
