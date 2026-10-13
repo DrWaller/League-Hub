@@ -339,7 +339,7 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
 
       <div className="space-y-10">
         {cards.map((c) => (
-          <GraphicCard key={c.url} title={c.title} url={c.url} portrait fresh={fresh} />
+          <GraphicCard key={c.url} title={c.title} url={c.url} portrait fresh={fresh} lazy />
         ))}
       </div>
     </div>
