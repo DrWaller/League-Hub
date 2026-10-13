@@ -32,7 +32,7 @@ const NAV: Entry[] = [
       { href: "/game-grid", label: "Game Grid" },
     ],
   },
-  { label: "Players", href: "/players" },
+  { label: "Player Cards", href: "/players" },
   {
     label: "League",
     items: [
