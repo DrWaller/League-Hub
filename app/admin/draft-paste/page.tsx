@@ -32,13 +32,23 @@ export default function DraftPastePage() {
     <div>
       <h1 className="font-display text-3xl mb-1">Paste a Draft</h1>
       <p className="text-muted mb-4 max-w-prose">
-        For a season whose draft isn&apos;t on ESPN (like the 2025 Fantrax draft). Paste one pick per line, in draft order:{" "}
-        <b>pick, team, player, position, keeper</b>. Tabs or commas both work. Pick, position and keeper are optional, and a header row is skipped.
-        Mark a keeper with &quot;K&quot;. Preview first; nothing is saved until you press Save.
+        For a season whose draft isn&apos;t on ESPN (like the 2025 Fantrax draft). Choose the draft-results CSV you downloaded from Fantrax (the columns are found by name: Pick or Overall, Round, Team, Player, Pos, Keeper), or paste one pick per line:{" "}
+        <b>pick, team, player, position, keeper</b>. Mark a keeper with &quot;K&quot;. Preview first; nothing is saved until you press Save.
       </p>
       <div className="flex items-center gap-2 mb-2">
         <label className="text-sm">Season</label>
         <input value={season} onChange={(e) => setSeason(e.target.value)} className="border border-ice-line px-2 py-1 w-24" />
+      </div>
+      <div className="mb-2">
+        <label className="text-sm mr-2">Or choose the CSV file:</label>
+        <input
+          type="file"
+          accept=".csv,.txt,text/csv,text/plain"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) setText(await f.text());
+          }}
+        />
       </div>
       <textarea
         value={text}
