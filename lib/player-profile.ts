@@ -252,7 +252,7 @@ export async function buildImportedProfile(
 }
 
 // The pieces that need extra ESPN calls (the debug view skips these).
-export async function loadExtras(p: Profile, espnId?: number): Promise<{ teamName?: string; hasHeadshot: boolean; photoUrl?: string }> {
+export async function loadExtras(p: Profile, espnId?: number): Promise<{ teamName?: string; teamId?: number; hasHeadshot: boolean; photoUrl?: string }> {
   if (p.imported) {
     // Imported season: the "team" is the Fantrax owner, and the photo is ESPN's if we know his ESPN id,
     // otherwise the NHL's own headshot for that season.
@@ -268,9 +268,11 @@ export async function loadExtras(p: Profile, espnId?: number): Promise<{ teamNam
   }
   const headshots = await checkHeadshots([p.me.id]);
   let teamName: string | undefined;
+  let currentTeamId: number | undefined;
   if (!p.isPast) {
     const [{ rosters }, { teams }] = await Promise.all([getRosters(), getStandings()]);
     const teamId = rosters.find((r) => r.players.some((x) => x.id === p.me.id))?.teamId;
+    currentTeamId = teamId;
     teamName = teams.find((t) => t.id === teamId)?.name ?? "Free agent";
   } else {
     try {
@@ -281,7 +283,7 @@ export async function loadExtras(p: Profile, espnId?: number): Promise<{ teamNam
       teamName = undefined;
     }
   }
-  return { teamName, hasHeadshot: headshots.has(p.me.id) };
+  return { teamName, teamId: currentTeamId, hasHeadshot: headshots.has(p.me.id) };
 }
 
 export function debugJson(p: Profile) {

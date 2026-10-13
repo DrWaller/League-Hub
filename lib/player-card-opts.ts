@@ -8,6 +8,8 @@ import { NHL_ABBREV } from "./best-available";
 import { seasonCount, type PointsComparison, type RadarAxis } from "./radar";
 import { formatValue } from "./radar-image";
 import type { TierName } from "./tiers";
+import { getTeamBannerColors } from "./content";
+import { loadLogoData } from "./og-team-logo";
 
 export interface CardTotal {
   label: string;
@@ -15,7 +17,16 @@ export interface CardTotal {
   pct?: number; // percentile, when the category has one
 }
 
+// The player's fantasy team, for the card background: its logo and the colours set on the Logos admin page.
+export interface FantasyTeam {
+  name: string;
+  logo?: string; // embedded image data
+  primary?: string;
+  trim?: string;
+}
+
 export interface CardOpts {
+  fantasy?: FantasyTeam;
   footer: string;
   seasonLabel: string; // "2025-26"
   playerId: number;
@@ -38,7 +49,7 @@ export interface CardOpts {
   isPast: boolean;
 }
 
-export function buildCardOpts(p: Profile, extras: { teamName?: string; hasHeadshot: boolean; photoUrl?: string }): CardOpts {
+export function buildCardOpts(p: Profile, extras: { teamName?: string; teamId?: number; hasHeadshot: boolean; photoUrl?: string }): CardOpts {
   const nhlAbbrev = p.imported ? p.imported.team.split(",").pop()?.trim() : NHL_ABBREV[p.me.proTeamId];
   const totals: CardTotal[] = [
     ...p.axes.map((a) => {
@@ -78,5 +89,12 @@ export async function loadCardOpts(req: NextRequest): Promise<{ response: Respon
   if ("response" in loaded) return loaded;
   const profile = loaded.profile;
   const extras = await loadExtras(profile, Number(params.get("playerId")) || undefined);
-  return { opts: buildCardOpts(profile, extras), profile };
+  const opts = buildCardOpts(profile, extras);
+  // Logos and colours belong to this season's teams, so only a current rostered player gets them.
+  if (!profile.isPast && extras.teamId && extras.teamName) {
+    const [logos, colors] = await Promise.all([loadLogoData(), getTeamBannerColors()]);
+    const c = colors[extras.teamId];
+    opts.fantasy = { name: extras.teamName, logo: logos[extras.teamId], primary: c?.primary, trim: c?.trim };
+  }
+  return { opts, profile };
 }

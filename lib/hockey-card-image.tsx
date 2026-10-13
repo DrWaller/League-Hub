@@ -27,8 +27,13 @@ export async function renderHockeyCard(opts: CardOpts) {
   const fonts = await loadGraphicFonts();
   const { display, body } = getFontFamilies(fonts);
   const team = nhlTeam(opts.nhlAbbrev);
-  const c1 = team?.c1 ?? "#123A61";
-  const c2 = team?.c2 ?? "#E0AE4A";
+  // The background is the fantasy team's (its banner colours and logo) when the player has one; otherwise his NHL team's.
+  const fan = opts.fantasy;
+  const isHex = (v?: string) => Boolean(v && /^#[0-9a-f]{6}$/i.test(v));
+  const useFan = Boolean(fan && isHex(fan.primary));
+  const c1 = useFan ? fan!.primary! : team?.c1 ?? "#123A61";
+  const c2 = useFan ? (isHex(fan!.trim) ? fan!.trim! : "#E0AE4A") : team?.c2 ?? "#E0AE4A";
+  const watermark = useFan ? (fan!.name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 3).join("").toUpperCase()) : team?.abbrev ?? "";
   // A very dark or very light main colour (Bruins black, Red Wings red on white) needs a visible trim.
   const dark = shade(c1, 0.55);
   const lum = (hex: string) => {
@@ -67,7 +72,12 @@ export async function renderHockeyCard(opts: CardOpts) {
           {/* diagonal bands and a watermark of the team */}
           <div style={{ display: "flex", position: "absolute", left: -200, top: 250, width: 1500, height: 190, background: "rgba(255,255,255,0.07)", transform: "rotate(-24deg)" }} />
           <div style={{ display: "flex", position: "absolute", left: -200, top: 500, width: 1500, height: 16, background: trim, opacity: 0.85, transform: "rotate(-24deg)" }} />
-          <div style={{ display: "flex", position: "absolute", left: 20, top: 90, fontFamily: display, fontWeight: 700, fontSize: 470, lineHeight: 1, letterSpacing: -6, color: "rgba(255,255,255,0.08)" }}>{team?.abbrev ?? ""}</div>
+          {useFan && fan!.logo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- next/og JSX
+            <img src={fan!.logo} width={760} height={760} style={{ position: "absolute", left: 130, top: 20, width: 760, height: 760, objectFit: "contain", opacity: 0.16 }} />
+          ) : (
+            <div style={{ display: "flex", position: "absolute", left: 20, top: 90, fontFamily: display, fontWeight: 700, fontSize: 470, lineHeight: 1, letterSpacing: -6, color: "rgba(255,255,255,0.08)" }}>{watermark}</div>
+          )}
 
           {opts.hasHeadshot ? (
             // eslint-disable-next-line @next/next/no-img-element -- next/og JSX
