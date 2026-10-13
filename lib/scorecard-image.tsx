@@ -51,7 +51,7 @@ export async function renderScorecard(opts: CardOpts) {
     <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
       <div style={{ display: "flex", width: 60, fontSize: 18, fontWeight: 600, letterSpacing: 1.5, color: MUTED }}>{label}</div>
       <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, color: "#FFFFFF" }}>{`#${s.rank}`}</div>
-      <div style={{ display: "flex", fontSize: 20, fontWeight: 600, color: FAINT }}>{ordinal(Math.min(99, Math.round(s.pct)))}</div>
+      <div style={{ display: "flex", fontSize: 20, fontWeight: 600, color: FAINT }}>{ordinal(Math.min(99, Math.floor(s.pct)))}</div>
     </div>
   );
   const posLabel = opts.groupName === "forwards" ? "FWD" : opts.groupName === "defensemen" ? "D" : "G";
@@ -91,7 +91,7 @@ export async function renderScorecard(opts: CardOpts) {
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 5, opacity: 0.85 }}>TIER</div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: tierSize, lineHeight: 1, textTransform: "uppercase", letterSpacing: 1 }}>{tier ?? "NOT YET"}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 21, fontWeight: 600 }}>
-              <div style={{ display: "flex" }}>{tier ? `${ordinal(Math.min(99, Math.round(points.avg.position.pct)))} percentile` : `${opts.gp} of ${opts.minGP} GP played`}</div>
+              <div style={{ display: "flex" }}>{tier ? `${ordinal(Math.min(99, Math.floor(points.avg.position.pct)))} percentile` : `${opts.gp} of ${opts.minGP} GP played`}</div>
               <div style={{ display: "flex", opacity: 0.85 }}>{tier ? `per game, among ${opts.groupName}` : "needs more games"}</div>
             </div>
           </div>
@@ -118,7 +118,7 @@ export async function renderScorecard(opts: CardOpts) {
                       <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 1, lineHeight: 1 }}>{a.label}</div>
                       <div style={{ display: "flex", fontSize: 23, fontWeight: 600, opacity: 0.88 }}>{formatValue(a)}</div>
                     </div>
-                    <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: Math.min(100, tileH - 40), lineHeight: 1 }}>{qualified ? String(Math.round(a.pct)) : "–"}</div>
+                    <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: Math.min(100, tileH - 40), lineHeight: 1 }}>{qualified ? String(Math.min(99, Math.floor(a.pct))) : "–"}</div>
                   </div>
                 );
               })}
