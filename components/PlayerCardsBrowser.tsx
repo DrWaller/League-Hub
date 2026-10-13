@@ -121,29 +121,40 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
   };
   const pastUsable = (year: number, who: Picked) => importedSeasons.includes(year) || who.id > 0;
 
-  // To add another card type later, add it here -- it will show for any picked player.
+  // Which kinds of card to make. Each card is drawn on the server when it is shown, so only the ones ticked here are made.
+  const KINDS: { key: string; label: string; current?: (id: number) => string; past?: boolean; path: string }[] = [
+    { key: "scorecard", label: "Scorecard", path: "player-scorecard", past: true, current: (id) => `player-scorecard?playerId=${id}` },
+    { key: "hockey", label: "Hockey card", path: "player-hockey-card", past: true, current: (id) => `player-hockey-card?playerId=${id}` },
+    { key: "radar", label: "Radar", path: "player-radar", past: true, current: (id) => `player-radar?playerId=${id}&format=portrait` },
+    { key: "bars", label: "Bars", path: "player-bars", past: true, current: (id) => `player-bars?playerId=${id}&format=portrait` },
+    { key: "spotseason", label: "Spotlight, full season", path: "player-spotlight-season", current: (id) => `player-spotlight-season?playerId=${id}&position=any` },
+    { key: "spotweek", label: "Spotlight, one week", path: "player-spotlight", current: (id) => `player-spotlight?week=${week}&playerId=${id}&position=any&format=portrait` },
+  ];
+  const [chosen, setChosen] = useState<string[]>(["scorecard"]);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("playerCardKinds") ?? "null");
+      if (Array.isArray(saved) && saved.every((x) => typeof x === "string")) setChosen(saved);
+    } catch {
+      /* no saved choice */
+    }
+  }, []);
+  const toggle = (key: string) => {
+    const next = chosen.includes(key) ? chosen.filter((k) => k !== key) : [...chosen, key];
+    setChosen(next);
+    try {
+      localStorage.setItem("playerCardKinds", JSON.stringify(next));
+    } catch {
+      /* choice just isn't remembered */
+    }
+  };
+
   const cards = picked
-    ? [
-        ...(picked.id > 0
-          ? [
-              { title: `Scorecard - ${picked.name}`, url: `${graphicsBase}/player-scorecard?playerId=${picked.id}`, portrait: true },
-              { title: `Hockey Card - ${picked.name}`, url: `${graphicsBase}/player-hockey-card?playerId=${picked.id}`, portrait: true },
-              { title: `Player Radar - ${picked.name}`, url: `${graphicsBase}/player-radar?playerId=${picked.id}&format=portrait` },
-              { title: `Player Bars - ${picked.name}`, url: `${graphicsBase}/player-bars?playerId=${picked.id}&format=portrait` },
-              { title: `Player Spotlight, full season - ${picked.name}`, url: `${graphicsBase}/player-spotlight-season?playerId=${picked.id}&position=any` },
-              { title: `Player Spotlight - ${picked.name} (week ${week})`, url: `${graphicsBase}/player-spotlight?week=${week}&playerId=${picked.id}&position=any&format=portrait` },
-            ]
-          : []),
-        // A previous season's final cards (the imported 2025 Fantrax season included), each its own card.
-        ...(pastSeason && pastUsable(pastSeason, picked)
-          ? [
-              { title: `Scorecard - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-scorecard?${pastQuery(pastSeason, picked)}` },
-              { title: `Hockey Card - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-hockey-card?${pastQuery(pastSeason, picked)}` },
-              { title: `Player Radar - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-radar?${pastQuery(pastSeason, picked)}` },
-              { title: `Player Bars - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/player-bars?${pastQuery(pastSeason, picked)}` },
-            ]
-          : []),
-      ]
+    ? KINDS.filter((k) => chosen.includes(k.key)).flatMap((k) => [
+        ...(picked.id > 0 && k.current ? [{ title: `${k.label} - ${picked.name}`, url: `${graphicsBase}/${k.current(picked.id)}` }] : []),
+        // A previous season's final card (the imported 2025 Fantrax season included).
+        ...(k.past && pastSeason && pastUsable(pastSeason, picked) ? [{ title: `${k.label} - ${picked.name} (${pastSeason})`, url: `${graphicsBase}/${k.path}?${pastQuery(pastSeason, picked)}` }] : []),
+      ])
     : [];
 
   return (
@@ -332,6 +343,25 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
           <button onClick={() => setPicked(null)} className="text-rink hover:underline">
             Clear
           </button>
+        </div>
+      )}
+
+      {picked && (
+        <div className="mb-8">
+          <div className="text-sm text-muted mb-2">Cards to make (only the ones you tick are drawn)</div>
+          <div className="flex flex-wrap gap-2">
+            {KINDS.map((k) => (
+              <button
+                key={k.key}
+                onClick={() => toggle(k.key)}
+                aria-pressed={chosen.includes(k.key)}
+                className={`px-3 py-1.5 text-sm border rounded ${chosen.includes(k.key) ? "bg-rink text-ice border-rink" : "bg-white text-rink border-ice-line hover:bg-ice-panel"}`}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+          {chosen.length === 0 && <p className="text-muted text-sm mt-2">Pick at least one card type.</p>}
         </div>
       )}
 
