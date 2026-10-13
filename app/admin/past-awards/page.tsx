@@ -1,4 +1,6 @@
 import Link from "next/link";
+import PickWinner from "@/components/PickWinner";
+import { getWinnersForSeason } from "@/lib/hall-of-fame";
 import { getLeagueMeta, fetchPoolRaw } from "@/lib/espn";
 import { listImportedSeasons } from "@/lib/imported-seasons";
 import { fetchEspnDraftPicks } from "@/lib/past-drafts";
@@ -19,7 +21,7 @@ const FIRST_SEASON = 2020;
 
 type Row = { key: string; name: string; sub: string; value: string; rank: number };
 
-function Card({ title, blurb, rows, recorded, note, why }: { title: string; blurb: string; rows: Row[]; recorded?: string; note?: string; why?: string }) {
+function Card({ title, blurb, rows, recorded, note, why, pick }: { title: string; blurb: string; rows: Row[]; recorded?: string; note?: string; why?: string; pick?: { season: number; award: string; current?: string } }) {
   return (
     <div className="border border-ice-line bg-white p-4">
       <h2 className="font-display text-xl">{title}</h2>
@@ -38,7 +40,10 @@ function Card({ title, blurb, rows, recorded, note, why }: { title: string; blur
                   <div>{r.name}</div>
                   <div className="text-xs text-muted">{r.sub}</div>
                 </td>
-                <td className="py-1.5 text-right whitespace-nowrap font-bold">{r.value}</td>
+                <td className="py-1.5 text-right whitespace-nowrap">
+                  <div className="font-bold">{r.value}</div>
+                  {pick && <PickWinner season={pick.season} award={pick.award} name={r.name} current={pick.current} />}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -101,7 +106,9 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
   const teams = bundle?.teams ?? null;
   const matchupData = { matchups: bundle?.matchups ?? [] };
   const teamName = (id: number) => teams?.find((t) => t.id === id)?.name ?? `Team ${id}`;
-  const recordedFor = (key: string) => PAST_WINNERS[key]?.find((w) => w.startsWith(`${season}:`))?.replace(`${season}: `, "");
+  const chosen = await getWinnersForSeason(season).catch(() => ({} as Record<string, string>));
+  const recordedFor = (key: string) => chosen[key] ?? PAST_WINNERS[key]?.find((w) => w.startsWith(`${season}:`))?.replace(`${season}: `, "");
+  const pickFor = (award: string) => ({ season, award, current: chosen[award] });
 
   const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? meta.size) : null;
   const ageOf = await loadAgeLookup(meta.season);
@@ -193,16 +200,17 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 mb-4 mt-3">
-        <Card title="Hart Trophy" blurb={`Highest season VOR, any position. ${estimate}`} rows={playerRows(leaders?.hart ?? [])} recorded={recordedFor("hart")} note={noStats || "Needs the league's lineup slots."} />
-        <Card title="Art Ross Trophy" blurb="Most fantasy points among skaters (exact)." rows={playerRows(leaders?.artross ?? [])} recorded={recordedFor("artross")} note={noStats || "Nothing to show."} />
-        <Card title="Norris Trophy" blurb={`Highest season VOR among D. ${estimate}`} rows={playerRows(leaders?.norris ?? [])} recorded={recordedFor("norris")} note={noStats || "Needs the league's lineup slots."} />
-        <Card title="Vezina Trophy" blurb={`Highest season VOR among G. ${estimate}`} rows={playerRows(leaders?.vezina ?? [])} recorded={recordedFor("vezina")} note={noStats || "Needs the league's lineup slots."} />
-        <Card title="Forward of the Year" blurb={`Highest season VOR among C, LW and RW. ${estimate}`} rows={playerRows(leaders?.forward ?? [])} note={noStats || "Needs the league's lineup slots."} />
+        <Card title="Hart Trophy" blurb={`Highest season VOR, any position. ${estimate}`} rows={playerRows(leaders?.hart ?? [])} recorded={recordedFor("hart")} pick={pickFor("hart")} note={noStats || "Needs the league's lineup slots."} />
+        <Card title="Art Ross Trophy" blurb="Most fantasy points among skaters (exact)." rows={playerRows(leaders?.artross ?? [])} recorded={recordedFor("artross")} pick={pickFor("artross")} note={noStats || "Nothing to show."} />
+        <Card title="Norris Trophy" blurb={`Highest season VOR among D. ${estimate}`} rows={playerRows(leaders?.norris ?? [])} recorded={recordedFor("norris")} pick={pickFor("norris")} note={noStats || "Needs the league's lineup slots."} />
+        <Card title="Vezina Trophy" blurb={`Highest season VOR among G. ${estimate}`} rows={playerRows(leaders?.vezina ?? [])} recorded={recordedFor("vezina")} pick={pickFor("vezina")} note={noStats || "Needs the league's lineup slots."} />
+        <Card title="Forward of the Year" blurb={`Highest season VOR among C, LW and RW. ${estimate}`} rows={playerRows(leaders?.forward ?? [])} recorded={recordedFor("forward")} pick={pickFor("forward")} note={noStats || "Needs the league's lineup slots."} />
         <Card
           title="Sleeping Beauty"
           blurb={`The drafted player who out-produced his draft slot by the most (draft pick minus his finish by season VOR among everyone drafted; keepers excluded). ${estimate}`}
           rows={sleepers.map((p) => ({ key: `${p.pick}`, name: p.name, sub: `${p.position} · ${p.teamName} · drafted #${p.pick}, finished #${p.finish}`, value: `+${p.margin} spots`, rank: p.rank }))}
           recorded={recordedFor("sleeping")}
+          pick={pickFor("sleeping")}
           note={noStats || sleeperNote || "No drafted player out-produced his slot."}
         />
         {!trendsReady &&
@@ -223,6 +231,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
             blurb={`${t.blurb} Finalists for a vote, not winners.`}
             rows={t.entries.map((e) => { const age = ageOf(e.name, e.position, season); return { key: String(e.id), name: e.name, sub: `${e.position}${age ? ` · age ~${age}` : ""} · ${e.detail}`, value: e.value, rank: e.rank }; })}
             recorded={recordedFor(t.key)}
+            pick={pickFor(t.key)}
             why={t.why}
             note="Nothing qualifies."
           />

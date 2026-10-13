@@ -152,3 +152,16 @@ export function mostDecorated(seasons: SeasonWinners[]) {
   }
   return [...tally.values()].filter((e) => e.wins.length >= 2).sort((a, b) => b.wins.length - a.wins.length || a.name.localeCompare(b.name)).slice(0, 8);
 }
+
+// One season's player-award winners as saved or recorded (for the "select as winner" buttons on the award pages).
+export async function getWinnersForSeason(season: number): Promise<Record<string, string>> {
+  const [saved] = await Promise.all([loadSavedWinners()]);
+  const defaults = recorded();
+  const out: Record<string, string> = {};
+  for (const def of AWARD_DEFS) {
+    const k = `${season}|${def.key}`;
+    const v = saved.has(k) ? saved.get(k)! : defaults.get(k);
+    if (v) out[def.key] = v;
+  }
+  return out;
+}
