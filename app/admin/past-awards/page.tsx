@@ -170,7 +170,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
       </p>
       <div className="flex flex-wrap gap-2 mb-3">
         {seasons.map((s) => (
-          <Link key={s} href={`/admin/past-awards?season=${s}`} className={`px-3 py-1 border text-sm ${s === season ? "bg-ink text-white" : "border-ice-line bg-white"}`}>
+          <Link key={s} href={`/admin/past-awards?season=${s}`} className={`px-3 py-1 border text-sm ${s === season ? "bg-rink text-white" : "border-ice-line bg-white"}`}>
             {s}
           </Link>
         ))}

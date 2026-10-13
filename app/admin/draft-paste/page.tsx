@@ -59,7 +59,7 @@ export default function DraftPastePage() {
       />
       <div className="flex gap-2 mb-4">
         <button disabled={busy || !text.trim()} onClick={() => go(false)} className="px-4 py-2 border border-ice-line bg-white disabled:opacity-50">Preview</button>
-        <button disabled={busy || !text.trim()} onClick={() => go(true)} className="px-4 py-2 bg-ink text-white disabled:opacity-50">Save draft</button>
+        <button disabled={busy || !text.trim()} onClick={() => go(true)} className="px-4 py-2 bg-rink text-white disabled:opacity-50">Save draft</button>
       </div>
       {reply && (
         <div className="text-sm max-w-3xl">
