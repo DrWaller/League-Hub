@@ -5,7 +5,6 @@ import { syncSeasonLineups, getStoredLineups, summarizeSeason } from "@/lib/line
 import { getPlayerRaces, buildTandems, getSleepingBeauty, PAST_WINNERS } from "@/lib/season-awards";
 import { getAllStored } from "@/lib/vor-store";
 import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
-import { rosterableBar } from "@/lib/past-awards";
 import { fetchLineupSlots } from "@/lib/vor";
 import { pts } from "@/lib/format";
 
@@ -112,7 +111,7 @@ export default async function SeasonAwardsPage() {
   try {
     const poolRows = await loadPoolStats(meta.season);
     const slots = await fetchLineupSlots(meta.season).catch(() => null);
-    trends = buildTrendAwards(poolRows, meta.season, 5, rosterableBar(poolRows, meta.season, slots, teams.length));
+    trends = buildTrendAwards(poolRows, meta.season, 5, { counts: slots, teamCount: teams.length });
   } catch {
     /* empty */
   }

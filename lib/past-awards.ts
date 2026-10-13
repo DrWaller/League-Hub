@@ -57,6 +57,47 @@ export function replacementPerGame(pool: PoolRow[], counts: Record<number, numbe
   return perGame;
 }
 
+// The league's player tiers for skaters (Stream < Depth < Elite < Superstar < Franchise), by points per game, rebuilt
+// from a season's saved totals the same way the live tiers are: each tier is a share of the league's starters at the
+// position group (Depth = the last starter, Elite = the top 45% of starters, Superstar = 12%, Franchise = 5%), with
+// separate cutoffs for forwards and defence, rounded down to 0.05. Goalies are left out (their tiers use points per
+// team game, which the saved stats don't carry).
+export type TierCuts = { depth: number; elite: number; superstar: number; franchise: number };
+const SHARE = { franchise: 0.05, superstar: 0.12, elite: 0.45, depth: 1 };
+const floor05 = (n: number) => Math.floor(n / 0.05 + 1e-9) * 0.05;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export function skaterTierCutoffs(rows: PoolRow[], season: number, counts: Record<number, number> | null, teamCount: number): Record<"F" | "D", TierCuts> | null {
+  if (!counts || teamCount <= 0) return null;
+  const sk = rows.filter((r) => r.season === season && r.gp > 0 && SKT.includes(r.position));
+  if (sk.length === 0) return null;
+  const maxGp = Math.max(...sk.map((r) => r.gp));
+  const minGp = Math.min(20, Math.max(5, Math.floor(maxGp * 0.5)));
+  const starters = { F: ((counts[SLOT.C] ?? 0) + (counts[SLOT.LW] ?? 0) + (counts[SLOT.RW] ?? 0) + (counts[SLOT.F] ?? 0)) * teamCount, D: (counts[SLOT.D] ?? 0) * teamCount };
+  const out = {} as Record<"F" | "D", TierCuts>;
+  for (const g of ["F", "D"] as const) {
+    const avgs = sk
+      .filter((r) => (g === "D" ? r.position === "D" : r.position !== "D") && r.gp >= minGp)
+      .map((r) => r.points / r.gp)
+      .sort((a, b) => b - a);
+    if (avgs.length === 0) return null;
+    const n = Math.max(1, starters[g]);
+    const at = (rank: number) => avgs[Math.min(avgs.length, Math.max(1, rank)) - 1] ?? 0;
+    const depth = floor05(at(Math.round(n * SHARE.depth)));
+    let elite = floor05(at(Math.round(n * SHARE.elite)));
+    let superstar = floor05(at(Math.max(2, Math.round(n * SHARE.superstar))));
+    let franchise = floor05(at(Math.max(1, Math.round(n * SHARE.franchise))));
+    if (elite <= depth) elite = depth + 0.05;
+    if (superstar <= elite) superstar = elite + 0.05;
+    if (franchise <= superstar) franchise = superstar + 0.05;
+    out[g] = { depth: round2(depth), elite: round2(elite), superstar: round2(superstar), franchise: round2(franchise) };
+  }
+  return out;
+}
+
+export const tierNameOf = (ppg: number, c: TierCuts) =>
+  ppg >= c.franchise ? "Franchise" : ppg >= c.superstar ? "Superstar" : ppg >= c.elite ? "Elite" : ppg >= c.depth ? "Depth" : "Stream";
+
 // The "rosterable" bar for the year-over-year awards: points per game at a position, at or above replacement level.
 export function rosterableBar(rows: PoolRow[], season: number, counts: Record<number, number> | null, teamCount: number): Record<string, number> | null {
   const pool = rows.filter((r) => r.season === season && r.gp > 0 && ["C", "LW", "RW", "D", "G"].includes(r.position));

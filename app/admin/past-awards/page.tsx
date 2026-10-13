@@ -7,7 +7,7 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { fetchLineupSlots } from "@/lib/vor";
 import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncPoolSeasons, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
-import { seasonLeaders, rosterableBar, sleepingBeautyEstimate, type PastEntry, type DraftPickLite } from "@/lib/past-awards";
+import { seasonLeaders, sleepingBeautyEstimate, type PastEntry, type DraftPickLite } from "@/lib/past-awards";
 import { sql } from "@/lib/db";
 import { PAST_WINNERS } from "@/lib/season-awards";
 import { pts } from "@/lib/format";
@@ -104,7 +104,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
 
   const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? meta.size) : null;
   const trendsReady = haveSeason.has(season) && priorSeasons.length > 0 && missingPriors.length === 0;
-  const trends = trendsReady ? buildTrendAwards(rows, season, 5, rosterableBar(rows, season, counts, teams?.length ?? meta.size), recordedFor("breakout")) : [];
+  const trends = trendsReady ? buildTrendAwards(rows, season, 5, { counts, teamCount: teams?.length ?? meta.size }, recordedFor("breakout")) : [];
   const noStats = haveSeason.has(season) ? "" : `Player stats for ${season} are not loaded yet.`;
 
   // Hard Luck: actual wins against the wins the all-play record says the team earned, as a share of expected wins.

@@ -5,6 +5,7 @@
 import { sql } from "./db";
 import { getPlayerPool } from "./espn";
 import { getImportedSeason } from "./imported-seasons";
+import { skaterTierCutoffs, rosterableBar, tierNameOf, type TierCuts } from "./past-awards";
 import type { Group } from "./radar";
 
 const POS: Record<number, string> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
@@ -171,7 +172,26 @@ const signed = (n: number) => `${n >= 0 ? "+" : ""}${f2(n)}`;
 
 // `bar` = points per game at each position that counts as rosterable (replacement level). A player below it is never
 // an award candidate, however big his jump: a 0.4 to 0.9 points-per-game climb is not a story.
-export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, bar: Record<string, number> | null = null, probeName?: string): TrendAward[] {
+export interface LeagueShape {
+  counts: Record<number, number> | null; // the league's lineup slots
+  teamCount: number;
+}
+
+export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, league: LeagueShape | null = null, probeName?: string): TrendAward[] {
+  // The league's tiers, rebuilt for each season from its own totals. Without them (slots unknown) the older top-N
+  // rules are used.
+  const tierCache = new Map<number, Record<"F" | "D", TierCuts> | null>();
+  const tiersFor = (season: number) => {
+    if (!tierCache.has(season)) tierCache.set(season, league ? skaterTierCutoffs(rows, season, league.counts, league.teamCount) : null);
+    return tierCache.get(season) ?? null;
+  };
+  const bar = league ? rosterableBar(rows, currentSeason, league.counts, league.teamCount) : null; // replacement level (used for goalies)
+  const fd = (position: string): "F" | "D" => (position === "D" ? "D" : "F");
+  const curTiers = tiersFor(currentSeason);
+  const eliteIn = (season: number, l: { position: string; ppg: number } | undefined) => {
+    const t = tiersFor(season);
+    return !!l && !!t && l.ppg >= t[fd(l.position)].elite;
+  };
   const lines = (season: number): Map<number, Line> => {
     const m = new Map<number, Line>();
     for (const r of rows) {
@@ -202,8 +222,11 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
     });
     return out;
   };
-  const rosterable = (l: Line) => !bar || l.ppg >= (bar[l.position] ?? 0);
+  // Rosterable = Depth tier or better (skaters), or at least replacement level (goalies).
+  const rosterable = (l: Line) => (l.position !== "G" && curTiers ? l.ppg >= curTiers[fd(l.position)].depth : !bar || l.ppg >= (bar[l.position] ?? 0));
   const eliteNow = eliteSet(cur, true, BREAKOUT_ENTRY);
+  const isEliteNow = (l: Line) => (curTiers ? eliteIn(currentSeason, l) : eliteNow.has(l.id));
+  const wasElite = (l: Line) => (curTiers ? prev.some((m, i) => qualifies(m.get(l.id), false) && eliteIn(currentSeason - 1 - i, m.get(l.id))) : elitePrev.some((x) => x.has(l.id)));
   const elitePrev = prev.map((m) => eliteSet(m, false));
 
   // Spread of points per game (and of season points) in each group, so a goalie's swing and a skater's swing
@@ -221,11 +244,11 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
   // Breakout: elite now, never elite in the last three seasons. He needs at least one earlier season on record
   // (a player with none is a rookie and belongs to the Calder).
   const breakout = [...cur.values()]
-    .filter((l) => groupOf(l.position) === "S" && qualifies(l, true) && rosterable(l) && eliteNow.has(l.id))
+    .filter((l) => groupOf(l.position) === "S" && qualifies(l, true) && rosterable(l) && isEliteNow(l))
     .map((l) => {
       const history = prev.map((m) => m.get(l.id)).filter((p): p is Line => qualifies(p, false));
       if (history.length === 0) return null;
-      if (elitePrev.some((s) => s.has(l.id))) return null;
+      if (wasElite(l)) return null;
       const best = Math.max(...history.map((p) => p.ppg));
       const g = groupOf(l.position);
       return { l, score: (l.ppg - best) / sdPpg[g], value: `${f2(l.ppg)} pts/gm`, detail: `best before: ${f2(best)}` };
@@ -302,29 +325,35 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
     if (!l) why = `${probeName} is not in the ${currentSeason} stats.`;
     else {
       const parts: string[] = [`${f2(l.ppg)} pts/gm in ${l.gp} GP`];
-      const r = rankOf(cur, l.id, true);
-      parts.push(r ? `#${r} among skaters (needs top ${BREAKOUT_ENTRY})` : "not enough games to rank");
       if (groupOf(l.position) === "G") parts.push("a goalie, so not eligible");
-      if (bar && l.ppg < (bar[l.position] ?? 0)) parts.push(`below the rosterable bar (${f2(bar[l.position] ?? 0)})`);
+      else if (curTiers) {
+        const c = curTiers[fd(l.position)];
+        parts.push(`${tierNameOf(l.ppg, c)} tier (${fd(l.position) === "D" ? "defence" : "forwards"}: Depth ${f2(c.depth)}, Elite ${f2(c.elite)}, Superstar ${f2(c.superstar)})`);
+      } else {
+        const r = rankOf(cur, l.id, true);
+        parts.push(r ? `#${r} among skaters (needs top ${BREAKOUT_ENTRY})` : "not enough games to rank");
+      }
       const before = prev.map((m, i) => {
         const p = m.get(l.id);
-        const pr = p ? rankOf(m, l.id, false) : null;
-        return `${currentSeason - 1 - i}: ${p ? `${f2(p.ppg)}${pr ? `, #${pr}` : ""}` : "no stats"}`;
+        const t = tiersFor(currentSeason - 1 - i);
+        return `${currentSeason - 1 - i}: ${p ? `${f2(p.ppg)}${t ? ` ${tierNameOf(p.ppg, t[fd(p.position)])}` : ""}` : "no stats"}`;
       });
       parts.push(`before: ${before.join("; ")}`);
       const hit = breakout.find((x) => x.l.id === l.id);
       if (hit) parts.push(`ranks #${[...breakout].sort((a, b) => b.score - a.score).findIndex((x) => x.l.id === l.id) + 1} of ${breakout.length}`);
-      else if (elitePrev.some((s2) => s2.has(l.id))) parts.push("left out: already in the top 30 in an earlier season");
-      else if (!eliteNow.has(l.id)) parts.push(`left out: not in the top ${BREAKOUT_ENTRY} this season`);
+      else if (groupOf(l.position) === "G") parts.push("left out: goalies are not in the Breakout");
+      else if (!rosterable(l)) parts.push("left out: below the rosterable bar (Depth tier)");
+      else if (!isEliteNow(l)) parts.push("left out: not in the Elite tier this season");
+      else if (wasElite(l)) parts.push("left out: already Elite in an earlier season");
       else if (!prev.some((m) => qualifies(m.get(l.id), false))) parts.push("left out: no earlier qualifying season");
       why = parts.join(" · ");
     }
   }
 
   return [
-    { key: "breakout", title: "Breakout Player", blurb: `Biggest jump into the top ${BREAKOUT_ENTRY} skaters (points per game) for the first time (not in the top ${ELITE_SKATERS} in any of the last three seasons). Skaters only: goalies are recognised by the Vezina and Jennings. Players with no earlier season are left to the Calder. Rosterable players only (at or above replacement level).`, entries: entries(breakout), why },
+    { key: "breakout", title: "Breakout Player", blurb: `Biggest jump into the Elite tier or better (by points per game, with separate forward and defence cutoffs) for the first time: not Elite in any of the last three seasons. Skaters only: goalies are recognised by the Vezina and Jennings. Players with no earlier season are left to the Calder. Rosterable players only (Depth tier or better).`, entries: entries(breakout), why },
     { key: "bounce", title: "Bounce Back Player", blurb: `Last year's points per game fell ${DOWN_SEASON_DROP * 100}% or more, and he is back to ${BOUNCE_RECOVERY * 100}% of the earlier level. Ranked by the rebound. Rosterable players only.`, entries: entries(bounce) },
-    { key: "improved", title: "Most Improved Player", blurb: "Biggest gain on last season, combining the change in points per game and the change in total points. Rosterable players only (at or above replacement level).", entries: entries(improved) },
+    { key: "improved", title: "Most Improved Player", blurb: "Biggest gain on last season, combining the change in points per game and the change in total points. Rosterable players only (Depth tier or better).", entries: entries(improved) },
     { key: "calder", title: "Calder Trophy", blurb: "Best rookie by fantasy points, owned or not, using the NHL rookie rules (no more than 25 games in any past season, and not 6+ games in each of two past seasons). Rosterable rookies only.", entries: entries(calder) },
   ];
 }
