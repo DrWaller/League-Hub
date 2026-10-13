@@ -36,6 +36,8 @@ export async function loadRecords(currentSeason: number) {
 
   return {
     records: buildRecords(managers, recSeasons),
+    recSeasons,
+    managers,
     seasonsUsed: recSeasons.map((s) => s.season).sort((a, b) => a - b),
     seasonsSkipped: skipped.sort((a, b) => a - b),
     managerCount: managers.length,

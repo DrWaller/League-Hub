@@ -4,6 +4,10 @@ import { buildManagerTimeline } from "@/lib/manager-helpers";
 import ManagerTimelineView from "@/components/ManagerTimelineView";
 import { getTeamBanners } from "@/lib/banners";
 import BannerRafters from "@/components/BannerRafters";
+import ManagerHistoryView from "@/components/ManagerHistoryView";
+import { getLeagueMeta } from "@/lib/espn";
+import { loadRecords } from "@/lib/records-data";
+import { buildManagerHistory, type ManagerHistory } from "@/lib/manager-history";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +30,16 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
     allTrades
   );
   const banners = (await getTeamBanners().catch(() => [])).filter((b) => b.managerId === managerId);
+  // Career stats come from the same finished-season games as the Records page; if that load fails the
+  // timeline below still shows.
+  let history: ManagerHistory | null = null;
+  try {
+    const meta = await getLeagueMeta();
+    const r = await loadRecords(meta.season);
+    history = buildManagerHistory(managerId, r.managers, r.recSeasons);
+  } catch (e) {
+    console.error("manager history failed", e);
+  }
   const managerName = (id: number | null) => (id ? managers.find((m) => m.id === id)?.name ?? `#${id}` : "—");
 
   return (
@@ -33,6 +47,8 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
       <h1 className="font-display text-3xl mb-1">{manager.name}</h1>
       <p className="text-muted mb-8">{manager.notes || "\u00A0"}</p>
       <BannerRafters banners={banners} />
+      {history && <ManagerHistoryView h={history} />}
+      <h2 className="font-display text-2xl mb-3">Team history</h2>
       <ManagerTimelineView
         seasons={seasons}
         keepersBySeason={keepersBySeason}
