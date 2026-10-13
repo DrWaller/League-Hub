@@ -42,6 +42,7 @@ const NAV: Entry[] = [
     items: [
       { href: "/history", label: "League History" },
       { href: "/records", label: "Records" },
+      { href: "/hall-of-fame", label: "Hall of Fame" },
     ],
   },
 ];

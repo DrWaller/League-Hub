@@ -14,6 +14,7 @@ export default async function AdminDashboard() {
     { href: "/admin/formula-test", label: "Formula Test", desc: "Backtest the power rankings formula against every past season." },
     { href: "/admin/season-awards", label: "Season Awards", desc: "Year-long award races (Hart, Norris, Vezina, lineup efficiency and more), updated as each week finishes." },
     { href: "/admin/past-awards", label: "Past Season Awards", desc: "Rebuild any finished season's award leaders from ESPN history (Hart, Art Ross, Calder, Hard Luck and more), one season at a time." },
+    { href: "/admin/past-winners", label: "Past Winners", desc: "Fix or add any past award winner. The public Hall of Fame shows what is saved here." },
     { href: "/admin/draft-paste", label: "Paste a Draft", desc: "Paste a draft that isn't on ESPN (like the 2025 Fantrax draft) so the draft awards and recaps can use it." },
     { href: "/admin/draft-history", label: "Save Past Drafts", desc: "Save each past ESPN draft once so manager profiles can show who they have drafted most." },
     { href: "/admin/ownership", label: "Save Rosters", desc: "Save each season's rosters once so manager profiles can show the players they have owned the longest." },
