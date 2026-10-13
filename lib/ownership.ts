@@ -26,6 +26,7 @@ async function ensureTables() {
       PRIMARY KEY (season, team_id, player_id)
     );
   `;
+  await sql`CREATE TABLE IF NOT EXISTS fantrax_owner_map (season INTEGER NOT NULL, owner TEXT NOT NULL, team_id INTEGER NOT NULL, PRIMARY KEY (season, owner));`;
   await sql`CREATE TABLE IF NOT EXISTS roster_owned_meta (season INTEGER PRIMARY KEY, periods INTEGER NOT NULL, source TEXT NOT NULL, saved_at TIMESTAMPTZ NOT NULL DEFAULT now());`;
 }
 
@@ -100,9 +101,17 @@ async function saveFantraxOwnership(season: number): Promise<{ saved: number; pe
   if (!imp) return { saved: 0, periods: 0, note: `${season} was played off ESPN and no Fantrax player list is imported for it.` };
   const [managers, assignments] = await Promise.all([getManagers(), getManagerSeasons()]);
   const teams = assignments.filter((a) => a.season === season && a.managerId != null);
+  const saved = new Map<string, number>();
+  try {
+    const m = await sql`SELECT owner, team_id FROM fantrax_owner_map WHERE season = ${season};`;
+    for (const r of m.rows) saved.set(norm(String(r.owner)), Number(r.team_id));
+  } catch {
+    /* no map yet */
+  }
   const ownerKey = (owner: string) => {
     const o = norm(owner);
     if (!o) return null;
+    if (saved.has(o)) return saved.get(o)!;
     return (
       teams.find((t) => {
         const mn = norm(managers.find((m) => m.id === t.managerId)?.name ?? "");
@@ -185,4 +194,49 @@ export async function loadOwnedPlayers(managerId: number, top = 6): Promise<{ pl
     .sort((a, b) => b.seasons.length - a.seasons.length || b.weeks - a.weeks || a.name.localeCompare(b.name))
     .slice(0, top);
   return { players, seasons: [...seasons].sort((a, b) => a - b) };
+}
+
+// The Fantrax owner codes (like "BB" or "TITTL") are the team abbreviations in the CSV, which rarely look like the team
+// names, so each one is matched to a team by hand once and remembered.
+export async function getOwnerSetup(season: number) {
+  await ensureTables();
+  const imp = await getImportedSeason(season).catch(() => null);
+  const [managers, assignments, mapRows] = await Promise.all([
+    getManagers(),
+    getManagerSeasons(),
+    sql`SELECT owner, team_id FROM fantrax_owner_map WHERE season = ${season};`,
+  ]);
+  const counts = new Map<string, number>();
+  for (const p of imp?.players ?? []) {
+    if (!p.owner || p.owner.toUpperCase() === "FA") continue;
+    counts.set(p.owner, (counts.get(p.owner) ?? 0) + 1);
+  }
+  const saved = new Map(mapRows.rows.map((r) => [norm(String(r.owner)), Number(r.team_id)]));
+  const teams = assignments
+    .filter((a) => a.season === season)
+    .map((a) => ({ teamId: a.teamId, teamName: a.teamName, manager: managers.find((m) => m.id === a.managerId)?.name ?? null }));
+  const owners = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([owner, count]) => {
+      const o = norm(owner);
+      const guess =
+        saved.get(o) ??
+        teams.find((t) => {
+          const mn = norm(t.manager ?? "");
+          const tn = norm(t.teamName);
+          return o === mn || o === tn || (mn.length >= 3 && (o.includes(mn) || mn.includes(o))) || (tn.length >= 3 && tn.includes(o));
+        })?.teamId ??
+        null;
+      return { owner, count, teamId: guess, fromSaved: saved.has(o) };
+    });
+  return { owners, teams };
+}
+
+export async function saveOwnerMap(season: number, map: Record<string, number | null>) {
+  await ensureTables();
+  await sql`DELETE FROM fantrax_owner_map WHERE season = ${season};`;
+  for (const [owner, teamId] of Object.entries(map)) {
+    if (teamId == null) continue;
+    await sql`INSERT INTO fantrax_owner_map (season, owner, team_id) VALUES (${season}, ${owner}, ${teamId}) ON CONFLICT (season, owner) DO UPDATE SET team_id = ${teamId};`;
+  }
 }
