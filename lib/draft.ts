@@ -14,12 +14,12 @@ export const DRAFT_MANAGERS: Record<number, Record<number, string>> = {
   2027: { 1: "Evan", 2: "Calder", 3: "Bobby", 4: "Dave", 5: "Dan", 6: "Tim", 7: "Sam", 8: "Richard", 9: "Matt", 10: "Vinny" },
 };
 
-const POS: Record<number, string> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
+export const POS: Record<number, string> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
 
-const base = (season: number) =>
+export const base = (season: number) =>
   `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}`;
 
-async function getJson(url: string, headers: Record<string, string> = {}) {
+export async function getJson(url: string, headers: Record<string, string> = {}) {
   if (!ESPN_S2 || !ESPN_SWID) throw new Error("ESPN_S2 / ESPN_SWID are not configured.");
   const res = await fetch(url, { headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}`, ...headers }, cache: "no-store" });
   const text = await res.text();
@@ -56,7 +56,7 @@ export interface DraftRow {
   season_stats: Record<string, { points: number; avg: number; stats: Record<string, number> }>;
 }
 
-async function fetchPlayers(season: number, ids: number[]) {
+export async function fetchPlayers(season: number, ids: number[]) {
   const STATUS = ["FREEAGENT", "WAIVERS", "ONTEAM"];
   const years = [season - 1, season - 2, season - 3].map((y) => `00${y}`);
   const out = new Map<number, any>();
