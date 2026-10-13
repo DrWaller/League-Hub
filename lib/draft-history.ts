@@ -85,7 +85,7 @@ interface Pick { season: number; overall: number; round: number | null; name: st
 export async function loadDraftTendencies(managerId: number, currentSeason: number): Promise<DraftTendencies | null> {
   await ensureDraftSchema();
   const [rows, managers, assignments] = await Promise.all([
-    sql`SELECT season, source, overall_pick, round, team_id, team_name, manager, player_name, position, pro_team_id, is_keeper FROM draft_picks WHERE season < ${currentSeason} ORDER BY season, overall_pick;`,
+    sql`SELECT season, source, overall_pick, round, team_id, team_name, manager, player_name, position, pro_team_id, nhl_team, is_keeper FROM draft_picks WHERE season < ${currentSeason} ORDER BY season, overall_pick;`,
     getManagers(),
     getManagerSeasons(),
   ]);
@@ -124,7 +124,7 @@ export async function loadDraftTendencies(managerId: number, currentSeason: numb
         round: r.round == null ? null : Number(r.round),
         name,
         position: String(r.position ?? ""),
-        nhl: proId > 0 ? NHL_ABBREV[proId] ?? null : nhlByName.get(key(name))?.split(",")[0]?.trim() || null,
+        nhl: proId > 0 ? NHL_ABBREV[proId] ?? null : r.nhl_team ? String(r.nhl_team) : nhlByName.get(key(name))?.split(",")[0]?.trim() || null,
         keeper: Boolean(r.is_keeper),
         teamId: r.team_id == null ? null : Number(r.team_id),
         teamName: String(r.team_name ?? ""),

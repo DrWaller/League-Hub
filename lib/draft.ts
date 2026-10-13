@@ -296,6 +296,7 @@ export async function ensureDraftSchema() {
       PRIMARY KEY (season, source, overall_pick)
     );
   `;
+  await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS nhl_team TEXT;`;
   await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS adp_rank INT;`;
   await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS points_rank INT;`;
   await sql`ALTER TABLE draft_picks ADD COLUMN IF NOT EXISTS weighted_ppg NUMERIC;`;

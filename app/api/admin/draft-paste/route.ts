@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
       await Promise.all(
         parsed.picks.slice(i, i + 20).map(
           (p) => sql`
-            INSERT INTO draft_picks (season, source, overall_pick, round, round_pick, team_name, player_name, position, is_keeper)
-            VALUES (${season}, 'fantrax', ${p.overall}, ${Math.ceil(p.overall / teams)}, ${((p.overall - 1) % teams) + 1}, ${p.team}, ${p.player}, ${p.position}, ${p.keeper})
+            INSERT INTO draft_picks (season, source, overall_pick, round, round_pick, team_name, player_name, position, is_keeper, nhl_team)
+            VALUES (${season}, 'fantrax', ${p.overall}, ${Math.ceil(p.overall / teams)}, ${((p.overall - 1) % teams) + 1}, ${p.team}, ${p.player}, ${p.position}, ${p.keeper}, ${p.nhl ?? null})
             ON CONFLICT (season, source, overall_pick) DO NOTHING;
           `
         )
