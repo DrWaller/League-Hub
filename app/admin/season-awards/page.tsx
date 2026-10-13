@@ -7,6 +7,7 @@ import { getAllStored } from "@/lib/vor-store";
 import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
 import { fetchLineupSlots } from "@/lib/vor";
 import { pts } from "@/lib/format";
+import { loadAgeLookup } from "@/lib/trend-ages";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +116,7 @@ export default async function SeasonAwardsPage() {
   } catch {
     /* empty */
   }
+  const ageOf = await loadAgeLookup(meta.season);
   // Hard Luck: actual wins minus the wins the all-play record says a team earned (most negative = unluckiest).
   const lastWeek = finished[finished.length - 1] ?? 0;
   const hardLuck = lastWeek > 0
@@ -216,8 +218,8 @@ export default async function SeasonAwardsPage() {
           <Card
             key={t.key}
             title={t.title}
-            blurb={`${t.blurb}${PAST_WINNERS[t.key] ? ` Past winners: ${PAST_WINNERS[t.key].join(", ")}.` : ""}`}
-            rows={t.entries.map((e) => ({ key: String(e.id), name: e.name, sub: `${e.position} · ${e.detail}`, value: e.value, gap: "", rank: e.rank }))}
+            blurb={`${t.blurb} Finalists for a vote, not winners.${PAST_WINNERS[t.key] ? ` Past winners: ${PAST_WINNERS[t.key].join(", ")}.` : ""}`}
+            rows={t.entries.map((e) => { const age = ageOf(e.name, e.position, meta.season); return { key: String(e.id), name: e.name, sub: `${e.position}${age ? ` · age ~${age}` : ""} · ${e.detail}`, value: e.value, gap: "", rank: e.rank }; })}
             note="Nothing qualifies yet. Early in the season few players have enough games."
           />
         ))}

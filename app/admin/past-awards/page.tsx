@@ -9,6 +9,7 @@ import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncPoolSeasons, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
 import { seasonLeaders, sleepingBeautyEstimate, type PastEntry, type DraftPickLite } from "@/lib/past-awards";
 import { sql } from "@/lib/db";
+import { loadAgeLookup } from "@/lib/trend-ages";
 import { PAST_WINNERS } from "@/lib/season-awards";
 import { pts } from "@/lib/format";
 
@@ -103,6 +104,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
   const recordedFor = (key: string) => PAST_WINNERS[key]?.find((w) => w.startsWith(`${season}:`))?.replace(`${season}: `, "");
 
   const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? meta.size) : null;
+  const ageOf = await loadAgeLookup(meta.season);
   const trendsReady = haveSeason.has(season) && priorSeasons.length > 0 && missingPriors.length === 0;
   const trends = trendsReady ? buildTrendAwards(rows, season, 5, { counts, teamCount: teams?.length ?? meta.size }, recordedFor("breakout")) : [];
   const noStats = haveSeason.has(season) ? "" : `Player stats for ${season} are not loaded yet.`;
@@ -218,8 +220,8 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
           <Card
             key={t.key}
             title={t.title}
-            blurb={t.blurb}
-            rows={t.entries.map((e) => ({ key: String(e.id), name: e.name, sub: `${e.position} · ${e.detail}`, value: e.value, rank: e.rank }))}
+            blurb={`${t.blurb} Finalists for a vote, not winners.`}
+            rows={t.entries.map((e) => { const age = ageOf(e.name, e.position, season); return { key: String(e.id), name: e.name, sub: `${e.position}${age ? ` · age ~${age}` : ""} · ${e.detail}`, value: e.value, rank: e.rank }; })}
             recorded={recordedFor(t.key)}
             why={t.why}
             note="Nothing qualifies."
