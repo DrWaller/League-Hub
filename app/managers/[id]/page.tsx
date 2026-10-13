@@ -4,9 +4,10 @@ import { buildManagerTimeline } from "@/lib/manager-helpers";
 import ManagerTimelineView from "@/components/ManagerTimelineView";
 import { getTeamBanners } from "@/lib/banners";
 import BannerRafters from "@/components/BannerRafters";
-import ManagerHistoryView, { DraftTendenciesView } from "@/components/ManagerHistoryView";
+import ManagerHistoryView, { DraftTendenciesView, OwnedPlayersView } from "@/components/ManagerHistoryView";
 import { getLeagueMeta } from "@/lib/espn";
 import { loadRecords } from "@/lib/records-data";
+import { loadOwnedPlayers } from "@/lib/ownership";
 import { loadDraftTendencies, type DraftTendencies } from "@/lib/draft-history";
 import { buildManagerHistory, type ManagerHistory } from "@/lib/manager-history";
 
@@ -47,6 +48,12 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
   } catch (e) {
     console.error("draft tendencies failed", e);
   }
+  let owned: Awaited<ReturnType<typeof loadOwnedPlayers>> = null;
+  try {
+    owned = await loadOwnedPlayers(managerId);
+  } catch (e) {
+    console.error("owned players failed", e);
+  }
   const managerName = (id: number | null) => (id ? managers.find((m) => m.id === id)?.name ?? `#${id}` : "—");
 
   return (
@@ -55,6 +62,7 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
       <p className="text-muted mb-8">{manager.notes || "\u00A0"}</p>
       <BannerRafters banners={banners} />
       {history && <ManagerHistoryView h={history} />}
+      {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} />}
       {drafts && <DraftTendenciesView d={drafts} />}
       <h2 className="font-display text-2xl mb-3">Team history</h2>
       <ManagerTimelineView

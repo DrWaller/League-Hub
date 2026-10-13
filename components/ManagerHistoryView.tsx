@@ -1,4 +1,5 @@
 import type { DraftTendencies } from "@/lib/draft-history";
+import type { OwnedPlayer } from "@/lib/ownership";
 import type { HistGame, ManagerHistory, Streak } from "@/lib/manager-history";
 import { pts, ptsComma } from "@/lib/format";
 
@@ -21,6 +22,23 @@ const streakSub = (s: Streak) =>
   s.from.season === s.to.season
     ? `${s.from.season}, weeks ${s.from.week}–${s.to.week}`
     : `${s.from.season} wk ${s.from.week} to ${s.to.season} wk ${s.to.week}`;
+
+export function OwnedPlayersView({ players, seasons }: { players: OwnedPlayer[]; seasons: number[] }) {
+  return (
+    <section className="mb-12">
+      <h2 className="font-display text-2xl mb-1">Players owned the longest</h2>
+      <p className="text-xs text-muted mb-3">Seasons on the roster ({seasons[0]}–{seasons[seasons.length - 1]}), counted once a player was held about two weeks. Weeks are approximate.</p>
+      <table className="w-full max-w-xl text-sm font-tabular border-collapse"><tbody>
+        {players.map((p) => (
+          <tr key={p.name} className="border-b border-ice-line/60 align-top">
+            <td className="py-1.5 pr-2 font-body">{p.name}<div className="text-xs text-muted">{p.position} · {p.seasons.join(", ")}</div></td>
+            <td className="py-1.5 text-right whitespace-nowrap">{p.seasons.length} season{p.seasons.length === 1 ? "" : "s"}{p.weeks > 0 && <div className="text-xs text-muted">~{p.weeks} weeks</div>}</td>
+          </tr>
+        ))}
+      </tbody></table>
+    </section>
+  );
+}
 
 export function DraftTendenciesView({ d }: { d: DraftTendencies }) {
   const maxTeam = d.teams[0]?.picks ?? 1;

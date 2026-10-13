@@ -16,6 +16,7 @@ export default async function AdminDashboard() {
     { href: "/admin/past-awards", label: "Past Season Awards", desc: "Rebuild any finished season's award leaders from ESPN history (Hart, Art Ross, Calder, Hard Luck and more), one season at a time." },
     { href: "/admin/draft-paste", label: "Paste a Draft", desc: "Paste a draft that isn't on ESPN (like the 2025 Fantrax draft) so the draft awards and recaps can use it." },
     { href: "/admin/draft-history", label: "Save Past Drafts", desc: "Save each past ESPN draft once so manager profiles can show who they have drafted most." },
+    { href: "/admin/ownership", label: "Save Rosters", desc: "Save each season's rosters once so manager profiles can show the players they have owned the longest." },
     { href: "/admin/lineup-season", label: "Lineup Efficiency Race", desc: "Season-long lineup efficiency (points vs. the best possible lineup) for the end-of-season lineup award." },
     { href: "/admin/lineup-check", label: "Lineup Efficiency Check", desc: "Audit the Max Pts graphic: every night a bench player should have started, who he should have replaced, and the points lost." },
     { href: "/admin/power-breakdown", label: "Power Rankings Breakdown", desc: "See exactly why each team is ranked where it is: all-play, points, roster strength and record." },
