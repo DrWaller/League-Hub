@@ -2,185 +2,254 @@ import type { DraftTendencies } from "@/lib/draft-history";
 import type { OwnedPlayer } from "@/lib/ownership";
 import type { HistGame, ManagerHistory, Streak } from "@/lib/manager-history";
 import { pts, ptsComma } from "@/lib/format";
+import Cup from "./Cup";
 
 const rec = (w: number, l: number, t: number) => `${w}-${l}${t ? `-${t}` : ""}`;
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const ord = (n: number) => `${n}${["th", "st", "nd", "rd"][(n % 100 >= 11 && n % 100 <= 13) || n % 10 > 3 ? 0 : n % 10]}`;
+const gameSub = (g: HistGame) => `${g.season}, week ${g.week}, vs ${g.oppManagerName ?? g.oppTeamName}`;
+const streakSub = (s: Streak) =>
+  s.from.season === s.to.season ? `${s.from.season}, weeks ${s.from.week} to ${s.to.week}` : `${s.from.season} week ${s.from.week} to ${s.to.season} week ${s.to.week}`;
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function H2({ children, note }: { children: React.ReactNode; note?: string }) {
   return (
-    <div className="border border-ice-line bg-white p-3">
-      <div className="text-xs text-muted">{label}</div>
-      <div className="font-display text-2xl leading-tight">{value}</div>
-      {sub && <div className="text-xs text-muted">{sub}</div>}
+    <div className="mb-4">
+      <h2 className="font-display text-2xl leading-tight">{children}</h2>
+      {note && <p className="text-sm text-muted max-w-prose">{note}</p>}
     </div>
   );
 }
 
-const gameSub = (g: HistGame) => `${g.season}, week ${g.week} · vs ${g.oppManagerName ?? g.oppTeamName}`;
-const streakSub = (s: Streak) =>
-  s.from.season === s.to.season
-    ? `${s.from.season}, weeks ${s.from.week}–${s.to.week}`
-    : `${s.from.season} wk ${s.from.week} to ${s.to.season} wk ${s.to.week}`;
+function Moment({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <li className="py-2 border-b border-ice-line/70 last:border-b-0">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="font-display text-2xl leading-tight font-tabular">{value}</p>
+      {sub && <p className="text-xs text-muted">{sub}</p>}
+    </li>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Career: points, best and worst moments, rivalries and the season-by-season bars.
+
+export default function ManagerHistoryView({ h }: { h: ManagerHistory }) {
+  const c = h.career;
+  if (!c || h.games === 0) return null;
+  const faced = h.vs.filter((v) => v.w + v.l + v.t >= 3);
+  const victim = faced[0];
+  const nemesis = [...faced].sort((a, b) => a.pct - b.pct || b.l - a.l)[0];
+  const maxPct = 1;
+
+  return (
+    <>
+      <section className="mb-12">
+        <dl className="flex flex-wrap gap-x-10 gap-y-4">
+          {[
+            ["Points for", ptsComma(c.pointsFor)],
+            ["Points against", ptsComma(c.pointsAgainst)],
+            ["Per game", pts(h.avgScore)],
+            ["First-place finishes", String(c.firstPlace)],
+          ].map(([k, v]) => (
+            <div key={k}>
+              <dd className="font-display text-3xl leading-none font-tabular">{v}</dd>
+              <dt className="mt-1 text-sm text-muted">{k}</dt>
+            </div>
+          ))}
+          {h.currentStreak && (
+            <div>
+              <dd className={`font-display text-3xl leading-none ${h.currentStreak.kind === "W" ? "text-rink-bright" : h.currentStreak.kind === "L" ? "text-center-red" : ""}`}>
+                {h.currentStreak.length}
+                {h.currentStreak.kind}
+              </dd>
+              <dt className="mt-1 text-sm text-muted">Current streak</dt>
+            </div>
+          )}
+        </dl>
+      </section>
+
+      <section className="mb-12">
+        <H2 note="Regular season games only, every season on record.">Highs and lows</H2>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="border-l-4 border-rink-bright pl-4">
+            <h3 className="font-display text-lg text-rink">At their best</h3>
+            <ul>
+              {h.highScore && <Moment label="High score" value={pts(h.highScore.score)} sub={gameSub(h.highScore)} />}
+              {h.biggestWin && <Moment label="Biggest win" value={`by ${pts(h.biggestWin.score - h.biggestWin.oppScore)}`} sub={gameSub(h.biggestWin)} />}
+              {h.winStreak && h.winStreak.length > 1 && <Moment label="Longest win streak" value={`${h.winStreak.length} games`} sub={streakSub(h.winStreak)} />}
+              {h.luckyWin && <Moment label="Fewest points in a win" value={pts(h.luckyWin.score)} sub={`Still beat ${h.luckyWin.oppManagerName ?? h.luckyWin.oppTeamName} (${pts(h.luckyWin.oppScore)}), ${h.luckyWin.season} week ${h.luckyWin.week}`} />}
+              {victim && <Moment label="Favorite opponent" value={victim.name} sub={`${rec(victim.w, victim.l, victim.t)}, ${pct(victim.pct)}`} />}
+            </ul>
+          </div>
+          <div className="border-l-4 border-center-red pl-4">
+            <h3 className="font-display text-lg text-center-red-dim">At their worst</h3>
+            <ul>
+              {h.lowScore && <Moment label="Low score" value={pts(h.lowScore.score)} sub={gameSub(h.lowScore)} />}
+              {h.worstLoss && <Moment label="Worst beating" value={`by ${pts(h.worstLoss.oppScore - h.worstLoss.score)}`} sub={gameSub(h.worstLoss)} />}
+              {h.loseStreak && h.loseStreak.length > 1 && <Moment label="Longest losing streak" value={`${h.loseStreak.length} games`} sub={streakSub(h.loseStreak)} />}
+              {h.unluckyLoss && <Moment label="Most points in a loss" value={pts(h.unluckyLoss.score)} sub={`Still lost to ${h.unluckyLoss.oppManagerName ?? h.unluckyLoss.oppTeamName} (${pts(h.unluckyLoss.oppScore)}), ${h.unluckyLoss.season} week ${h.unluckyLoss.week}`} />}
+              {nemesis && nemesis.managerId !== victim?.managerId && <Moment label="Nemesis" value={nemesis.name} sub={`${rec(nemesis.w, nemesis.l, nemesis.t)}, ${pct(nemesis.pct)}`} />}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-12">
+        <H2 note="Win percentage against each manager. Bars to the right of the line are a winning record against them.">Head to head</H2>
+        <ul className="max-w-2xl">
+          {h.vs.map((v) => {
+            const right = v.pct >= 0.5;
+            return (
+              <li key={v.managerId} className="grid grid-cols-[6.5rem_1fr_7.5rem] sm:grid-cols-[9rem_1fr_9rem] items-center gap-3 py-1.5 border-b border-ice-line/50 text-sm">
+                <span className="font-body truncate">{v.name}</span>
+                <span className="relative h-3 bg-ice-panel" role="img" aria-label={`${v.name}: ${rec(v.w, v.l, v.t)}, ${pct(v.pct)}`}>
+                  <span
+                    className={`absolute top-0 h-3 ${right ? "bg-rink-bright" : "bg-center-red"}`}
+                    style={right ? { left: "50%", width: `${(v.pct - 0.5) * 100 * maxPct}%` } : { left: `${v.pct * 100}%`, width: `${(0.5 - v.pct) * 100}%` }}
+                  />
+                  <span className="absolute left-1/2 -top-0.5 h-4 w-px bg-board/60" />
+                </span>
+                <span className="text-right font-tabular">
+                  {rec(v.w, v.l, v.t)}
+                  <span className={`ml-2 text-xs ${v.pointsFor >= v.pointsAgainst ? "text-rink-bright" : "text-center-red"}`}>
+                    {v.pointsFor >= v.pointsAgainst ? "+" : "−"}
+                    {Math.abs(v.pointsFor - v.pointsAgainst).toFixed(0)}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <section className="mb-12">
+        <H2 note="Bar height is win percentage. Gold marks a title and light blue a runner-up.">Season by season</H2>
+        <div className="overflow-x-auto pb-2">
+          <ol className="flex items-end gap-2 min-w-max">
+            {h.seasons.map((s) => (
+              <li key={s.season} className="w-16 text-center">
+                <p className="h-5 text-gold flex justify-center">{s.champion ? <Cup size={18} /> : null}</p>
+                <div className="h-36 flex items-end justify-center" title={`${s.teamName}: ${rec(s.wins, s.losses, s.ties)}, ${pct(s.winPct)}, ${s.season}`}>
+                  <div
+                    className={`w-10 ${s.champion ? "bg-gold" : s.runnerUp ? "bg-rink-bright" : "bg-rink"}`}
+                    style={{ height: `${Math.max(4, s.winPct * 100)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs font-tabular">{rec(s.wins, s.losses, s.ties)}</p>
+                <p className="font-display text-base leading-tight">{s.season}</p>
+                <p className="text-xs text-muted">{ord(s.rank)} of {s.teamCount}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 
 export function OwnedPlayersView({ players, seasons }: { players: OwnedPlayer[]; seasons: number[] }) {
+  const first = seasons[0];
+  const last = seasons[seasons.length - 1];
+  const span = Array.from({ length: last - first + 1 }, (_, i) => first + i);
   return (
     <section className="mb-12">
-      <h2 className="font-display text-2xl mb-1">Players owned the longest</h2>
-      <p className="text-xs text-muted mb-3">Seasons on the roster ({seasons[0]}–{seasons[seasons.length - 1]}), counted once a player was held about two weeks. Weeks are approximate.</p>
-      <table className="w-full max-w-xl text-sm font-tabular border-collapse"><tbody>
+      <H2 note="One square per season, filled when the player was on the roster for about two weeks or more.">Players owned the longest</H2>
+      <ul className="max-w-2xl">
         {players.map((p) => (
-          <tr key={p.name} className="border-b border-ice-line/60 align-top">
-            <td className="py-1.5 pr-2 font-body">{p.name}<div className="text-xs text-muted">{p.position} · {p.seasons.join(", ")}</div></td>
-            <td className="py-1.5 text-right whitespace-nowrap">{p.seasons.length} season{p.seasons.length === 1 ? "" : "s"}{p.weeks > 0 && <div className="text-xs text-muted">~{p.weeks} weeks</div>}</td>
-          </tr>
+          <li key={p.name} className="grid grid-cols-[1fr_auto] gap-x-4 items-center py-2 border-b border-ice-line/60">
+            <div className="min-w-0">
+              <p className="font-body font-medium truncate">
+                {p.name} <span className="text-xs text-muted font-normal">{p.position}</span>
+              </p>
+              <div className="mt-1 flex gap-[3px]" role="img" aria-label={`Owned in ${p.seasons.join(", ")}`}>
+                {span.map((y) => (
+                  <span key={y} title={String(y)} className={`h-4 w-3.5 ${p.seasons.includes(y) ? "bg-rink" : "bg-ice-panel"}`} />
+                ))}
+              </div>
+            </div>
+            <p className="text-right">
+              <span className="font-display text-3xl leading-none">{p.seasons.length}</span>
+              <span className="block text-xs text-muted">{p.seasons.length === 1 ? "season" : "seasons"}{p.weeks > 0 ? `, about ${p.weeks} weeks` : ""}</span>
+            </p>
+          </li>
         ))}
-      </tbody></table>
+      </ul>
+      <p className="mt-1 flex justify-between max-w-2xl text-xs text-muted font-tabular"><span>{first}</span><span>{last}</span></p>
     </section>
   );
 }
 
+const POS_COLOR: Record<string, string> = { C: "#123A61", LW: "#2B6CB5", RW: "#8DB4DC", D: "#D9A441", G: "#C41E3A" };
+
 export function DraftTendenciesView({ d }: { d: DraftTendencies }) {
   const maxTeam = d.teams[0]?.picks ?? 1;
+  const posOrder = ["C", "LW", "RW", "D", "G"].map((p) => d.positions.find((x) => x.position === p)).filter((x): x is NonNullable<typeof x> => !!x);
   return (
     <section className="mb-12">
-      <h2 className="font-display text-2xl mb-1">Draft tendencies</h2>
-      <p className="text-xs text-muted mb-4">{d.picks} drafted picks across {d.seasons.length} draft{d.seasons.length === 1 ? "" : "s"} ({d.seasons[0]}–{d.seasons[d.seasons.length - 1]}). Keepers are not counted as picks.</p>
-      <div className="grid gap-6 md:grid-cols-2">
+      <H2 note={`${d.picks} picks across ${d.seasons.length} draft${d.seasons.length === 1 ? "" : "s"}, ${d.seasons[0]} to ${d.seasons[d.seasons.length - 1]}. Keepers are not counted.`}>Draft tendencies</H2>
+
+      {posOrder.length > 0 && (
+        <div className="max-w-2xl mb-8">
+          <p className="text-sm mb-1.5">What they draft</p>
+          <div className="flex h-5 overflow-hidden" role="img" aria-label={posOrder.map((p) => `${p.position} ${(p.share * 100).toFixed(0)}%`).join(", ")}>
+            {posOrder.map((p) => <span key={p.position} style={{ width: `${p.share * 100}%`, background: POS_COLOR[p.position] }} title={`${p.position}: ${p.picks} picks`} />)}
+          </div>
+          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+            {posOrder.map((p) => (
+              <li key={p.position} className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5" style={{ background: POS_COLOR[p.position] }} />
+                {p.position} <span className="font-tabular">{(p.share * 100).toFixed(0)}%</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="grid gap-10 md:grid-cols-2">
         <div>
-          <h3 className="font-display text-xl mb-2">Players drafted the most</h3>
-          {d.players.length === 0 ? <p className="text-sm text-muted">Nobody drafted twice yet.</p> : (
-            <table className="w-full text-sm font-tabular border-collapse"><tbody>
+          <h3 className="font-display text-lg mb-2">Drafted the most</h3>
+          {d.players.length === 0 ? (
+            <p className="text-sm text-muted">Nobody has been drafted twice yet.</p>
+          ) : (
+            <ul>
               {d.players.map((p) => (
-                <tr key={p.name} className="border-b border-ice-line/60 align-top">
-                  <td className="py-1.5 pr-2 font-body">{p.name}<div className="text-xs text-muted">{p.position} · {p.seasons.join(", ")}</div></td>
-                  <td className="py-1.5 text-right whitespace-nowrap">{p.times}x{p.kept > 0 ? <div className="text-xs text-muted">+{p.kept} kept</div> : null}</td>
-                </tr>
+                <li key={p.name} className="flex items-center justify-between gap-3 py-2 border-b border-ice-line/60">
+                  <span className="min-w-0">
+                    <span className="block font-body font-medium truncate">{p.name}</span>
+                    <span className="block text-xs text-muted">{p.position}, {p.seasons.join(", ")}{p.kept > 0 ? `, kept ${p.kept}` : ""}</span>
+                  </span>
+                  <span className="font-display text-3xl leading-none">{p.times}<span className="text-base text-muted">x</span></span>
+                </li>
               ))}
-            </tbody></table>
+            </ul>
           )}
         </div>
         <div>
-          <h3 className="font-display text-xl mb-2">NHL teams drafted from the most</h3>
-          {d.teams.length === 0 ? <p className="text-sm text-muted">No NHL team data for these drafts.</p> : (
-            <ul className="text-sm space-y-1.5">
+          <h3 className="font-display text-lg mb-2">NHL teams they go back to</h3>
+          {d.teams.length === 0 ? (
+            <p className="text-sm text-muted">No NHL team data for these drafts.</p>
+          ) : (
+            <ul className="space-y-2">
               {d.teams.map((t) => (
-                <li key={t.team} className="flex items-center gap-2">
-                  <span className="w-10 font-display">{t.team}</span>
-                  <span className="flex-1 h-2 bg-ice-line"><span className="block h-2 bg-rink" style={{ width: `${(t.picks / maxTeam) * 100}%` }} /></span>
-                  <span className="w-20 text-right font-tabular text-muted">{t.picks} · {(t.share * 100).toFixed(0)}%</span>
+                <li key={t.team} className="grid grid-cols-[2.75rem_1fr_4.5rem] items-center gap-2">
+                  <span className="font-display text-lg">{t.team}</span>
+                  <span className="h-3 bg-ice-panel"><span className="block h-3 bg-rink" style={{ width: `${(t.picks / maxTeam) * 100}%` }} /></span>
+                  <span className="text-right text-sm font-tabular text-muted">{t.picks}, {(t.share * 100).toFixed(0)}%</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
-        {d.positions[0] && <Stat label="Favorite position" value={d.positions[0].position} sub={`${(d.positions[0].share * 100).toFixed(0)}% of picks`} />}
-        {d.highestPick && <Stat label="Highest pick spent" value={`#${d.highestPick.overall}`} sub={`${d.highestPick.name}, ${d.highestPick.season}`} />}
-        {d.firstRounders[0] && <Stat label="First-round loyalty" value={`${d.firstRounders[0].times}x`} sub={`${d.firstRounders[0].name} in round 1`} />}
-        {d.positions.find((x) => x.position === "G") && <Stat label="Goalies drafted" value={String(d.positions.find((x) => x.position === "G")!.picks)} sub={`${(d.positions.find((x) => x.position === "G")!.share * 100).toFixed(0)}% of picks`} />}
-      </div>
-    </section>
-  );
-}
 
-export default function ManagerHistoryView({ h }: { h: ManagerHistory }) {
-  const c = h.career;
-  if (!c || h.games === 0) return null;
-  const nemesis = [...h.vs].filter((v) => v.w + v.l + v.t >= 3).sort((a, b) => a.pct - b.pct || b.l - a.l)[0];
-  const victim = h.vs.filter((v) => v.w + v.l + v.t >= 3)[0];
-
-  return (
-    <section className="mb-12">
-      <h2 className="font-display text-2xl mb-1">Career</h2>
-      <p className="text-xs text-muted mb-4">Regular season only, every season on record.</p>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <Stat label="Overall record" value={rec(c.wins, c.losses, c.ties)} sub={`${pct(c.winPct)} over ${c.seasons} season${c.seasons === 1 ? "" : "s"}`} />
-        <Stat label="Titles" value={String(c.titles)} sub={`${c.runnerUps} runner-up · ${c.firstPlace} first-place finish${c.firstPlace === 1 ? "" : "es"}`} />
-        <Stat label="Points for" value={ptsComma(c.pointsFor)} sub={`${pts(h.avgScore)} per game`} />
-        <Stat label="Points against" value={ptsComma(c.pointsAgainst)} sub={c.pointsFor >= c.pointsAgainst ? "Outscoring the league" : "Getting outscored"} />
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {h.highScore && <Stat label="High score" value={pts(h.highScore.score)} sub={gameSub(h.highScore)} />}
-        {h.lowScore && <Stat label="Low score" value={pts(h.lowScore.score)} sub={gameSub(h.lowScore)} />}
-        {h.biggestWin && <Stat label="Biggest blowout win" value={`+${pts(h.biggestWin.score - h.biggestWin.oppScore)}`} sub={gameSub(h.biggestWin)} />}
-        {h.worstLoss && <Stat label="Worst beating" value={`−${pts(h.worstLoss.oppScore - h.worstLoss.score)}`} sub={gameSub(h.worstLoss)} />}
-        {h.winStreak && h.winStreak.length > 1 && <Stat label="Longest win streak" value={`${h.winStreak.length} games`} sub={streakSub(h.winStreak)} />}
-        {h.loseStreak && h.loseStreak.length > 1 && <Stat label="Longest losing streak" value={`${h.loseStreak.length} games`} sub={streakSub(h.loseStreak)} />}
-        {h.closestWin && <Stat label="Closest win" value={`by ${pts(h.closestWin.score - h.closestWin.oppScore)}`} sub={gameSub(h.closestWin)} />}
-        {h.currentStreak && <Stat label="Current streak" value={`${h.currentStreak.length}${h.currentStreak.kind}`} sub="Counting back from the last game on record" />}
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 mb-8 text-sm">
-        {h.unluckyLoss && (
-          <div className="border border-ice-line bg-white p-3">
-            <div className="text-xs text-muted">Most points in a loss</div>
-            <div><span className="font-bold">{pts(h.unluckyLoss.score)}</span> and still lost to {h.unluckyLoss.oppManagerName ?? h.unluckyLoss.oppTeamName} ({pts(h.unluckyLoss.oppScore)})</div>
-            <div className="text-xs text-muted">{h.unluckyLoss.season}, week {h.unluckyLoss.week}</div>
-          </div>
-        )}
-        {h.luckyWin && (
-          <div className="border border-ice-line bg-white p-3">
-            <div className="text-xs text-muted">Fewest points in a win</div>
-            <div><span className="font-bold">{pts(h.luckyWin.score)}</span> and still beat {h.luckyWin.oppManagerName ?? h.luckyWin.oppTeamName} ({pts(h.luckyWin.oppScore)})</div>
-            <div className="text-xs text-muted">{h.luckyWin.season}, week {h.luckyWin.week}</div>
-          </div>
-        )}
-        {victim && (
-          <div className="border border-ice-line bg-white p-3">
-            <div className="text-xs text-muted">Favorite opponent</div>
-            <div><span className="font-bold">{victim.name}</span> · {rec(victim.w, victim.l, victim.t)} ({pct(victim.pct)})</div>
-          </div>
-        )}
-        {nemesis && nemesis.managerId !== victim?.managerId && (
-          <div className="border border-ice-line bg-white p-3">
-            <div className="text-xs text-muted">Nemesis</div>
-            <div><span className="font-bold">{nemesis.name}</span> · {rec(nemesis.w, nemesis.l, nemesis.t)} ({pct(nemesis.pct)})</div>
-          </div>
-        )}
-      </div>
-
-      <h3 className="font-display text-xl mb-2">Record vs. each manager</h3>
-      <table className="w-full max-w-xl text-sm font-tabular border-collapse mb-8">
-        <thead>
-          <tr className="text-left text-xs text-muted border-b border-ice-line">
-            <th className="py-1 pr-2 font-normal">Opponent</th>
-            <th className="py-1 pr-2 font-normal">Record</th>
-            <th className="py-1 pr-2 font-normal text-right">Win %</th>
-            <th className="py-1 font-normal text-right">Pts diff</th>
-          </tr>
-        </thead>
-        <tbody>
-          {h.vs.map((v) => (
-            <tr key={v.managerId} className="border-b border-ice-line/60">
-              <td className="py-1.5 pr-2 font-body">{v.name}</td>
-              <td className="py-1.5 pr-2">{rec(v.w, v.l, v.t)}</td>
-              <td className="py-1.5 pr-2 text-right">{pct(v.pct)}</td>
-              <td className={`py-1.5 text-right ${v.pointsFor >= v.pointsAgainst ? "text-green-700" : "text-red-700"}`}>
-                {v.pointsFor >= v.pointsAgainst ? "+" : "−"}{pts(Math.abs(v.pointsFor - v.pointsAgainst))}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <h3 className="font-display text-xl mb-2">Season by season</h3>
-      <table className="w-full max-w-xl text-sm font-tabular border-collapse">
-        <tbody>
-          {[...h.seasons].reverse().map((s) => (
-            <tr key={s.season} className="border-b border-ice-line/60">
-              <td className="py-1.5 pr-2 font-display">{s.season}</td>
-              <td className="py-1.5 pr-2 font-body">{s.teamName}</td>
-              <td className="py-1.5 pr-2">{rec(s.wins, s.losses, s.ties)}</td>
-              <td className="py-1.5 pr-2 text-muted">{ord(s.rank)} of {s.teamCount}</td>
-              <td className="py-1.5 text-right">{ptsComma(s.pointsFor)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {(d.highestPick || d.firstRounders[0]) && (
+        <p className="mt-6 text-sm text-muted max-w-prose">
+          {d.highestPick && <>Highest pick spent: <b className="text-board">{d.highestPick.name}</b> at #{d.highestPick.overall} in {d.highestPick.season}. </>}
+          {d.firstRounders[0] && <>Most often taken in round 1: <b className="text-board">{d.firstRounders[0].name}</b>, {d.firstRounders[0].times} times.</>}
+        </p>
+      )}
     </section>
   );
 }

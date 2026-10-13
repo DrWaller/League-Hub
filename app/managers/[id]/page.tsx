@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import { getManagers, getManagerSeasons, getKeepers, getTrades } from "@/lib/content";
+import { getManagers, getManagerSeasons, getKeepers, getTrades, getTeamLogos } from "@/lib/content";
 import { buildManagerTimeline } from "@/lib/manager-helpers";
 import ManagerTimelineView from "@/components/ManagerTimelineView";
 import { getTeamBanners } from "@/lib/banners";
 import BannerRafters from "@/components/BannerRafters";
+import ManagerHero from "@/components/ManagerHero";
 import ManagerHistoryView, { DraftTendenciesView, OwnedPlayersView } from "@/components/ManagerHistoryView";
 import { getLeagueMeta } from "@/lib/espn";
 import { loadRecords } from "@/lib/records-data";
@@ -54,17 +55,36 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
   } catch (e) {
     console.error("owned players failed", e);
   }
+  const logos = await getTeamLogos().catch(() => ({} as Record<number, string>));
+  const latest = seasons[0]; // newest first
+  const c = history?.career ?? null;
   const managerName = (id: number | null) => (id ? managers.find((m) => m.id === id)?.name ?? `#${id}` : "—");
 
   return (
     <div>
-      <h1 className="font-display text-3xl mb-1">{manager.name}</h1>
-      <p className="text-muted mb-8">{manager.notes || "\u00A0"}</p>
+      <ManagerHero
+        d={{
+          name: manager.name,
+          team: latest?.teamName ?? null,
+          logoUrl: latest ? logos[latest.teamId] : undefined,
+          first: seasons.length ? seasons[seasons.length - 1].season : null,
+          last: latest?.season ?? null,
+          notes: manager.notes,
+          wins: c?.wins ?? 0,
+          losses: c?.losses ?? 0,
+          ties: c?.ties ?? 0,
+          winPct: c?.winPct ?? 0,
+          titles: c?.titles ?? 0,
+          runnerUps: c?.runnerUps ?? 0,
+          seasons: c?.seasons ?? 0,
+          hasRecord: !!c && c.wins + c.losses + c.ties > 0,
+        }}
+      />
       <BannerRafters banners={banners} />
       {history && <ManagerHistoryView h={history} />}
       {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} />}
       {drafts && <DraftTendenciesView d={drafts} />}
-      <h2 className="font-display text-2xl mb-3">Team history</h2>
+      <h2 className="font-display text-2xl mb-4">Team by team</h2>
       <ManagerTimelineView
         seasons={seasons}
         keepersBySeason={keepersBySeason}

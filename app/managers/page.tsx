@@ -1,43 +1,50 @@
-import Link from "next/link";
-import { getManagers, getManagerSeasons } from "@/lib/content";
+import { getManagers, getManagerSeasons, getTeamLogos } from "@/lib/content";
+import { getLeagueMeta } from "@/lib/espn";
+import { loadRecords } from "@/lib/records-data";
+import ManagerCards, { ManagerCardData } from "@/components/ManagerCards";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagersPage() {
-  const [managers, seasons] = await Promise.all([getManagers(), getManagerSeasons()]);
+  const meta = await getLeagueMeta();
+  const [managers, seasons, logos] = await Promise.all([getManagers(), getManagerSeasons(), getTeamLogos()]);
+  // Career totals come from the same games as the Records page; if that fails the cards still show.
+  const careers = new Map<number, { wins: number; losses: number; ties: number; winPct: number; titles: number }>();
+  try {
+    const r = await loadRecords(meta.season);
+    for (const c of r.records.careers) careers.set(c.managerId, c);
+  } catch (e) {
+    console.error("manager records failed", e);
+  }
 
-  const rows = managers
+  const latestLeagueSeason = Math.max(0, ...seasons.map((s) => s.season));
+  const items: ManagerCardData[] = managers
     .map((m) => {
-      const mySeasons = seasons.filter((s) => s.managerId === m.id).sort((a, b) => b.season - a.season);
-      return { manager: m, seasons: mySeasons };
+      const mine = seasons.filter((s) => s.managerId === m.id).sort((a, b) => b.season - a.season);
+      const c = careers.get(m.id);
+      return {
+        id: m.id,
+        name: m.name,
+        team: mine[0]?.teamName ?? null,
+        logoUrl: mine[0] ? logos[mine[0].teamId] : undefined,
+        first: mine.length ? mine[mine.length - 1].season : null,
+        last: mine[0]?.season ?? null,
+        active: mine.length > 0 && mine[0].season >= latestLeagueSeason,
+        wins: c?.wins ?? 0,
+        losses: c?.losses ?? 0,
+        ties: c?.ties ?? 0,
+        winPct: c?.winPct ?? 0,
+        titles: c?.titles ?? 0,
+        hasRecord: !!c && c.wins + c.losses + c.ties > 0,
+      };
     })
-    .sort((a, b) => (b.seasons[0]?.season ?? 0) - (a.seasons[0]?.season ?? 0));
+    .sort((a, b) => b.titles - a.titles || b.winPct - a.winPct || a.name.localeCompare(b.name));
 
   return (
     <div>
-      <h1 className="font-display text-3xl mb-1">Managers</h1>
-      <p className="text-muted mb-8">The people behind the teams, across every rename.</p>
-
-      {rows.length === 0 ? (
-        <p className="text-muted">No managers added yet.</p>
-      ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {rows.map(({ manager, seasons }) => (
-            <Link
-              key={manager.id}
-              href={`/managers/${manager.id}`}
-              className="border border-ice-line p-5 hover:border-rink-bright transition-colors"
-            >
-              <h2 className="font-display text-lg mb-1">{manager.name}</h2>
-              <p className="text-sm text-muted">
-                {seasons.length > 0
-                  ? `${seasons[seasons.length - 1].season}–${seasons[0].season} · currently "${seasons[0].teamName}"`
-                  : "No seasons logged yet"}
-              </p>
-            </Link>
-          ))}
-        </div>
-      )}
+      <h1 className="font-display text-4xl mb-1">Managers</h1>
+      <p className="text-muted mb-8 max-w-prose">The people behind the teams, across every rename. Open a manager for their full league history.</p>
+      {items.length === 0 ? <p className="text-muted">No managers added yet.</p> : <ManagerCards items={items} />}
     </div>
   );
 }

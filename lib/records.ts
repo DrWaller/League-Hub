@@ -54,6 +54,8 @@ export interface SeasonRow {
   pointsAgainst: number;
   rank: number;
   teamCount: number;
+  champion: boolean;
+  runnerUp: boolean;
 }
 
 export interface GameRecord {
@@ -248,6 +250,8 @@ export function buildRecords(managers: RecManager[], seasons: RecSeason[]): Reco
         pointsAgainst: r.pa,
         rank: rankOf.get(r.id)!,
         teamCount: ranked.length,
+        champion: champTeam?.id === r.id,
+        runnerUp: runnerTeam?.id === r.id,
       });
     }
     if (champTeam?.managerId) career(champTeam.managerId).titles++;
