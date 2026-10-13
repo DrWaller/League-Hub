@@ -122,11 +122,28 @@ async function saveFantraxOwnership(season: number): Promise<{ saved: number; pe
     }
     rows.push({ team, id: -(p.nhlId ?? 1_000_000_000 + i), name: p.name, pos: p.position, n: MIN_SAMPLES });
   });
+  // Everyone drafted that year counts too (a player dropped or traded before the end of the year is missing from the owner list).
+  let drafted = 0;
+  try {
+    const d = await sql`SELECT overall_pick, team_name, player_name, position FROM draft_picks WHERE season = ${season} AND source = 'fantrax';`;
+    const have = new Set(rows.map((r) => `${r.team}|${norm(r.name)}`));
+    for (const p of d.rows) {
+      const team = ownerKey(String(p.team_name ?? ""));
+      if (team == null) continue;
+      const name = String(p.player_name ?? "");
+      if (!name || have.has(`${team}|${norm(name)}`)) continue;
+      have.add(`${team}|${norm(name)}`);
+      rows.push({ team, id: -(1_500_000_000 + Number(p.overall_pick)), name, pos: String(p.position ?? "?"), n: MIN_SAMPLES });
+      drafted++;
+    }
+  } catch {
+    /* no draft saved for that season: owners alone */
+  }
   if (rows.length === 0) return { saved: 0, periods: 0, note: `Could not match any Fantrax owner names (${[...unmatched.keys()].slice(0, 6).join(", ")}) to ${season}'s teams.` };
   await sql`DELETE FROM roster_owned WHERE season = ${season};`;
   await bulkInsert(season, rows, "fantrax");
   await sql`INSERT INTO roster_owned_meta (season, periods, source, saved_at) VALUES (${season}, 0, 'fantrax', now()) ON CONFLICT (season) DO UPDATE SET periods = 0, source = 'fantrax', saved_at = now();`;
-  return { saved: rows.length, periods: 0, note: unmatched.size ? `Owner names not matched to a team: ${[...unmatched.entries()].map(([k, v]) => `${k} (${v})`).join(", ")}.` : "End-of-season owners only." };
+  return { saved: rows.length, periods: 0, note: `${drafted} drafted player(s) added to the end-of-season owners.${unmatched.size ? ` Owner names not matched to a team: ${[...unmatched.entries()].map(([k, v]) => `${k} (${v})`).join(", ")}.` : ""}` };
 }
 
 export interface OwnedPlayer {
