@@ -114,3 +114,73 @@ function finish(picks: PastedPick[], warnings: string[], errors: string[]): Past
   picks.sort((a, b) => a.overall - b.overall);
   return { picks, warnings, errors };
 }
+
+function parseGeneric(text: string): PasteResult {
+  const picks: PastedPick[] = [];
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const clean = text.replace(/^﻿/, "");
+  // Each line is split on tabs if it has any, otherwise as a CSV line (so quoted commas survive).
+  const grid: string[][] = clean
+    .split(/\r?\n/)
+    .map((line) => (line.includes("\t") ? line.split("\t") : (parseCsv(line)[0] ?? [])))
+    .map((r) => r.map((c) => c.trim()))
+    .filter((r) => r.some((c) => c !== ""));
+  if (grid.length === 0) return { picks, warnings, errors };
+
+  // Header row: the first row where a "player" column is named.
+  const headerNorm = grid[0].map(norm);
+  const find = (names: string[]) => headerNorm.findIndex((h) => names.includes(h));
+  const col = { player: find(HEADERS.player), team: find(HEADERS.team), position: find(HEADERS.position), overall: find(HEADERS.overall), pick: find(HEADERS.pick), round: find(HEADERS.round), keeper: find(HEADERS.keeper) };
+
+  if (col.player >= 0) {
+    const body = grid.slice(1);
+    const num = (v: string | undefined) => (v && /^#?\d+\.?\d*$/.test(v) ? Math.round(Number(v.replace("#", ""))) : null);
+    const teamsInFirstRound = col.round >= 0 && col.pick >= 0 ? body.filter((r) => num(r[col.round]) === 1).length : 0;
+    const maxPick = col.pick >= 0 ? Math.max(0, ...body.map((r) => num(r[col.pick]) ?? 0)) : 0;
+    const teams = teamsInFirstRound || maxPick || 10;
+    body.forEach((r, i) => {
+      const { name, position: posFromName } = cleanPlayer(r[col.player] ?? "");
+      if (!name) return;
+      let overall: number | null = null;
+      if (col.overall >= 0) overall = num(r[col.overall]);
+      else if (col.round >= 0 && col.pick >= 0) {
+        const rd = num(r[col.round]);
+        const pk = num(r[col.pick]);
+        if (rd != null && pk != null) overall = (rd - 1) * teams + pk;
+      } else if (col.pick >= 0) overall = num(r[col.pick]);
+      const rawPos = col.position >= 0 ? (r[col.position] ?? "").split(/[\s,\/]+/)[0]?.toUpperCase() : "";
+      const position = POSITIONS.has(rawPos) ? (rawPos === "W" ? "RW" : rawPos) : posFromName;
+      const keeper = col.keeper >= 0 ? KEEPER_WORDS.has((r[col.keeper] ?? "").trim().toLowerCase()) : false;
+      picks.push({ overall: overall ?? i + 1, team: col.team >= 0 ? r[col.team] ?? "" : "", player: name, position, keeper });
+    });
+    if (col.overall < 0 && col.pick < 0) warnings.push("No pick column found, so picks were numbered in file order.");
+  } else {
+    // Plain lines, no header.
+    grid.forEach((fields0, i) => {
+      const fields = fields0.filter((f) => f !== "");
+      if (fields.length === 0) return;
+      let overall: number | null = null;
+      if (/^#?\d+\.?$/.test(fields[0])) overall = Number(fields[0].replace(/\D/g, ""));
+      else if (i === 0 && fields.length >= 2 && !/\d/.test(fields.join(""))) return; // header-looking row of words
+      const rest = overall !== null ? fields.slice(1) : fields;
+      let position = "";
+      let keeper = false;
+      const names: string[] = [];
+      for (const f of rest) {
+        if (KEEPER_WORDS.has(f.toLowerCase()) && f.length <= 7) keeper = true;
+        else if (POSITIONS.has(f.toUpperCase())) position = f.toUpperCase() === "W" ? "RW" : f.toUpperCase();
+        else names.push(f);
+      }
+      if (names.length === 0) {
+        errors.push(`Line ${i + 1}: no player found ("${fields.join(", ").slice(0, 40)}").`);
+        return;
+      }
+      const raw = names.length >= 2 ? names[1] : names[0];
+      const { name, position: posFromName } = cleanPlayer(raw);
+      picks.push({ overall: overall ?? picks.length + 1, team: names.length >= 2 ? names[0] : "", player: name, position: position || posFromName, keeper });
+    });
+  }
+
+  return finish(picks, warnings, errors);
+}

@@ -124,7 +124,7 @@ export async function loadDraftTendencies(managerId: number, currentSeason: numb
         round: r.round == null ? null : Number(r.round),
         name,
         position: String(r.position ?? ""),
-        nhl: proId > 0 ? NHL_ABBREV[proId] ?? null : r.nhl_team ? String(r.nhl_team) : nhlByName.get(key(name))?.split(",")[0]?.trim() || null,
+        nhl: proId > 0 ? NHL_ABBREV[proId] ?? null : r.nhl_team ? String(r.nhl_team) : (nhlByName.get(key(name)) as string | undefined)?.split(",")[0]?.trim() || null,
         keeper: Boolean(r.is_keeper),
         teamId: r.team_id == null ? null : Number(r.team_id),
         teamName: String(r.team_name ?? ""),
