@@ -31,7 +31,7 @@ export async function renderScorecard(opts: CardOpts) {
 
   // category tiles: league categories with a percentile
   const axes = opts.axes;
-  const cols = axes.length <= 4 ? 2 : 3;
+  const cols = axes.length <= 6 ? 2 : 3;
   const rows = Math.ceil(axes.length / cols);
   const tileW = Math.floor((INNER - GAP * (cols - 1)) / cols);
 
@@ -41,15 +41,15 @@ export async function renderScorecard(opts: CardOpts) {
   const COUNTS_H = opts.counts.length > 0 ? 64 : 0;
   const FOOTER_H = 74;
   const gridTop = PAD + HEADER_H + GAP + HERO_H + GAP;
-  const avail = H - gridTop - FOOTER_H - LEGEND_H - GAP - (COUNTS_H ? COUNTS_H + GAP : 0) - 8;
-  const tileH = Math.max(96, Math.min(190, Math.floor((avail - GAP * (rows - 1)) / Math.max(1, rows))));
+  const avail = H - gridTop - 62 - FOOTER_H - LEGEND_H - GAP * 2 - (COUNTS_H ? COUNTS_H + GAP : 0) - 8;
+  const tileH = Math.max(96, Math.min(rows <= 3 ? 230 : 190, Math.floor((avail - GAP * (rows - 1)) / Math.max(1, rows))));
 
   const nameSize = Math.max(46, Math.min(82, Math.floor(620 / (opts.name.length * 0.5))));
   const tierSize = tier ? Math.min(92, Math.floor(300 / (tier.length * 0.56))) : 60;
 
   const standing = (label: string, s: Standing) => (
     <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-      <div style={{ display: "flex", width: 72, fontSize: 18, fontWeight: 600, letterSpacing: 1.5, color: MUTED }}>{label}</div>
+      <div style={{ display: "flex", width: 60, fontSize: 18, fontWeight: 600, letterSpacing: 1.5, color: MUTED }}>{label}</div>
       <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, color: "#FFFFFF" }}>{`#${s.rank}`}</div>
       <div style={{ display: "flex", fontSize: 20, fontWeight: 600, color: FAINT }}>{ordinal(Math.min(99, Math.round(s.pct)))}</div>
     </div>
@@ -100,7 +100,12 @@ export async function renderScorecard(opts: CardOpts) {
         </div>
 
         {/* category tiles */}
-        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center", gap: GAP, paddingTop: GAP }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, height: 56, marginTop: 6 }}>
+          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 5, color: MUTED }}>YOUR LEAGUE&apos;S CATEGORIES</div>
+          <div style={{ display: "flex", flexGrow: 1, height: 2, background: "#1E3752" }} />
+          <div style={{ display: "flex", fontSize: 19, fontWeight: 600, color: FAINT }}>percentile, per game</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center", gap: GAP }}>
           {Array.from({ length: rows }, (_, r) => (
             <div key={r} style={{ display: "flex", gap: GAP }}>
               {axes.slice(r * cols, r * cols + cols).map((a) => {
@@ -108,7 +113,7 @@ export async function renderScorecard(opts: CardOpts) {
                 const bg = qualified ? TIERS[tt].bg : "linear-gradient(135deg, #1B3149 0%, #1B3149 100%)";
                 const fg = qualified ? tileFg(tt) : MUTED;
                 return (
-                  <div key={a.statId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: tileW, height: tileH, borderRadius: 18, padding: "0 22px", backgroundImage: bg, color: fg }}>
+                  <div key={a.statId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flex: 1, height: tileH, borderRadius: 18, padding: "0 28px", backgroundImage: bg, color: fg }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                       <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, letterSpacing: 1, lineHeight: 1 }}>{a.label}</div>
                       <div style={{ display: "flex", fontSize: 23, fontWeight: 600, opacity: 0.88 }}>{formatValue(a)}</div>
@@ -134,7 +139,7 @@ export async function renderScorecard(opts: CardOpts) {
         ) : null}
 
         {/* colour key */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: LEGEND_H, marginTop: GAP }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: LEGEND_H, marginTop: GAP * 2, paddingBottom: 4 }}>
           {[...TIER_ORDER].map((n) => (
             <div key={n} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ display: "flex", width: 22, height: 22, borderRadius: 6, backgroundImage: TIERS[n].bg }} />
