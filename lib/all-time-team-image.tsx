@@ -23,8 +23,8 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
   const trim = isHex(d.accent) ? d.accent! : lighten(c1, 0.35);
   const accent = isHex(d.accent) ? d.accent! : lighten(c1, 0.6);
   // Three roles: the team colour (header, outline), the accent, and a panel colour that differs from the team colour so the
-  // lineup stands out. The panel is charcoal unless the team has a dark colour of its own (see team-look.ts).
-  const panelBase = isHex(d.panel) ? d.panel! : "#1B1D22";
+  // lineup stands out. The panel is navy unless the team has a dark colour of its own (see team-look.ts).
+  const panelBase = isHex(d.panel) ? d.panel! : "#10243B";
   const panelTop = panelBase;
   const panelBottom = shade(panelBase, 0.4);
   const soft = lighten(panelBase, 0.72);
