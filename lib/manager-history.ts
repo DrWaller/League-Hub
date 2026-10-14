@@ -31,6 +31,15 @@ export interface VsRow {
   pct: number;
   pointsFor: number;
   pointsAgainst: number;
+  // Rivalry detail: the games between the two managers, oldest first.
+  current: { kind: "W" | "L" | "T"; length: number } | null; // the run going right now
+  bestRun: number; // longest win streak against him
+  worstRun: number; // longest losing streak against him
+  avgMargin: number; // average points scored minus allowed per game (positive = ahead)
+  closest: HistGame | null; // smallest margin, either way
+  biggestWin: HistGame | null;
+  worstLoss: HistGame | null;
+  lastMeeting: HistGame | null;
 }
 
 export interface ManagerHistory {
@@ -117,7 +126,7 @@ export function buildManagerHistory(managerId: number, managers: RecManager[], s
     currentStreak = { kind: last, length: n };
   }
 
-  const vsMap = new Map<number, VsRow>();
+  const vsMap = new Map<number, Omit<VsRow, "current" | "bestRun" | "worstRun" | "avgMargin" | "closest" | "biggestWin" | "worstLoss" | "lastMeeting">>();
   for (const g of games) {
     if (g.oppManagerId == null) continue;
     const r = vsMap.get(g.oppManagerId) ?? { managerId: g.oppManagerId, name: g.oppManagerName ?? `Manager ${g.oppManagerId}`, w: 0, l: 0, t: 0, pct: 0, pointsFor: 0, pointsAgainst: 0 };
@@ -128,7 +137,39 @@ export function buildManagerHistory(managerId: number, managers: RecManager[], s
     r.pointsAgainst += g.oppScore;
     vsMap.set(g.oppManagerId, r);
   }
-  const vs = [...vsMap.values()].map((r) => ({ ...r, pct: pct(r.w, r.l, r.t) })).sort((a, b) => b.pct - a.pct || b.w - a.w);
+  const detail = (id: number) => {
+    const g = games.filter((x) => x.oppManagerId === id);
+    const margin = (x: HistGame) => x.score - x.oppScore;
+    let best = 0;
+    let worst = 0;
+    let wr = 0;
+    let lr = 0;
+    for (const x of g) {
+      wr = x.result === "W" ? wr + 1 : 0;
+      lr = x.result === "L" ? lr + 1 : 0;
+      best = Math.max(best, wr);
+      worst = Math.max(worst, lr);
+    }
+    let current: VsRow["current"] = null;
+    if (g.length) {
+      const k = g[g.length - 1].result;
+      let n = 0;
+      for (let i = g.length - 1; i >= 0 && g[i].result === k; i--) n++;
+      current = { kind: k, length: n };
+    }
+    const byMargin = (cmp: (a: HistGame, b: HistGame) => number, list: HistGame[]) => (list.length ? [...list].sort(cmp)[0] : null);
+    return {
+      current,
+      bestRun: best,
+      worstRun: worst,
+      avgMargin: g.length ? g.reduce((n, x) => n + margin(x), 0) / g.length : 0,
+      closest: byMargin((a, b) => Math.abs(margin(a)) - Math.abs(margin(b)), g),
+      biggestWin: byMargin((a, b) => margin(b) - margin(a), g.filter((x) => x.result === "W")),
+      worstLoss: byMargin((a, b) => margin(a) - margin(b), g.filter((x) => x.result === "L")),
+      lastMeeting: g.length ? g[g.length - 1] : null,
+    };
+  };
+  const vs = [...vsMap.values()].map((r) => ({ ...r, pct: pct(r.w, r.l, r.t), ...detail(r.managerId) })).sort((a, b) => b.pct - a.pct || b.w - a.w);
 
   return {
     career,

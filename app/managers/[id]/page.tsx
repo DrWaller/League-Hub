@@ -11,6 +11,8 @@ import { loadRecords } from "@/lib/records-data";
 import { loadOwnedPlayers } from "@/lib/ownership";
 import { loadDraftTendencies, type DraftTendencies } from "@/lib/draft-history";
 import { buildManagerHistory, type ManagerHistory } from "@/lib/manager-history";
+import { activeManagerIds } from "@/lib/active-managers";
+import RivalriesView from "@/components/RivalriesView";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +38,12 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
   // Career stats come from the same finished-season games as the Records page; if that load fails the
   // timeline below still shows.
   let history: ManagerHistory | null = null;
+  let activeIds = new Set<number>();
   try {
     const meta = await getLeagueMeta();
     const r = await loadRecords(meta.season);
     history = buildManagerHistory(managerId, r.managers, r.recSeasons);
+    activeIds = activeManagerIds(allSeasons, meta.season, r.recSeasons);
   } catch (e) {
     console.error("manager history failed", e);
   }
@@ -90,6 +94,7 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
         </section>
       )}
       {history && <ManagerHistoryView h={history} />}
+      {history && <RivalriesView h={history} activeIds={activeIds} />}
       {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} />}
       {drafts && <DraftTendenciesView d={drafts} />}
       <h2 className="font-display text-2xl mb-4">Team by team</h2>

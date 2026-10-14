@@ -7,6 +7,7 @@ import { loadRecords } from "./records-data";
 import { buildManagerHistory } from "./manager-history";
 import { buildRecords } from "./records";
 import { loadLogoData } from "./og-team-logo";
+import { activeManagerIds } from "./active-managers";
 
 export interface ManagerCardData {
   name: string;
@@ -53,13 +54,8 @@ export async function loadManagerCard(managerId: number): Promise<ManagerCardDat
   const scoreRank = 1 + all.filter((x) => perGame(x) > myPpg).length;
   const winRank = c ? 1 + all.filter((x) => x.winPct > c.winPct).length : all.length;
 
-  // Nemesis and victim are only managers still in the league: those with a team this season, or (before this
-  // season's teams are entered) in the latest finished one.
-  let active = new Set(everySeason.filter((x) => x.season === meta.season && x.managerId != null).map((x) => x.managerId as number));
-  if (active.size < 2 && rec.recSeasons.length) {
-    const latestFinished = [...rec.recSeasons].sort((a, b) => b.season - a.season)[0];
-    active = new Set(latestFinished.teams.map((t) => t.managerId).filter((id): id is number => id != null));
-  }
+  // Nemesis and victim are only managers still in the league.
+  const active = activeManagerIds(everySeason, meta.season, rec.recSeasons);
   const rows = h.vs.filter((r) => r.w + r.l + r.t >= MIN_VS_GAMES && active.has(r.managerId));
   const rec2 = (r: { w: number; l: number; t: number }) => `${r.w}-${r.l}${r.t ? `-${r.t}` : ""}`;
   const victim = rows.length ? rows[0] : null;

@@ -36,9 +36,6 @@ function Moment({ label, value, sub }: { label: string; value: string; sub?: str
 export default function ManagerHistoryView({ h }: { h: ManagerHistory }) {
   const c = h.career;
   if (!c || h.games === 0) return null;
-  const faced = h.vs.filter((v) => v.w + v.l + v.t >= 3);
-  const victim = faced[0];
-  const nemesis = [...faced].sort((a, b) => a.pct - b.pct || b.l - a.l)[0];
   const maxPct = 1;
 
   return (
@@ -78,7 +75,6 @@ export default function ManagerHistoryView({ h }: { h: ManagerHistory }) {
               {h.biggestWin && <Moment label="Biggest win" value={`by ${pts(h.biggestWin.score - h.biggestWin.oppScore)}`} sub={gameSub(h.biggestWin)} />}
               {h.winStreak && h.winStreak.length > 1 && <Moment label="Longest win streak" value={`${h.winStreak.length} games`} sub={streakSub(h.winStreak)} />}
               {h.luckyWin && <Moment label="Fewest points in a win" value={pts(h.luckyWin.score)} sub={`Still beat ${h.luckyWin.oppManagerName ?? h.luckyWin.oppTeamName} (${pts(h.luckyWin.oppScore)}), ${h.luckyWin.season} week ${h.luckyWin.week}`} />}
-              {victim && <Moment label="Favorite opponent" value={victim.name} sub={`${rec(victim.w, victim.l, victim.t)}, ${pct(victim.pct)}`} />}
             </ul>
           </div>
           <div className="border-l-4 border-center-red pl-4">
@@ -88,7 +84,6 @@ export default function ManagerHistoryView({ h }: { h: ManagerHistory }) {
               {h.worstLoss && <Moment label="Worst beating" value={`by ${pts(h.worstLoss.oppScore - h.worstLoss.score)}`} sub={gameSub(h.worstLoss)} />}
               {h.loseStreak && h.loseStreak.length > 1 && <Moment label="Longest losing streak" value={`${h.loseStreak.length} games`} sub={streakSub(h.loseStreak)} />}
               {h.unluckyLoss && <Moment label="Most points in a loss" value={pts(h.unluckyLoss.score)} sub={`Still lost to ${h.unluckyLoss.oppManagerName ?? h.unluckyLoss.oppTeamName} (${pts(h.unluckyLoss.oppScore)}), ${h.unluckyLoss.season} week ${h.unluckyLoss.week}`} />}
-              {nemesis && nemesis.managerId !== victim?.managerId && <Moment label="Nemesis" value={nemesis.name} sub={`${rec(nemesis.w, nemesis.l, nemesis.t)}, ${pct(nemesis.pct)}`} />}
             </ul>
           </div>
         </div>
