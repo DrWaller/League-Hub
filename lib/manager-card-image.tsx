@@ -45,7 +45,7 @@ export async function renderManagerCard(d: ManagerCardData) {
   const record = `${d.wins}-${d.losses}${d.ties ? `-${d.ties}` : ""}`;
   const seal = d.tags[0] ?? "";
 
-  const ART_H = 630;
+  const ART_H = 610;
   const boxes: [string, string, string?][] = [
     ["RUNNER-UPS", String(d.runnerUps)],
     ["FIRST PLACE", String(d.firstPlace)],
@@ -66,10 +66,10 @@ export async function renderManagerCard(d: ManagerCardData) {
       <div style={{ width: W, height: H, display: "flex", flexDirection: "column", padding: 30, backgroundImage: frame, fontFamily: body }}>
         <div style={{ display: "flex", position: "relative", overflow: "hidden", width: W - 60, height: ART_H, borderRadius: 22, border: `9px solid ${trim}`, backgroundImage: `linear-gradient(165deg, ${c1} 0%, ${dark} 100%)` }}>
           <div style={{ display: "flex", position: "absolute", left: -200, top: 190, width: 1500, height: 170, background: "rgba(255,255,255,0.07)", transform: "rotate(-24deg)" }} />
-          <div style={{ display: "flex", position: "absolute", left: 90, top: 330, width: 900, height: 16, background: accent, opacity: 0.55, transform: "rotate(-24deg)" }} />
+          <div style={{ display: "flex", position: "absolute", left: 90, top: 310, width: 900, height: 16, background: accent, opacity: 0.55, transform: "rotate(-24deg)" }} />
           {d.logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- next/og JSX
-            <img src={d.logo} width={420} height={420} style={{ position: "absolute", left: 294, top: 54, width: 420, height: 420, objectFit: "contain" }} />
+            <img src={d.logo} width={380} height={380} style={{ position: "absolute", left: 314, top: 24, width: 380, height: 380, objectFit: "contain" }} />
           ) : (
             <div style={{ display: "flex", position: "absolute", left: 0, right: 0, top: 120, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 300, color: "rgba(255,255,255,0.88)" }}>{initials}</div>
           )}
@@ -136,7 +136,7 @@ export async function renderManagerCard(d: ManagerCardData) {
             </div>
           ) : null}
 
-          <div style={{ display: "flex", flexGrow: 1, alignItems: "center", gap: 12, minHeight: 56 }}>
+          <div style={{ display: "flex", flexGrow: 1, alignItems: "center", gap: 12, minHeight: 56, marginTop: 10 }}>
             {d.tags.slice(1).map((t) => (
               <div key={t} style={{ display: "flex", padding: "8px 22px", borderRadius: 30, border: `3px solid ${accent}`, fontFamily: display, fontWeight: 700, fontSize: 28, letterSpacing: 3, color: accent, textTransform: "uppercase" }}>{t}</div>
             ))}
