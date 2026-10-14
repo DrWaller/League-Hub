@@ -58,6 +58,19 @@ export default function DraftValueView({ d }: { d: DraftValue }) {
         <span className="font-semibold">{(d.hitRate * 100).toFixed(0)}%</span> of {d.evaluated} picks scored at least as much as the player who finished at that spot.
         {years.length > 1 && bestYear && worstYear ? ` Best draft: ${bestYear.season}. Worst: ${worstYear.season}.` : ""}
       </p>
+      <p className="mb-6 text-sm">
+        {d.firstRoundPicks >= 3 && (
+          <>
+            First-round picks: <span className="font-semibold">{(d.firstRoundHitRate * 100).toFixed(0)}%</span> hit ({d.firstRoundPicks} picks).{" "}
+          </>
+        )}
+        {d.goalieRound != null && (
+          <>
+            The first goalie goes in round <span className="font-semibold">{d.goalieRound.toFixed(1)}</span> on average
+            {d.goalieRound <= 4 ? ", an early goalie drafter." : d.goalieRound >= 8 ? ", waiting on goalies." : "."}
+          </>
+        )}
+      </p>
       <div className="grid gap-8 md:grid-cols-2 max-w-3xl">
         <ShortList title="More steals" picks={d.best.slice(1, 4)} />
         <ShortList title="More busts" picks={d.worst.slice(1, 4)} />

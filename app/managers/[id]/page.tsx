@@ -18,6 +18,9 @@ import AllPlayView from "@/components/AllPlayView";
 import PlayoffsView from "@/components/PlayoffsView";
 import { buildPlayoffReport, type PlayoffReport } from "@/lib/manager-playoffs";
 import { loadFranchisePlayers, type FranchiseEntry } from "@/lib/franchise-player";
+import StyleTagsView from "@/components/StyleTagsView";
+import { buildStyleTags, type StyleTag } from "@/lib/manager-style";
+import ErasView from "@/components/ErasView";
 import HeartbreakersView from "@/components/HeartbreakersView";
 import DraftValueView from "@/components/DraftValueView";
 import { loadDraftValue, type DraftValue } from "@/lib/draft-value";
@@ -48,10 +51,13 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
   // timeline below still shows.
   let history: ManagerHistory | null = null;
   let activeIds = new Set<number>();
+  let seasonNow = new Date().getFullYear();
   let luck: ManagerLuckReport | null = null;
   let playoffs: PlayoffReport | null = null;
+  let styleTags: StyleTag[] = [];
   try {
     const meta = await getLeagueMeta();
+    seasonNow = meta.season;
     const r = await loadRecords(meta.season);
     history = buildManagerHistory(managerId, r.managers, r.recSeasons);
     activeIds = activeManagerIds(allSeasons, meta.season, r.recSeasons);
@@ -60,6 +66,7 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
       console.error("playoffs failed", e);
       return null;
     });
+    styleTags = buildStyleTags(managerId, r.managers, r.recSeasons, playoffs);
   } catch (e) {
     console.error("manager history failed", e);
   }
@@ -123,6 +130,8 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
       )}
       {history && <ManagerHistoryView h={history} />}
       {history && <RivalriesView h={history} activeIds={activeIds} />}
+      <StyleTagsView tags={styleTags} />
+      {history && <ErasView h={history} currentSeason={seasonNow} />}
       {playoffs && <PlayoffsView r={playoffs} />}
       {luck && <AllPlayView r={luck} activeIds={activeIds} />}
       {luck && <LuckView r={luck} />}

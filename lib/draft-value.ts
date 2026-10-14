@@ -30,6 +30,10 @@ export interface DraftValue {
   worst: PickValue[];
   bySeason: { season: number; picks: number; avgSurplus: number }[];
   byRound: { round: number; picks: number; avgSurplus: number }[];
+  firstRoundPicks: number;
+  firstRoundHitRate: number; // share of first-round picks at or above par
+  goalieRound: number | null; // average round of the first goalie taken each draft
+  goalieDrafts: number;
 }
 
 const MIN_POOL = 100;
@@ -80,6 +84,13 @@ export async function loadDraftValue(managerId: number, currentSeason: number): 
     const v = values.filter((x) => x.round === round);
     return { round, picks: v.length, avgSurplus: avg(v.map((x) => x.surplus)) };
   });
+  const r1 = values.filter((v) => v.round === 1);
+  // The first goalie taken in each draft, by round (position comes from the draft pick itself).
+  const firstGoalie: number[] = [];
+  for (const season of seasons) {
+    const g = picks.filter((p) => p.season === season && p.position === "G" && p.round != null).map((p) => p.round as number);
+    if (g.length) firstGoalie.push(Math.min(...g));
+  }
   const sorted = [...values].sort((a, b) => b.surplus - a.surplus);
   return {
     evaluated: values.length,
@@ -91,5 +102,9 @@ export async function loadDraftValue(managerId: number, currentSeason: number): 
     worst: sorted.slice(-5).reverse(),
     bySeason,
     byRound,
+    firstRoundPicks: r1.length,
+    firstRoundHitRate: r1.length ? r1.filter((v) => v.surplus >= 0).length / r1.length : 0,
+    goalieRound: firstGoalie.length ? avg(firstGoalie) : null,
+    goalieDrafts: firstGoalie.length,
   };
 }
