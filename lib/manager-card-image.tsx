@@ -31,7 +31,8 @@ export async function renderManagerCard(d: ManagerCardData) {
   const c1 = isHex(d.primary) ? d.primary! : "#123A61";
   const dark = shade(c1, 0.55);
   // The outline is the same navy as the stats panel, so the card has one neutral frame whatever the team colours; the stripe and highlight text are a light tint of the team colour.
-  const trim = INK;
+  const trim = lighten(c1, 0.35);
+  const frame = `linear-gradient(160deg, ${shade(c1, 0.78)} 0%, ${shade(c1, 0.92)} 100%)`;
   const accent = lighten(c1, 0.6);
 
   const parts = d.name.trim().split(/\s+/);
@@ -62,7 +63,7 @@ export async function renderManagerCard(d: ManagerCardData) {
 
   return new ImageResponse(
     (
-      <div style={{ width: W, height: H, display: "flex", flexDirection: "column", padding: 30, backgroundImage: "linear-gradient(145deg, #F8F1DE 0%, #E9DDBD 100%)", fontFamily: body }}>
+      <div style={{ width: W, height: H, display: "flex", flexDirection: "column", padding: 30, backgroundImage: frame, fontFamily: body }}>
         <div style={{ display: "flex", position: "relative", overflow: "hidden", width: W - 60, height: ART_H, borderRadius: 22, border: `9px solid ${trim}`, backgroundImage: `linear-gradient(165deg, ${c1} 0%, ${dark} 100%)` }}>
           <div style={{ display: "flex", position: "absolute", left: -200, top: 230, width: 1500, height: 190, background: "rgba(255,255,255,0.07)", transform: "rotate(-24deg)" }} />
           <div style={{ display: "flex", position: "absolute", left: -200, top: 470, width: 1500, height: 16, background: accent, opacity: 0.55, transform: "rotate(-24deg)" }} />
@@ -93,8 +94,8 @@ export async function renderManagerCard(d: ManagerCardData) {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 62, padding: "0 6px" }}>
-          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: 3, color: INK, textTransform: "uppercase" }}>{(d.team ?? "").slice(0, 30)}</div>
-          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: 3, color: "#7A6A45" }}>{years}</div>
+          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 30, letterSpacing: 3, color: "#FFFFFF", textTransform: "uppercase" }}>{(d.team ?? "").slice(0, 30)}</div>
+          <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, letterSpacing: 3, color: accent }}>{years}</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, borderRadius: 22, padding: "20px 28px 18px 28px", backgroundImage: `linear-gradient(170deg, ${INK} 0%, #0A1828 100%)`, border: `4px solid ${trim}` }}>
