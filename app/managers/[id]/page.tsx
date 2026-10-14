@@ -81,6 +81,14 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
         }}
       />
       <BannerRafters banners={banners} />
+      {history?.career && history.career.wins + history.career.losses + history.career.ties > 0 && (
+        <section className="mb-8">
+          <h2 className="font-display text-2xl mb-4">Manager card</h2>
+          {/* eslint-disable-next-line @next/next/no-img-element -- generated image, cached at the CDN */}
+          <img src={`/api/cards/manager-card?managerId=${managerId}`} alt={`${manager.name} manager card`} loading="lazy" width={525} height={735} className="w-full max-w-sm rounded-xl shadow-lg" />
+          <a href={`/api/cards/manager-card?managerId=${managerId}`} download={`${manager.name}-manager-card.png`} className="mt-3 inline-block text-sm underline">Download the card</a>
+        </section>
+      )}
       {history && <ManagerHistoryView h={history} />}
       {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} />}
       {drafts && <DraftTendenciesView d={drafts} />}
