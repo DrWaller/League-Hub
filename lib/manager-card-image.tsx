@@ -30,8 +30,8 @@ export async function renderManagerCard(d: ManagerCardData) {
   const { display, body } = getFontFamilies(fonts);
   const c1 = isHex(d.primary) ? d.primary! : "#123A61";
   const dark = shade(c1, 0.55);
-  // The outline is a deep shade of the team colour (it sits on the cream card); the stripe and highlight text are a light tint of it.
-  const trim = shade(c1, 0.45);
+  // The outline is the same navy as the stats panel, so the card has one neutral frame whatever the team colours; the stripe and highlight text are a light tint of the team colour.
+  const trim = INK;
   const accent = lighten(c1, 0.6);
 
   const parts = d.name.trim().split(/\s+/);
