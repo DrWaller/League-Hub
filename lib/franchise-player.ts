@@ -10,13 +10,14 @@ import { norm } from "./lines";
 export interface FranchiseEntry {
   name: string;
   position: string;
+  eligible: string[]; // every position he was listed at for this manager
   seasons: number[];
   weeks: number; // roster looks, about one per week
   points: number; // estimated points scored while on this manager's team
   best: { season: number; points: number } | null; // his best single season for the manager
 }
 
-export async function loadFranchisePlayers(managerId: number, top = 5): Promise<FranchiseEntry[]> {
+async function loadAllPlayers(managerId: number): Promise<FranchiseEntry[]> {
   const [owned, stats, assignments] = await Promise.all([
     sql`SELECT season, team_id, player_id, name, position, samples FROM roster_owned WHERE source = 'espn';`,
     sql`SELECT season, player_id, gp, points FROM pool_season_stats;`,
@@ -39,8 +40,12 @@ export async function loadFranchisePlayers(managerId: number, top = 5): Promise<
     const share = Math.min(1, Number(r.samples) / len);
     const got = Math.max(0, total) * share;
     const k = norm(String(r.name));
-    const e = byPlayer.get(k) ?? { name: String(r.name), position: String(r.position), seasons: [], weeks: 0, points: 0, best: null };
+    const e = byPlayer.get(k) ?? { name: String(r.name), position: String(r.position), eligible: [], seasons: [], weeks: 0, points: 0, best: null };
     e.points += got;
+    for (const x of String(r.position).split(",")) {
+      const t = x.trim();
+      if (t && !e.eligible.includes(t)) e.eligible.push(t);
+    }
     e.weeks += Number(r.samples);
     if (!e.seasons.includes(season)) e.seasons.push(season);
     if (!e.best || got > e.best.points) e.best = { season, points: got };
@@ -48,6 +53,41 @@ export async function loadFranchisePlayers(managerId: number, top = 5): Promise<
   }
   return [...byPlayer.values()]
     .map((p) => ({ ...p, seasons: p.seasons.sort((a, b) => a - b) }))
-    .sort((a, b) => b.points - a.points)
-    .slice(0, top);
+    .sort((a, b) => b.points - a.points);
+}
+
+export async function loadFranchisePlayers(managerId: number, top = 5): Promise<FranchiseEntry[]> {
+  return (await loadAllPlayers(managerId)).slice(0, top);
+}
+
+// The all-time team: the best scorers for a manager at each position. A player listed at several positions fills
+// one slot only (the best-scoring player is placed first, in his listed order of positions).
+export const ALL_TIME_SLOTS: { pos: string; count: number }[] = [
+  { pos: "C", count: 2 },
+  { pos: "LW", count: 2 },
+  { pos: "RW", count: 2 },
+  { pos: "D", count: 4 },
+  { pos: "G", count: 2 },
+];
+
+export interface AllTimeSpot {
+  pos: string;
+  players: FranchiseEntry[];
+}
+
+export async function loadAllTimeTeam(managerId: number): Promise<AllTimeSpot[]> {
+  const all = await loadAllPlayers(managerId);
+  return placeAllTimeTeam(all);
+}
+
+export function placeAllTimeTeam(all: FranchiseEntry[]): AllTimeSpot[] {
+  const open = new Map(ALL_TIME_SLOTS.map((s) => [s.pos, s.count]));
+  const out = new Map<string, FranchiseEntry[]>(ALL_TIME_SLOTS.map((s) => [s.pos, []]));
+  for (const p of [...all].sort((a, b) => b.points - a.points)) {
+    const spot = p.eligible.find((x) => (open.get(x) ?? 0) > 0);
+    if (!spot) continue;
+    open.set(spot, (open.get(spot) ?? 0) - 1);
+    out.get(spot)!.push(p);
+  }
+  return ALL_TIME_SLOTS.map((s) => ({ pos: s.pos, players: out.get(s.pos)! }));
 }

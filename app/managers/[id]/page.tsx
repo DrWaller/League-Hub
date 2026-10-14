@@ -17,7 +17,8 @@ import LuckView from "@/components/LuckView";
 import AllPlayView from "@/components/AllPlayView";
 import PlayoffsView from "@/components/PlayoffsView";
 import { buildPlayoffReport, type PlayoffReport } from "@/lib/manager-playoffs";
-import { loadFranchisePlayers, type FranchiseEntry } from "@/lib/franchise-player";
+import { loadFranchisePlayers, loadAllTimeTeam, type FranchiseEntry, type AllTimeSpot } from "@/lib/franchise-player";
+import AllTimeTeamView from "@/components/AllTimeTeamView";
 import ManagerTabs from "@/components/ManagerTabs";
 import StyleTagsView from "@/components/StyleTagsView";
 import { buildStyleTags, type StyleTag } from "@/lib/manager-style";
@@ -85,6 +86,12 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
     franchise = await loadFranchisePlayers(managerId);
   } catch (e) {
     console.error("franchise player failed", e);
+  }
+  let allTime: AllTimeSpot[] = [];
+  try {
+    allTime = await loadAllTimeTeam(managerId);
+  } catch (e) {
+    console.error("all-time team failed", e);
   }
   let owned: Awaited<ReturnType<typeof loadOwnedPlayers>> = null;
   try {
@@ -160,7 +167,7 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
               </>
             ),
           },
-          { id: "players", label: "Players", content: owned ? <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise} /> : null },
+          { id: "players", label: "Players", content: owned ? <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise}><AllTimeTeamView team={allTime} /></OwnedPlayersView> : null },
           {
             id: "seasons",
             label: "Team by team",

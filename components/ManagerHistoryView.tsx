@@ -146,7 +146,7 @@ export default function ManagerHistoryView({ h }: { h: ManagerHistory }) {
 
 // ---------------------------------------------------------------------------------------------------------------
 
-export function OwnedPlayersView({ players, seasons, franchise }: { players: OwnedPlayer[]; seasons: number[]; franchise?: FranchiseEntry[] }) {
+export function OwnedPlayersView({ players, seasons, franchise, children }: { players: OwnedPlayer[]; seasons: number[]; franchise?: FranchiseEntry[]; children?: React.ReactNode }) {
   const first = seasons[0];
   const last = seasons[seasons.length - 1];
   const span = Array.from({ length: last - first + 1 }, (_, i) => first + i);
@@ -179,6 +179,7 @@ export function OwnedPlayersView({ players, seasons, franchise }: { players: Own
           )}
         </div>
       )}
+      {children}
       <h3 className="font-display text-lg mb-1">Owned the longest</h3>
       <p className="text-xs text-muted mb-2">One square per season, filled when the player was on the roster for about two weeks or more.</p>
       <ul className="max-w-2xl">
