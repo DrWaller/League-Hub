@@ -29,6 +29,10 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
   const panelBottom = shade(panelBase, 0.4);
   const soft = lighten(panelBase, 0.72);
   const headerSoft = lighten(c1, 0.8);
+  // The header labels use the accent, unless it is too close to the header colour to read (a vivid orange on orange).
+  const rgb = (hex: string) => [(parseInt(hex.slice(1), 16) >> 16) & 255, (parseInt(hex.slice(1), 16) >> 8) & 255, parseInt(hex.slice(1), 16) & 255];
+  const apart = Math.hypot(...rgb(accent).map((v, i) => v - rgb(c1)[i]));
+  const headerLabel = apart < 130 ? headerSoft : accent;
   const dim = "rgba(255,255,255,0.4)";
   const dimName = "rgba(255,255,255,0.35)";
   const bg = `linear-gradient(160deg, ${shade(c1, 0.78)} 0%, ${shade(c1, 0.92)} 100%)`;
@@ -82,13 +86,13 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
             <div style={{ display: "flex", width: 140, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 90, color: "rgba(255,255,255,0.88)" }}>{initials}</div>
           )}
           <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, lineHeight: 1.1, letterSpacing: 8, color: accent }}>ALL-TIME TEAM</div>
+            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, lineHeight: 1.1, letterSpacing: 8, color: headerLabel }}>ALL-TIME TEAM</div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: d.managerName.length > 14 ? 60 : 76, lineHeight: 1.1, color: "#FFFFFF", textTransform: "uppercase", whiteSpace: "nowrap" }}>{d.managerName.slice(0, 22)}</div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 28, lineHeight: 1.1, letterSpacing: 3, color: headerSoft, textTransform: "uppercase", whiteSpace: "nowrap" }}>{(d.team ?? "").slice(0, 26)}</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 84, lineHeight: 1, color: "#FFFFFF" }}>{pts(d.total)}</div>
-            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, lineHeight: 1.1, letterSpacing: 4, color: accent }}>TOTAL POINTS</div>
+            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, lineHeight: 1.1, letterSpacing: 4, color: headerLabel }}>TOTAL POINTS</div>
           </div>
         </div>
 

@@ -18,7 +18,7 @@ const OVERRIDES: { match: (manager: string, team: string | null) => boolean; loo
   {
     // Bobby: a black and orange logo, so charcoal panels instead of navy.
     match: (manager) => manager.trim().toLowerCase() === "bobby",
-    look: { panel: "#1B1D22" },
+    look: { accent: "#FF7A1A", panel: "#1B1D22" },
   },
 ];
 
