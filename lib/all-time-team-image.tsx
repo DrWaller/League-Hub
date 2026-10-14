@@ -21,8 +21,8 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
   const fonts = await loadGraphicFonts();
   const { display, body } = getFontFamilies(fonts);
   const c1 = isHex(d.primary) ? d.primary! : "#123A61";
-  const trim = lighten(c1, 0.35);
-  const accent = lighten(c1, 0.6);
+  const trim = isHex(d.accent) ? d.accent! : lighten(c1, 0.35);
+  const accent = isHex(d.accent) ? d.accent! : lighten(c1, 0.6);
   const bg = `linear-gradient(160deg, ${shade(c1, 0.78)} 0%, ${shade(c1, 0.92)} 100%)`;
   const initials = (d.team ?? d.managerName).split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 3).join("").toUpperCase();
 

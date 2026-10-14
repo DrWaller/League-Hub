@@ -5,6 +5,7 @@ import { getManagers, getManagerSeasons, getTeamBannerColors } from "./content";
 import { getLeagueMeta } from "./espn";
 import { loadLogoData } from "./og-team-logo";
 import { loadAllTimeTeam } from "./franchise-player";
+import { teamLookOverride } from "./team-look";
 
 export interface AllTimePlayer {
   name: string;
@@ -18,6 +19,7 @@ export interface AllTimeTeamCardData {
   logo?: string;
   primary?: string;
   trim?: string;
+  accent?: string;
   // [first team, second team]; each has LW, C, RW, D, D, G (null = open spot).
   teams: { LW: AllTimePlayer | null; C: AllTimePlayer | null; RW: AllTimePlayer | null; D: (AllTimePlayer | null)[]; G: AllTimePlayer | null }[];
   total: number;
@@ -33,6 +35,7 @@ export async function loadAllTimeTeamCard(managerId: number): Promise<AllTimeTea
   const latest = [...mySeasons].sort((a, b) => b.season - a.season)[0];
   const teamId = latest?.teamId;
   const col = teamId != null ? colors[teamId] : undefined;
+  const look = teamLookOverride(manager.name, latest?.teamName ?? null);
 
   const by = (pos: string) =>
     (spots.find((s) => s.pos === pos)?.players ?? []).map((p): AllTimePlayer => ({ name: p.name, points: p.points, seasons: p.seasons.length }));
@@ -49,8 +52,9 @@ export async function loadAllTimeTeamCard(managerId: number): Promise<AllTimeTea
     managerName: manager.name,
     team: latest?.teamName ?? null,
     logo: teamId != null ? logos[teamId] : undefined,
-    primary: col?.primary,
+    primary: look?.primary ?? col?.primary,
     trim: col?.trim,
+    accent: look?.accent,
     teams,
     total,
     leagueName: meta.name,

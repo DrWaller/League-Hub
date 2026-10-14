@@ -31,9 +31,9 @@ export async function renderManagerCard(d: ManagerCardData) {
   const c1 = isHex(d.primary) ? d.primary! : "#123A61";
   const dark = shade(c1, 0.55);
   // The outline is the same navy as the stats panel, so the card has one neutral frame whatever the team colours; the stripe and highlight text are a light tint of the team colour.
-  const trim = lighten(c1, 0.35);
+  const trim = isHex(d.accent) ? d.accent! : lighten(c1, 0.35);
   const frame = `linear-gradient(160deg, ${shade(c1, 0.78)} 0%, ${shade(c1, 0.92)} 100%)`;
-  const accent = lighten(c1, 0.6);
+  const accent = isHex(d.accent) ? d.accent! : lighten(c1, 0.6);
 
   const parts = d.name.trim().split(/\s+/);
   const first = parts[0] ?? "";

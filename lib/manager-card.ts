@@ -9,6 +9,7 @@ import { buildRecords } from "./records";
 import { loadLogoData } from "./og-team-logo";
 import { activeManagerIds } from "./active-managers";
 import { loadFranchisePlayers } from "./franchise-player";
+import { teamLookOverride } from "./team-look";
 
 export interface ManagerCardData {
   name: string;
@@ -16,6 +17,7 @@ export interface ManagerCardData {
   logo?: string;
   primary?: string;
   trim?: string;
+  accent?: string; // set for teams with a hand-picked look (see team-look.ts)
   firstSeason: number | null;
   lastSeason: number | null;
   seasons: number;
@@ -86,13 +88,15 @@ export async function loadManagerCard(managerId: number): Promise<ManagerCardDat
   const star = franchiseList[0];
   const teamId = latest?.teamId;
   const col = teamId != null ? colors[teamId] : undefined;
+  const look = teamLookOverride(manager.name, latest?.teamName ?? null);
 
   return {
     name: manager.name,
     team: latest?.teamName ?? null,
     logo: teamId != null ? logos[teamId] : undefined,
-    primary: col?.primary,
+    primary: look?.primary ?? col?.primary,
     trim: col?.trim,
+    accent: look?.accent,
     firstSeason: mySeasons.length ? Math.min(...mySeasons.map((s) => s.season)) : null,
     lastSeason: latest?.season ?? null,
     seasons: c?.seasons ?? 0,
