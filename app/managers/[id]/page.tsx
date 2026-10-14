@@ -18,6 +18,7 @@ import AllPlayView from "@/components/AllPlayView";
 import PlayoffsView from "@/components/PlayoffsView";
 import { buildPlayoffReport, type PlayoffReport } from "@/lib/manager-playoffs";
 import { loadFranchisePlayers, type FranchiseEntry } from "@/lib/franchise-player";
+import ManagerTabs from "@/components/ManagerTabs";
 import StyleTagsView from "@/components/StyleTagsView";
 import { buildStyleTags, type StyleTag } from "@/lib/manager-style";
 import ErasView from "@/components/ErasView";
@@ -62,10 +63,7 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
     history = buildManagerHistory(managerId, r.managers, r.recSeasons);
     activeIds = activeManagerIds(allSeasons, meta.season, r.recSeasons);
     luck = buildManagerLuck(managerId, r.managers, r.recSeasons);
-    playoffs = await buildPlayoffReport(managerId, r.managers, r.recSeasons).catch((e) => {
-      console.error("playoffs failed", e);
-      return null;
-    });
+    playoffs = buildPlayoffReport(managerId, r.managers, r.recSeasons);
     styleTags = buildStyleTags(managerId, r.managers, r.recSeasons, playoffs);
   } catch (e) {
     console.error("manager history failed", e);
@@ -136,35 +134,39 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
         </div>
       </div>
 
-      <nav aria-label="On this page" className="mb-10 flex flex-wrap gap-x-6 gap-y-2 text-sm border-y border-ice-line py-3">
-        <a href="#career" className="underline">Career</a>
-        <a href="#playoffs" className="underline">Playoffs</a>
-        <a href="#rivalries" className="underline">Rivalries</a>
-        <a href="#luck" className="underline">All-play and luck</a>
-        <a href="#drafts" className="underline">Drafts</a>
-        <a href="#players" className="underline">Players</a>
-        <a href="#seasons" className="underline">Team by team</a>
-      </nav>
-
-      <div id="career" className="scroll-mt-20">{history && <ManagerHistoryView h={history} />}</div>
-      <div id="playoffs" className="scroll-mt-20">{playoffs && <PlayoffsView r={playoffs} />}</div>
-      <div id="rivalries" className="scroll-mt-20">{history && <RivalriesView h={history} activeIds={activeIds} />}</div>
-      <div id="luck" className="scroll-mt-20">
-        {luck && <AllPlayView r={luck} activeIds={activeIds} />}
-        {luck && <LuckView r={luck} />}
-        {history && <HeartbreakersView h={history} luck={luck?.me ?? null} />}
-      </div>
-      <div id="drafts" className="scroll-mt-20">
-        {drafts && <DraftTendenciesView d={drafts} />}
-        {draftValue && <DraftValueView d={draftValue} />}
-      </div>
-      <div id="players" className="scroll-mt-20">{owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise} />}</div>
-      <h2 id="seasons" className="font-display text-2xl mb-4 scroll-mt-20">Team by team</h2>
-      <ManagerTimelineView
-        seasons={seasons}
-        keepersBySeason={keepersBySeason}
-        tradesBySeason={tradesBySeason}
-        managerName={managerName}
+      <ManagerTabs
+        tabs={[
+          { id: "career", label: "Career", content: history ? <ManagerHistoryView h={history} /> : null },
+          { id: "playoffs", label: "Playoffs", content: playoffs ? <PlayoffsView r={playoffs} /> : null },
+          { id: "rivalries", label: "Rivalries", content: history ? <RivalriesView h={history} activeIds={activeIds} /> : null },
+          {
+            id: "luck",
+            label: "All-play and luck",
+            content: (
+              <>
+                {luck && <AllPlayView r={luck} activeIds={activeIds} />}
+                {luck && <LuckView r={luck} />}
+                {history && <HeartbreakersView h={history} luck={luck?.me ?? null} />}
+              </>
+            ),
+          },
+          {
+            id: "drafts",
+            label: "Drafts",
+            content: (
+              <>
+                {drafts && <DraftTendenciesView d={drafts} />}
+                {draftValue && <DraftValueView d={draftValue} />}
+              </>
+            ),
+          },
+          { id: "players", label: "Players", content: owned ? <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise} /> : null },
+          {
+            id: "seasons",
+            label: "Team by team",
+            content: <ManagerTimelineView seasons={seasons} keepersBySeason={keepersBySeason} tradesBySeason={tradesBySeason} managerName={managerName} />,
+          },
+        ].filter((t) => t.content != null)}
       />
     </div>
   );

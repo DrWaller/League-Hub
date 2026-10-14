@@ -42,10 +42,8 @@ export default async function ComparePage({ searchParams }: { searchParams: { a?
       const hb = buildManagerHistory(bId, r.managers, r.recSeasons);
       const la = buildManagerLuck(aId, r.managers, r.recSeasons);
       const lb = buildManagerLuck(bId, r.managers, r.recSeasons);
-      const [pa, pb] = await Promise.all([
-        buildPlayoffReport(aId, r.managers, r.recSeasons).catch(() => null),
-        buildPlayoffReport(bId, r.managers, r.recSeasons).catch(() => null),
-      ]);
+      const pa = buildPlayoffReport(aId, r.managers, r.recSeasons);
+      const pb = buildPlayoffReport(bId, r.managers, r.recSeasons);
       const ca = ha.career;
       const cb = hb.career;
       const m = buildH2HMatrix(r.recSeasons).get(`${aId}|${bId}`);

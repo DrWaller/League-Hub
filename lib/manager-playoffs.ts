@@ -1,11 +1,10 @@
-// Server-side only. Playoff history for every manager: which seasons they made the playoffs, how long the current run
-// of appearances is, the longest run and the longest drought. A team made the playoffs if it finished inside the
-// league's playoff spots (ESPN's playoff team count for that season) on regular-season record, or won or lost the final.
-// Seasons ESPN has no setting for (played elsewhere) assume the most common count.
+// Pure logic. Playoff history for every manager: which seasons they made the playoffs, how long the current run
+// of appearances is, the longest run and the longest drought. The league's rule: the top 6 teams on regular-season
+// record make the playoffs every season, whatever ESPN's own setting says.
 
-import { unstable_cache } from "next/cache";
-import { getPlayoffTeamCount } from "./espn";
 import { buildRecords, type RecManager, type RecSeason, type SeasonRow } from "./records";
+
+export const PLAYOFF_SPOTS = 6;
 
 export interface PlayoffSeason {
   season: number;
@@ -16,7 +15,6 @@ export interface PlayoffSeason {
   made: boolean;
   result: "Champion" | "Runner-up" | "Made it" | "Missed";
   edge: "last spot" | "missed by one" | null; // squeaked in on the final spot, or just missed
-  assumed: boolean; // the spots count was a fallback
 }
 
 export interface PlayoffSummary {
@@ -44,18 +42,10 @@ export interface PlayoffReport {
   spotsBySeason: Record<number, number>;
 }
 
-const spotsFor = unstable_cache(async (season: number) => ({ season, spots: await getPlayoffTeamCount(season) }), ["playoff-spots-v1"], { revalidate: 86400 });
-
-export async function buildPlayoffReport(managerId: number, managers: RecManager[], seasons: RecSeason[]): Promise<PlayoffReport> {
+export function buildPlayoffReport(managerId: number, managers: RecManager[], seasons: RecSeason[]): PlayoffReport {
   const rec = buildRecords(managers, seasons);
-  const counts = await Promise.all(seasons.map((s) => spotsFor(s.season).catch(() => null)));
   const spotsBySeason: Record<number, number> = {};
-  counts.forEach((c) => {
-    if (c) spotsBySeason[c.season] = c.spots;
-  });
-  const freq = new Map<number, number>();
-  Object.values(spotsBySeason).forEach((n) => freq.set(n, (freq.get(n) ?? 0) + 1));
-  const common = [...freq.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 6;
+  for (const s of seasons) spotsBySeason[s.season] = PLAYOFF_SPOTS;
 
   const byManager = new Map<number, SeasonRow[]>();
   for (const r of rec.seasonRows) byManager.set(r.managerId, [...(byManager.get(r.managerId) ?? []), r]);
@@ -64,8 +54,7 @@ export async function buildPlayoffReport(managerId: number, managers: RecManager
   const all: PlayoffSummary[] = [...byManager.entries()].map(([id, rows]) => {
     const sorted = [...rows].sort((a, b) => a.season - b.season);
     const list: PlayoffSeason[] = sorted.map((r) => {
-      const known = spotsBySeason[r.season];
-      const spots = known ?? common;
+      const spots = PLAYOFF_SPOTS;
       const made = r.rank <= spots || r.champion || r.runnerUp;
       const result: PlayoffSeason["result"] = r.champion ? "Champion" : r.runnerUp ? "Runner-up" : made ? "Made it" : "Missed";
       return {
@@ -77,7 +66,6 @@ export async function buildPlayoffReport(managerId: number, managers: RecManager
         made,
         result,
         edge: r.rank === spots ? "last spot" : r.rank === spots + 1 && !made ? "missed by one" : null,
-        assumed: known == null,
       };
     });
     let longest = 0;

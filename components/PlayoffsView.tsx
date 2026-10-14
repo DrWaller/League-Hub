@@ -23,13 +23,12 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 export default function PlayoffsView({ r }: { r: PlayoffReport }) {
   const m = r.me;
   if (!m || m.seasons < 2) return null;
-  const anyAssumed = m.rows.some((s) => s.assumed);
   return (
     <section className="mb-12">
       <div className="mb-4">
         <h2 className="font-display text-2xl leading-tight">Making the playoffs</h2>
         <p className="text-sm text-muted max-w-prose">
-          A team is in when it finishes inside the league's playoff spots on regular-season record, or plays in the final.{anyAssumed ? " Seasons ESPN has no playoff setting for use the usual number of spots." : ""}
+          The top 6 teams on regular-season record make the playoffs.
         </p>
       </div>
       <dl className="flex flex-wrap gap-x-10 gap-y-5 mb-6">
@@ -41,7 +40,7 @@ export default function PlayoffsView({ r }: { r: PlayoffReport }) {
       </dl>
       <ul className="flex flex-wrap gap-3 mb-4" aria-label="Playoff result by season">
         {m.rows.map((s) => (
-          <li key={s.season} className={`w-24 px-2 py-2 text-center ${TONE[s.result]}`} title={`${s.teamName}: finished ${ord(s.rank)} of ${s.teamCount}, ${s.spots} playoff spots${s.assumed ? " (assumed)" : ""}`}>
+          <li key={s.season} className={`w-24 px-2 py-2 text-center ${TONE[s.result]}`} title={`${s.teamName}: finished ${ord(s.rank)} of ${s.teamCount}, ${s.spots} playoff spots`}>
             <p className="font-display text-lg leading-none">{s.season}</p>
             <p className="text-xs mt-1">{s.result}</p>
             <p className="text-[11px] opacity-80">
