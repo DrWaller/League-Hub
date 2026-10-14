@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getManagers, getManagerSeasons, getTeamLogos } from "@/lib/content";
 import { getLeagueMeta } from "@/lib/espn";
 import { loadRecords } from "@/lib/records-data";
@@ -44,6 +45,10 @@ export default async function ManagersPage() {
     <div>
       <h1 className="font-display text-4xl mb-1">Managers</h1>
       <p className="text-muted mb-8 max-w-prose">The people behind the teams, across every rename. Open a manager for their full league history.</p>
+      <p className="text-sm mb-6 flex gap-6">
+        <Link href="/managers/matrix" className="underline">Head-to-head grid</Link>
+        <Link href="/managers/compare" className="underline">Compare two managers</Link>
+      </p>
       {items.length === 0 ? <p className="text-muted">No managers added yet.</p> : <ManagerCards items={items} />}
     </div>
   );
