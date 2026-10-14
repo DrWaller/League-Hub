@@ -14,6 +14,8 @@ import { buildManagerHistory, type ManagerHistory } from "@/lib/manager-history"
 import { activeManagerIds } from "@/lib/active-managers";
 import RivalriesView from "@/components/RivalriesView";
 import LuckView from "@/components/LuckView";
+import DraftValueView from "@/components/DraftValueView";
+import { loadDraftValue, type DraftValue } from "@/lib/draft-value";
 import { buildManagerLuck, type ManagerLuckReport } from "@/lib/manager-luck";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +58,12 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
     drafts = await loadDraftTendencies(managerId, (await getLeagueMeta()).season);
   } catch (e) {
     console.error("draft tendencies failed", e);
+  }
+  let draftValue: DraftValue | null = null;
+  try {
+    draftValue = await loadDraftValue(managerId, (await getLeagueMeta()).season);
+  } catch (e) {
+    console.error("draft value failed", e);
   }
   let owned: Awaited<ReturnType<typeof loadOwnedPlayers>> = null;
   try {
@@ -102,6 +110,7 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
       {luck && <LuckView r={luck} />}
       {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} />}
       {drafts && <DraftTendenciesView d={drafts} />}
+      {draftValue && <DraftValueView d={draftValue} />}
       <h2 className="font-display text-2xl mb-4">Team by team</h2>
       <ManagerTimelineView
         seasons={seasons}

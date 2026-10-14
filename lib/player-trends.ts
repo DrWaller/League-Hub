@@ -35,7 +35,7 @@ export interface PoolRow {
   points: number;
 }
 
-async function loadSeason(season: number): Promise<PoolRow[]> {
+export async function loadSeason(season: number): Promise<PoolRow[]> {
   const r = await sql`SELECT season, player_id, name, position, gp, points FROM pool_season_stats WHERE season = ${season};`;
   return r.rows.map((x) => ({ season: Number(x.season), id: Number(x.player_id), name: String(x.name), position: String(x.position), gp: Number(x.gp), points: Number(x.points) }));
 }

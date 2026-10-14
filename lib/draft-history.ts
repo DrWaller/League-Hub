@@ -80,9 +80,10 @@ export interface DraftTendencies {
   firstRounders: DraftedPlayer[]; // players taken in round 1 more than once
 }
 
-interface Pick { season: number; overall: number; round: number | null; name: string; position: string; nhl: string | null; keeper: boolean; teamId: number | null; teamName: string }
+export interface Pick { season: number; overall: number; round: number | null; name: string; position: string; nhl: string | null; keeper: boolean; teamId: number | null; teamName: string }
 
-export async function loadDraftTendencies(managerId: number, currentSeason: number): Promise<DraftTendencies | null> {
+// Every pick this manager made (or kept) in the saved drafts before the current season, from the best source for each season.
+export async function collectManagerPicks(managerId: number, currentSeason: number): Promise<{ mine: Pick[]; seasonsSeen: Set<number> }> {
   await ensureDraftSchema();
   const [rows, managers, assignments] = await Promise.all([
     sql`SELECT season, source, overall_pick, round, team_id, team_name, manager, player_name, position, pro_team_id, nhl_team, is_keeper FROM draft_picks WHERE season < ${currentSeason} ORDER BY season, overall_pick;`,
@@ -132,6 +133,11 @@ export async function loadDraftTendencies(managerId: number, currentSeason: numb
       seasonsSeen.add(season);
     }
   }
+  return { mine, seasonsSeen };
+}
+
+export async function loadDraftTendencies(managerId: number, currentSeason: number): Promise<DraftTendencies | null> {
+  const { mine, seasonsSeen } = await collectManagerPicks(managerId, currentSeason);
   if (mine.length === 0) return null;
 
   const real = mine.filter((p) => !p.keeper && !/^playerId \d+$/.test(p.name));
