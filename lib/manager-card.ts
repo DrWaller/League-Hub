@@ -24,7 +24,8 @@ export interface ManagerCardData {
   ties: number;
   winPct: number;
   titles: number;
-  runnerUps: number;
+  avgFinish: number | null;
+  bestFinish: number | null;
   firstPlace: number;
   avgScore: number;
   scoreRank: number; // rank of points per game among all managers, 1 = best
@@ -100,7 +101,8 @@ export async function loadManagerCard(managerId: number): Promise<ManagerCardDat
     ties: c?.ties ?? 0,
     winPct: c?.winPct ?? 0,
     titles: c?.titles ?? 0,
-    runnerUps: c?.runnerUps ?? 0,
+    avgFinish: h.seasons.length ? h.seasons.reduce((n, x) => n + x.rank, 0) / h.seasons.length : null,
+    bestFinish: h.seasons.length ? Math.min(...h.seasons.map((x) => x.rank)) : null,
     firstPlace: c?.firstPlace ?? 0,
     avgScore: h.avgScore,
     scoreRank,

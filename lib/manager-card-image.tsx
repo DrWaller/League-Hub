@@ -47,7 +47,7 @@ export async function renderManagerCard(d: ManagerCardData) {
 
   const ART_H = 610;
   const boxes: [string, string, string?][] = [
-    ["RUNNER-UPS", String(d.runnerUps)],
+    ["AVG FINISH", d.avgFinish != null ? d.avgFinish.toFixed(1) : "–", d.bestFinish != null ? `best: ${ordinal(d.bestFinish)}` : undefined],
     ["FIRST PLACE", String(d.firstPlace)],
     ["PTS / GAME", d.avgScore ? d.avgScore.toFixed(1) : "–", d.scoreRank ? `${ordinal(d.scoreRank)} of ${d.managerCount}` : undefined],
     ["BEST SEASON", d.best ? String(d.best.season) : "–", d.best?.record],
