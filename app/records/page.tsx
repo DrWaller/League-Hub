@@ -3,6 +3,8 @@ import { loadRecords } from "@/lib/records-data";
 import { luckColor } from "@/lib/luck";
 import { GameRecord, SeasonRow } from "@/lib/records";
 import { pts, ptsComma } from "@/lib/format";
+import { AllPlayTable } from "@/components/AllPlayView";
+import { buildManagerLuck } from "@/lib/manager-luck";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +69,8 @@ function GameList({ title, rows, kind }: { title: string; rows: GameRecord[]; ki
 
 export default async function RecordsPage() {
   const meta = await getLeagueMeta();
-  const { records, seasonsUsed, seasonsSkipped, managerCount } = await loadRecords(meta.season);
+  const { records, seasonsUsed, seasonsSkipped, managerCount, managers, recSeasons } = await loadRecords(meta.season);
+  const allPlay = records.careers.length > 0 ? buildManagerLuck(0, managers, recSeasons).all : [];
   const nameOf = new Map(records.careers.map((c) => [c.managerId, c.name]));
   const hasData = records.careers.length > 0;
 
@@ -142,6 +145,14 @@ export default async function RecordsPage() {
               </table>
             </div>
           </section>
+
+          {allPlay.length > 0 && (
+            <section>
+              <h2 className="font-display text-2xl mb-1">All-time all-play</h2>
+              <p className="text-sm text-muted mb-4 max-w-prose">Every week, every score against every other team's. The record a perfectly fair schedule would have given.</p>
+              <AllPlayTable rows={allPlay} />
+            </section>
+          )}
 
           <section>
             <h2 className="font-display text-2xl mb-4">Best and worst seasons</h2>
