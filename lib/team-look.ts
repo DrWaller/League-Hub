@@ -20,6 +20,16 @@ const OVERRIDES: { match: (manager: string, team: string | null) => boolean; loo
     match: (manager) => manager.trim().toLowerCase() === "bobby",
     look: { accent: "#FF7A1A", panel: "#1B1D22" },
   },
+  {
+    // Dan: red, black and gold Senators logo, so gold highlights on charcoal.
+    match: (manager) => manager.trim().toLowerCase() === "dan",
+    look: { accent: "#EDB325", panel: "#1B1D22" },
+  },
+  {
+    // Matt: a red and white logo, so white highlights on charcoal (navy didn't suit it).
+    match: (manager) => manager.trim().toLowerCase() === "matt",
+    look: { accent: "#FFFFFF", panel: "#1B1D22" },
+  },
 ];
 
 export function teamLookOverride(manager: string, team: string | null): TeamLook | null {
