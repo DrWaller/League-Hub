@@ -29,10 +29,10 @@ export async function renderManagerCard(d: ManagerCardData) {
   const fonts = await loadGraphicFonts();
   const { display, body } = getFontFamilies(fonts);
   const c1 = isHex(d.primary) ? d.primary! : "#123A61";
-  const c2 = isHex(d.trim) ? d.trim! : "#E0AE4A";
   const dark = shade(c1, 0.55);
-  const trim = lum(c2) < 0.3 || lum(c2) > 0.93 ? "#E0AE4A" : c2;
-  const accent = lum(trim) < 0.55 ? lighten(trim, 0.55) : trim;
+  // The outline is a deep shade of the team colour (it sits on the cream card); the stripe and highlight text are a light tint of it.
+  const trim = shade(c1, 0.45);
+  const accent = lighten(c1, 0.6);
 
   const parts = d.name.trim().split(/\s+/);
   const first = parts[0] ?? "";
@@ -65,7 +65,7 @@ export async function renderManagerCard(d: ManagerCardData) {
       <div style={{ width: W, height: H, display: "flex", flexDirection: "column", padding: 30, backgroundImage: "linear-gradient(145deg, #F8F1DE 0%, #E9DDBD 100%)", fontFamily: body }}>
         <div style={{ display: "flex", position: "relative", overflow: "hidden", width: W - 60, height: ART_H, borderRadius: 22, border: `9px solid ${trim}`, backgroundImage: `linear-gradient(165deg, ${c1} 0%, ${dark} 100%)` }}>
           <div style={{ display: "flex", position: "absolute", left: -200, top: 230, width: 1500, height: 190, background: "rgba(255,255,255,0.07)", transform: "rotate(-24deg)" }} />
-          <div style={{ display: "flex", position: "absolute", left: -200, top: 470, width: 1500, height: 16, background: trim, opacity: 0.85, transform: "rotate(-24deg)" }} />
+          <div style={{ display: "flex", position: "absolute", left: -200, top: 470, width: 1500, height: 16, background: accent, opacity: 0.55, transform: "rotate(-24deg)" }} />
           {d.logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- next/og JSX
             <img src={d.logo} width={520} height={520} style={{ position: "absolute", left: 244, top: 92, width: 520, height: 520, objectFit: "contain" }} />

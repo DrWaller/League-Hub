@@ -38,7 +38,7 @@ const MIN_VS_GAMES = 3;
 
 export async function loadManagerCard(managerId: number): Promise<ManagerCardData | null> {
   const meta = await getLeagueMeta();
-  const [managers, mySeasons, rec] = await Promise.all([getManagers(), getManagerSeasons(managerId), loadRecords(meta.season)]);
+  const [managers, mySeasons, rec, everySeason] = await Promise.all([getManagers(), getManagerSeasons(managerId), loadRecords(meta.season), getManagerSeasons()]);
   const manager = managers.find((m) => m.id === managerId);
   if (!manager) return null;
   const h = buildManagerHistory(managerId, rec.managers, rec.recSeasons);
@@ -53,7 +53,14 @@ export async function loadManagerCard(managerId: number): Promise<ManagerCardDat
   const scoreRank = 1 + all.filter((x) => perGame(x) > myPpg).length;
   const winRank = c ? 1 + all.filter((x) => x.winPct > c.winPct).length : all.length;
 
-  const rows = h.vs.filter((r) => r.w + r.l + r.t >= MIN_VS_GAMES);
+  // Nemesis and victim are only managers still in the league: those with a team this season, or (before this
+  // season's teams are entered) in the latest finished one.
+  let active = new Set(everySeason.filter((x) => x.season === meta.season && x.managerId != null).map((x) => x.managerId as number));
+  if (active.size < 2 && rec.recSeasons.length) {
+    const latestFinished = [...rec.recSeasons].sort((a, b) => b.season - a.season)[0];
+    active = new Set(latestFinished.teams.map((t) => t.managerId).filter((id): id is number => id != null));
+  }
+  const rows = h.vs.filter((r) => r.w + r.l + r.t >= MIN_VS_GAMES && active.has(r.managerId));
   const rec2 = (r: { w: number; l: number; t: number }) => `${r.w}-${r.l}${r.t ? `-${r.t}` : ""}`;
   const victim = rows.length ? rows[0] : null;
   const nemesis = rows.length ? [...rows].sort((a, b) => a.pct - b.pct || b.l - a.l)[0] : null;
