@@ -5,6 +5,7 @@ import { pts, ptsComma } from "@/lib/format";
 import Cup from "./Cup";
 import type { FranchiseEntry } from "@/lib/franchise-player";
 
+const cleanPos = (p: string) => p.split(",").map((x) => x.trim()).filter((x) => x && x !== "Skt").join("/");
 const rec = (w: number, l: number, t: number) => `${w}-${l}${t ? `-${t}` : ""}`;
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const ord = (n: number) => `${n}${["th", "st", "nd", "rd"][(n % 100 >= 11 && n % 100 <= 13) || n % 10 > 3 ? 0 : n % 10]}`;
@@ -161,7 +162,7 @@ export function OwnedPlayersView({ players, seasons, franchise }: { players: Own
             About <span className="font-semibold">{ptsComma(star.points)}</span> points for this team
           </p>
           <p className="text-xs text-muted font-tabular">
-            {star.position}, {star.seasons.length} season{star.seasons.length === 1 ? "" : "s"} ({star.seasons[0]} to {star.seasons[star.seasons.length - 1]}), about {star.weeks} weeks
+            {cleanPos(star.position)}, {star.seasons.length} season{star.seasons.length === 1 ? "" : "s"} ({star.seasons[0]} to {star.seasons[star.seasons.length - 1]}), about {star.weeks} weeks
             {star.best ? `, best year ${star.best.season} with about ${ptsComma(star.best.points)}` : ""}
           </p>
           {franchise && franchise.length > 1 && (
@@ -169,7 +170,7 @@ export function OwnedPlayersView({ players, seasons, franchise }: { players: Own
               {franchise.slice(1).map((p, i) => (
                 <li key={p.name} className="flex justify-between gap-4 py-1 border-t border-ice-line/60">
                   <span>
-                    {i + 2}. {p.name} <span className="text-xs text-muted">{p.position}</span>
+                    {i + 2}. {p.name} <span className="text-xs text-muted">{cleanPos(p.position)}</span>
                   </span>
                   <span className="font-tabular text-muted">about {ptsComma(p.points)}</span>
                 </li>
@@ -185,7 +186,7 @@ export function OwnedPlayersView({ players, seasons, franchise }: { players: Own
           <li key={p.name} className="grid grid-cols-[1fr_auto] gap-x-4 items-center py-2 border-b border-ice-line/60">
             <div className="min-w-0">
               <p className="font-body font-medium truncate">
-                {p.name} <span className="text-xs text-muted font-normal">{p.position}</span>
+                {p.name} <span className="text-xs text-muted font-normal">{cleanPos(p.position)}</span>
               </p>
               <div className="mt-1 flex gap-[3px]" role="img" aria-label={`Owned in ${p.seasons.join(", ")}`}>
                 {span.map((y) => (

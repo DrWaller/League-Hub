@@ -141,7 +141,7 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
           { id: "rivalries", label: "Rivalries", content: history ? <RivalriesView h={history} activeIds={activeIds} /> : null },
           {
             id: "luck",
-            label: "All-play and luck",
+            label: "Luck",
             content: (
               <>
                 {luck && <AllPlayView r={luck} activeIds={activeIds} />}

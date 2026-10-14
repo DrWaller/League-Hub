@@ -55,7 +55,7 @@ export default function DraftValueView({ d }: { d: DraftValue }) {
         <Headline label="Biggest bust" p={d.worst[0]} tone="bad" />
       </div>
       <p className="mb-6 text-sm">
-        <span className="font-semibold">{(d.hitRate * 100).toFixed(0)}%</span> of {d.evaluated} picks scored at least as much as the player who finished at that spot.
+        <span className="font-semibold">{(d.hitRate * 100).toFixed(0)}%</span> of {d.evaluated} picks finished close to their draft spot or better (within 15 places or 50% of the pick number, whichever is more).
         {years.length > 1 && bestYear && worstYear ? ` Best draft: ${bestYear.season}. Worst: ${worstYear.season}.` : ""}
       </p>
       <p className="mb-6 text-sm">

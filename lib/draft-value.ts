@@ -18,6 +18,7 @@ export interface PickValue {
   finish: number; // rank of the player's season points among everyone
   par: number; // points scored by the player who finished at the pick's slot
   surplus: number; // points minus par
+  hit: boolean; // finished close to or better than the draft slot
 }
 
 export interface DraftValue {
@@ -25,13 +26,13 @@ export interface DraftValue {
   skipped: number; // picks whose player couldn't be matched to season stats
   seasons: number[];
   avgSurplus: number;
-  hitRate: number; // share of picks at or above par
+  hitRate: number; // share of picks that finished close to or better than their slot
   best: PickValue[];
   worst: PickValue[];
   bySeason: { season: number; picks: number; avgSurplus: number }[];
   byRound: { round: number; picks: number; avgSurplus: number }[];
   firstRoundPicks: number;
-  firstRoundHitRate: number; // share of first-round picks at or above par
+  firstRoundHitRate: number; // share of first-round picks that hit
   goalieRound: number | null; // average round of the first goalie taken each draft
   goalieDrafts: number;
 }
@@ -70,7 +71,7 @@ export async function loadDraftValue(managerId: number, currentSeason: number): 
       skipped++;
       continue;
     }
-    values.push({ season: p.season, overall: p.overall, round: p.round, name: p.name, position: p.position, points: hit.points, gp: hit.gp, finish: hit.finish, par: parRow.points, surplus: hit.points - parRow.points });
+    values.push({ hit: hit.finish <= Math.max(p.overall + 15, Math.round(p.overall * 1.5)), season: p.season, overall: p.overall, round: p.round, name: p.name, position: p.position, points: hit.points, gp: hit.gp, finish: hit.finish, par: parRow.points, surplus: hit.points - parRow.points });
   }
   if (values.length === 0) return null;
 
@@ -97,13 +98,13 @@ export async function loadDraftValue(managerId: number, currentSeason: number): 
     skipped,
     seasons: bySeason.map((s) => s.season),
     avgSurplus: avg(values.map((v) => v.surplus)),
-    hitRate: values.filter((v) => v.surplus >= 0).length / values.length,
+    hitRate: values.filter((v) => v.hit).length / values.length,
     best: sorted.slice(0, 5),
     worst: sorted.slice(-5).reverse(),
     bySeason,
     byRound,
     firstRoundPicks: r1.length,
-    firstRoundHitRate: r1.length ? r1.filter((v) => v.surplus >= 0).length / r1.length : 0,
+    firstRoundHitRate: r1.length ? r1.filter((v) => v.hit).length / r1.length : 0,
     goalieRound: firstGoalie.length ? avg(firstGoalie) : null,
     goalieDrafts: firstGoalie.length,
   };

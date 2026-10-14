@@ -6,10 +6,10 @@ const ord = (n: number) => `${n}${["th", "st", "nd", "rd"][(n % 100 >= 11 && n %
 export default function ErasView({ h, currentSeason }: { h: ManagerHistory; currentSeason: number }) {
   const rows = h.seasons;
   if (rows.length < 3) return null;
-  const W = 640;
-  const H = 180;
-  const padX = 28;
-  const padY = 20;
+  const W = 360;
+  const H = 190;
+  const padX = 34;
+  const padY = 18;
   const teams = Math.max(...rows.map((r) => r.teamCount), 2);
   const x = (i: number) => padX + (rows.length === 1 ? 0 : (i / (rows.length - 1)) * (W - padX * 2));
   const y = (rank: number) => padY + ((rank - 1) / (teams - 1)) * (H - padY * 2);
@@ -49,17 +49,19 @@ export default function ErasView({ h, currentSeason }: { h: ManagerHistory; curr
           <dt className="mt-1 text-sm text-muted">{sinceTitle == null ? "Titles" : sinceTitle === 0 ? "Title won" : sinceTitle === 1 ? "Season since the last title" : "Seasons since the last title"}</dt>
         </div>
       </dl>
-      <div className="max-w-2xl">
-        <svg viewBox={`0 0 ${W} ${H + 22}`} className="w-full h-auto" role="img" aria-label={`Regular-season finish by year: ${rows.map((r) => `${r.season} ${ord(r.rank)}`).join(", ")}`}>
+      <div className="max-w-md">
+        <svg viewBox={`0 0 ${W} ${H + 26}`} className="w-full h-auto" role="img" aria-label={`Regular-season finish by year: ${rows.map((r) => `${r.season} ${ord(r.rank)}`).join(", ")}`}>
           <line x1={padX} x2={W - padX} y1={y(Math.ceil(teams / 2))} y2={y(Math.ceil(teams / 2))} stroke="currentColor" strokeOpacity="0.2" strokeDasharray="4 4" />
+          <text x={4} y={y(1) + 4} fontSize="12" fill="currentColor" fillOpacity="0.7">1st</text>
+          <text x={4} y={y(teams) + 4} fontSize="12" fill="currentColor" fillOpacity="0.7">{ord(teams)}</text>
           <path d={path} fill="none" stroke="#2B6CB5" strokeWidth="2.5" />
           {rows.map((r, i) => (
             <g key={r.season}>
               <circle cx={x(i)} cy={y(r.rank)} r={r.champion ? 7 : 4.5} fill={r.champion ? "#D9A441" : "#2B6CB5"} stroke={r.champion ? "#8A6513" : "none"} strokeWidth="1.5">
                 <title>{`${r.season}: ${ord(r.rank)} of ${r.teamCount}${r.champion ? ", champion" : r.runnerUp ? ", runner-up" : ""}`}</title>
               </circle>
-              <text x={x(i)} y={H + 14} textAnchor="middle" fontSize="12" fill="currentColor" fillOpacity="0.65">
-                {String(r.season).slice(2)}
+              <text x={x(i)} y={H + 16} textAnchor="middle" fontSize="12" fill="currentColor" fillOpacity="0.7">
+                {rows.length <= 7 ? `'${String(r.season).slice(2)}` : String(r.season).slice(2)}
               </text>
             </g>
           ))}

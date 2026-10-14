@@ -27,15 +27,15 @@ function Row({ v }: { v: VsRow }) {
     <tr className="border-b border-ice-line/50">
       <td className="py-2 pr-4 font-body whitespace-nowrap">{v.name}</td>
       <td className="py-2 pr-4 font-tabular whitespace-nowrap">{rec(v.w, v.l, v.t)}</td>
-      <td className="py-2 pr-4 font-tabular">{(v.pct * 100).toFixed(0)}%</td>
+      <td className="hidden sm:table-cell py-2 pr-4 font-tabular">{(v.pct * 100).toFixed(0)}%</td>
       <td className={`py-2 pr-4 font-tabular whitespace-nowrap ${cur?.kind === "W" ? "text-rink-bright" : cur?.kind === "L" ? "text-center-red" : ""}`}>{cur ? `${cur.kind}${cur.length}` : "–"}</td>
-      <td className="py-2 pr-4 font-tabular whitespace-nowrap">{v.bestRun}W / {v.worstRun}L</td>
+      <td className="hidden sm:table-cell py-2 pr-4 font-tabular whitespace-nowrap">{v.bestRun}W / {v.worstRun}L</td>
       <td className={`py-2 pr-4 font-tabular whitespace-nowrap ${v.avgMargin >= 0 ? "text-rink-bright" : "text-center-red"}`}>
         {v.avgMargin >= 0 ? "+" : "−"}
         {Math.abs(v.avgMargin).toFixed(1)}
       </td>
-      <td className="py-2 pr-4 text-xs text-muted whitespace-nowrap">{v.closest ? `${v.closest.result} by ${margin(v.closest)} (${when(v.closest)})` : "–"}</td>
-      <td className="py-2 text-xs text-muted whitespace-nowrap">{v.lastMeeting ? `${v.lastMeeting.result} ${v.lastMeeting.score.toFixed(1)}-${v.lastMeeting.oppScore.toFixed(1)} (${when(v.lastMeeting)})` : "–"}</td>
+      <td className="hidden md:table-cell py-2 pr-4 text-xs text-muted whitespace-nowrap">{v.closest ? `${v.closest.result} by ${margin(v.closest)} (${when(v.closest)})` : "–"}</td>
+      <td className="hidden md:table-cell py-2 text-xs text-muted whitespace-nowrap">{v.lastMeeting ? `${v.lastMeeting.result} ${v.lastMeeting.score.toFixed(1)}-${v.lastMeeting.oppScore.toFixed(1)} (${when(v.lastMeeting)})` : "–"}</td>
     </tr>
   );
 }
@@ -43,17 +43,17 @@ function Row({ v }: { v: VsRow }) {
 function Table({ rows }: { rows: VsRow[] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="text-sm min-w-max w-full max-w-4xl">
+      <table className="text-sm w-full max-w-4xl">
         <thead>
           <tr className="text-left text-xs text-muted border-b border-ice-line">
             <th className="py-1 pr-4 font-normal">Opponent</th>
             <th className="py-1 pr-4 font-normal">Record</th>
-            <th className="py-1 pr-4 font-normal">Win %</th>
+            <th className="hidden sm:table-cell py-1 pr-4 font-normal">Win %</th>
             <th className="py-1 pr-4 font-normal">Now</th>
-            <th className="py-1 pr-4 font-normal">Longest runs</th>
-            <th className="py-1 pr-4 font-normal">Avg margin</th>
-            <th className="py-1 pr-4 font-normal">Closest game</th>
-            <th className="py-1 font-normal">Last meeting</th>
+            <th className="hidden sm:table-cell py-1 pr-4 font-normal">Longest runs</th>
+            <th className="py-1 pr-4 font-normal">Margin</th>
+            <th className="hidden md:table-cell py-1 pr-4 font-normal">Closest game</th>
+            <th className="hidden md:table-cell py-1 font-normal">Last meeting</th>
           </tr>
         </thead>
         <tbody>
