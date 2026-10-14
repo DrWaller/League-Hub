@@ -14,6 +14,9 @@ import { buildManagerHistory, type ManagerHistory } from "@/lib/manager-history"
 import { activeManagerIds } from "@/lib/active-managers";
 import RivalriesView from "@/components/RivalriesView";
 import LuckView from "@/components/LuckView";
+import AllPlayView from "@/components/AllPlayView";
+import PlayoffsView from "@/components/PlayoffsView";
+import { buildPlayoffReport, type PlayoffReport } from "@/lib/manager-playoffs";
 import DraftValueView from "@/components/DraftValueView";
 import { loadDraftValue, type DraftValue } from "@/lib/draft-value";
 import { buildManagerLuck, type ManagerLuckReport } from "@/lib/manager-luck";
@@ -44,12 +47,17 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
   let history: ManagerHistory | null = null;
   let activeIds = new Set<number>();
   let luck: ManagerLuckReport | null = null;
+  let playoffs: PlayoffReport | null = null;
   try {
     const meta = await getLeagueMeta();
     const r = await loadRecords(meta.season);
     history = buildManagerHistory(managerId, r.managers, r.recSeasons);
     activeIds = activeManagerIds(allSeasons, meta.season, r.recSeasons);
     luck = buildManagerLuck(managerId, r.managers, r.recSeasons);
+    playoffs = await buildPlayoffReport(managerId, r.managers, r.recSeasons).catch((e) => {
+      console.error("playoffs failed", e);
+      return null;
+    });
   } catch (e) {
     console.error("manager history failed", e);
   }
@@ -107,6 +115,8 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
       )}
       {history && <ManagerHistoryView h={history} />}
       {history && <RivalriesView h={history} activeIds={activeIds} />}
+      {playoffs && <PlayoffsView r={playoffs} />}
+      {luck && <AllPlayView r={luck} activeIds={activeIds} />}
       {luck && <LuckView r={luck} />}
       {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} />}
       {drafts && <DraftTendenciesView d={drafts} />}

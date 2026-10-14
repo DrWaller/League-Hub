@@ -17,7 +17,11 @@ export interface LuckSeason {
   actualWins: number;
   expectedWins: number; // all-play win share x games
   games: number;
-  diff: number; // actual minus expected wins
+  diff: number;
+  allPlayW: number;
+  allPlayL: number;
+  allPlayT: number;
+  allPlayPct: number; // actual minus expected wins
 }
 
 export interface ManagerLuck {
@@ -27,6 +31,9 @@ export interface ManagerLuck {
   actualWins: number;
   expectedWins: number;
   luck: number; // actual minus expected wins over the career
+  allPlayW: number; // all-play record: every week against every other team
+  allPlayL: number;
+  allPlayT: number;
   allPlayPct: number; // all-play win % (the record a fair schedule would give)
   actualPct: number;
   stolenWins: number; // won with a below-median score that week
@@ -46,6 +53,7 @@ export interface ManagerLuck {
 export interface ManagerLuckReport {
   me: ManagerLuck | null;
   all: ManagerLuck[]; // everyone with enough games, for ranking
+  allPlayRank: number; // 1 = best all-time all-play win %
   consistencyRank: number; // 1 = steadiest
   luckRank: number; // 1 = luckiest
   ranked: number;
@@ -74,6 +82,9 @@ export function buildManagerLuck(managerId: number, managers: RecManager[], seas
     games: number;
     allW: number;
     allGames: number;
+    allWins: number;
+    allLosses: number;
+    allTies: number;
     stolen: number;
     robbed: number;
     boom: number;
@@ -86,7 +97,7 @@ export function buildManagerLuck(managerId: number, managers: RecManager[], seas
   const get = (id: number): Acc => {
     let a = acc.get(id);
     if (!a) {
-      a = { scores: [], actualWins: 0, expectedWins: 0, games: 0, allW: 0, allGames: 0, stolen: 0, robbed: 0, boom: 0, bust: 0, high: null, low: null, seasons: new Map() };
+      a = { scores: [], actualWins: 0, expectedWins: 0, games: 0, allW: 0, allGames: 0, allWins: 0, allLosses: 0, allTies: 0, stolen: 0, robbed: 0, boom: 0, bust: 0, high: null, low: null, seasons: new Map() };
       acc.set(id, a);
     }
     return a;
@@ -125,6 +136,11 @@ export function buildManagerLuck(managerId: number, managers: RecManager[], seas
         a.expectedWins += others.length ? beat / others.length : 0;
         a.allW += beat;
         a.allGames += others.length;
+        const wins = others.filter((o) => r.score > o.score).length;
+        const ties = others.filter((o) => r.score === o.score).length;
+        a.allWins += wins;
+        a.allTies += ties;
+        a.allLosses += others.length - wins - ties;
         if (won === 1 && r.score < med) a.stolen++;
         if (won === 0 && r.score > med) a.robbed++;
         const z = (r.score - lm) / ls;
@@ -132,10 +148,15 @@ export function buildManagerLuck(managerId: number, managers: RecManager[], seas
         if (z <= -1) a.bust++;
         if (!a.high || r.score > a.high.score) a.high = { season: s.season, week, score: r.score };
         if (!a.low || r.score < a.low.score) a.low = { season: s.season, week, score: r.score };
-        const ss = a.seasons.get(s.season) ?? { season: s.season, teamName: teamById.get(r.teamId)?.name ?? "", actualWins: 0, expectedWins: 0, games: 0, diff: 0 };
+        const ss = a.seasons.get(s.season) ?? { season: s.season, teamName: teamById.get(r.teamId)?.name ?? "", actualWins: 0, expectedWins: 0, games: 0, diff: 0, allPlayW: 0, allPlayL: 0, allPlayT: 0, allPlayPct: 0 };
         ss.actualWins += won;
         ss.expectedWins += others.length ? beat / others.length : 0;
         ss.games++;
+        ss.allPlayW += wins;
+        ss.allPlayT += ties;
+        ss.allPlayL += others.length - wins - ties;
+        const sg = ss.allPlayW + ss.allPlayL + ss.allPlayT;
+        ss.allPlayPct = sg ? (ss.allPlayW + ss.allPlayT * 0.5) / sg : 0;
         ss.diff = ss.actualWins - ss.expectedWins;
         a.seasons.set(s.season, ss);
       }
@@ -152,6 +173,9 @@ export function buildManagerLuck(managerId: number, managers: RecManager[], seas
       actualWins: a.actualWins,
       expectedWins: a.expectedWins,
       luck: a.actualWins - a.expectedWins,
+      allPlayW: a.allWins,
+      allPlayL: a.allLosses,
+      allPlayT: a.allTies,
       allPlayPct: a.allGames ? a.allW / a.allGames : 0,
       actualPct: a.games ? a.actualWins / a.games : 0,
       stolenWins: a.stolen,
@@ -173,11 +197,12 @@ export function buildManagerLuck(managerId: number, managers: RecManager[], seas
   const me = all.find((x) => x.managerId === managerId) ?? null;
   const inRank = me && me.games >= MIN_GAMES;
   const consistencyRank = inRank ? 1 + ranked.filter((x) => x.cv < me!.cv).length : 0;
+  const allPlayRank = inRank ? 1 + ranked.filter((x) => x.allPlayPct > me!.allPlayPct).length : 0;
   const luckRank = inRank ? 1 + ranked.filter((x) => x.luck > me!.luck).length : 0;
   let style: ManagerLuckReport["style"] = null;
   if (inRank && ranked.length >= 4) {
     const third = Math.ceil(ranked.length / 3);
     style = consistencyRank > ranked.length - third ? "Boom or bust" : consistencyRank <= third ? "Steady" : "In between";
   }
-  return { me, all: ranked, consistencyRank, luckRank, ranked: ranked.length, style };
+  return { me, all: ranked, allPlayRank, consistencyRank, luckRank, ranked: ranked.length, style };
 }

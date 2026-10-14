@@ -150,7 +150,17 @@ export function OwnedPlayersView({ players, seasons }: { players: OwnedPlayer[];
   const span = Array.from({ length: last - first + 1 }, (_, i) => first + i);
   return (
     <section className="mb-12">
-      <H2 note="One square per season, filled when the player was on the roster for about two weeks or more.">Players owned the longest</H2>
+      <H2 note="The player a manager has kept coming back to. One square per season, filled when the player was on the roster for about two weeks or more.">Franchise player</H2>
+      {players[0] && players[0].seasons.length >= 2 && (
+        <div className="max-w-2xl mb-6 border-l-4 border-gold bg-ice-panel px-5 py-4">
+          <p className="text-sm text-muted">The franchise player</p>
+          <p className="font-display text-4xl leading-tight">{players[0].name}</p>
+          <p className="text-sm text-muted font-tabular">
+            {players[0].position}, on the roster for {players[0].seasons.length} seasons
+            {players[0].weeks > 0 ? `, about ${players[0].weeks} weeks` : ""} ({players[0].seasons[0]} to {players[0].seasons[players[0].seasons.length - 1]})
+          </p>
+        </div>
+      )}
       <ul className="max-w-2xl">
         {players.map((p) => (
           <li key={p.name} className="grid grid-cols-[1fr_auto] gap-x-4 items-center py-2 border-b border-ice-line/60">
