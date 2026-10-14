@@ -167,7 +167,7 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
               </>
             ),
           },
-          { id: "players", label: "Players", content: owned ? <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise}><AllTimeTeamView team={allTime} /></OwnedPlayersView> : null },
+          { id: "players", label: "Players", content: owned ? <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise}><AllTimeTeamView team={allTime} managerId={managerId} managerName={manager.name} /></OwnedPlayersView> : null },
           {
             id: "seasons",
             label: "Team by team",

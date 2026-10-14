@@ -30,7 +30,7 @@ function Row({ cells, cols }: { cells: { p?: FranchiseEntry; pos: string }[]; co
   );
 }
 
-export default function AllTimeTeamView({ team }: { team: AllTimeSpot[] }) {
+export default function AllTimeTeamView({ team, managerId, managerName }: { team: AllTimeSpot[]; managerId: number; managerName: string }) {
   const by = (pos: string) => team.find((t) => t.pos === pos)?.players ?? [];
   const C = by("C"), LW = by("LW"), RW = by("RW"), D = by("D"), G = by("G");
   if (team.every((t) => t.players.length === 0)) return null;
@@ -56,6 +56,11 @@ export default function AllTimeTeamView({ team }: { team: AllTimeSpot[] }) {
             <Row cols="grid-cols-1" cells={[{ p: G[t.f], pos: "G" }]} />
           </div>
         ))}
+      </div>
+      <div className="mt-6 max-w-sm">
+        {/* eslint-disable-next-line @next/next/no-img-element -- generated PNG */}
+        <img src={`/api/cards/all-time-team?managerId=${managerId}`} alt={`${managerName} all-time team graphic`} loading="lazy" width={540} height={675} className="w-full rounded-xl shadow-lg" />
+        <a href={`/api/cards/all-time-team?managerId=${managerId}`} download={`${managerName}-all-time-team.png`} className="mt-3 inline-block text-sm underline">Download the graphic</a>
       </div>
     </section>
   );
