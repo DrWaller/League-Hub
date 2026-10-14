@@ -1,8 +1,8 @@
-// Server-side only. The league's player tiers: Stream, Depth, Elite, Superstar and Franchise, by average
+// Server-side only. The league's player tiers: Replacement, Depth, Good, Elite and Superstar, by average
 // fantasy points per game, with separate cutoffs for forwards, defence and goalies.
 //
 // The cutoffs come from the league's own starter line, so they follow the scoring. Each tier is a share of the
-// league's starters at that position (teams x starting slots): Depth = the last starter, Elite = the top 45% of
+// league's starters at that position (teams x starting slots): Depth = the last starter, Good = the top 45% of
 // starters, Superstar = the top 12%, Franchise = the top 5%. (Checked against 2024 and 2026 in this league: it
 // lands within a few hundredths of the hand-made cutoffs for forwards and defence, and fixes the goalie ones.)
 //
@@ -32,7 +32,7 @@ export interface LeagueTiers {
   starters: Record<Group, number>; // starters in the league at each position group
 }
 
-// Share of the league's starters each tier covers (cumulative: Elite includes Superstar and Franchise).
+// Share of the league's starters each tier covers (cumulative: Good includes Elite and Superstar). Cutoff keys keep their old names: franchise = Superstar, superstar = Elite, elite = Good.
 const SHARE = { franchise: 0.05, superstar: 0.12, elite: 0.45, depth: 1 };
 const floor05 = (n: number) => Math.floor(n / 0.05 + 1e-9) * 0.05;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -41,9 +41,9 @@ const CUTOFF_VERSION = 2;
 
 export function tierOf(avg: number | null, c: Cutoffs): Tier | null {
   if (avg === null || !Number.isFinite(avg)) return null;
-  return avg >= c.franchise ? "Franchise" : avg >= c.superstar ? "Superstar" : avg >= c.elite ? "Elite" : avg >= c.depth ? "Depth" : "Stream";
+  return avg >= c.franchise ? "Superstar" : avg >= c.superstar ? "Elite" : avg >= c.elite ? "Good" : avg >= c.depth ? "Depth" : "Replacement";
 }
-export const tierRank = (t: Tier | null) => (t === null ? -1 : TIERS.length - 1 - TIERS.indexOf(t)); // Stream 0 ... Franchise 4
+export const tierRank = (t: Tier | null) => (t === null ? -1 : TIERS.length - 1 - TIERS.indexOf(t)); // Replacement 0 ... Superstar 4
 
 export async function loadPools(season: number, current: boolean): Promise<Record<Group, PoolPlayer[]>> {
   const [F, D, G] = await Promise.all(GROUPS.map((g) => getPlayerPool(g, current ? undefined : season)));

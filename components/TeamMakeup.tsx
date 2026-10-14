@@ -211,7 +211,7 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
           })}
           <p className="text-xs text-muted max-w-prose">
             Skater rating = his average this season pulled toward last season&apos;s, so a few games don&apos;t swing it. L30 shows his last 30 days against the same cutoffs; an arrow means his form is a
-            tier or more away from his rating. Core is Elite and above, Keep is Depth, and Drop candidate is Stream with no recent surge. Watch means the rating and the recent form disagree.
+            tier or more away from his rating. Core is Good and above, Keep is Depth, and Drop candidate is Replacement with no recent surge. Watch means the rating and the recent form disagree.
             &quot;Available&quot; names the best free agent at his position who rates above him. Goalies are rated on points per team game: points per start (quality) times his share of his team&apos;s starts (security), so a goalie who starts more climbs; the projection is his points so far plus his team&apos;s real games left in the fantasy regular season at that rate, with his start share pulled toward last season&apos;s and capped. A hurt goalie keeps his season share so his tier holds.
           </p>
         </section>

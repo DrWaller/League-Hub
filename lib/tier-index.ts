@@ -14,7 +14,7 @@ const load = unstable_cache(
     if (dir) for (const p of dir.players) if (p.tier && p.est !== null) out[p.id] = { tier: p.tier, est: p.est, group: p.group };
     return out;
   },
-  ["tier-detail-v1"],
+  ["tier-detail-v2"],
   { revalidate: 600 }
 );
 

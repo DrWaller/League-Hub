@@ -57,9 +57,9 @@ export function replacementPerGame(pool: PoolRow[], counts: Record<number, numbe
   return perGame;
 }
 
-// The league's player tiers for skaters (Stream < Depth < Elite < Superstar < Franchise), by points per game, rebuilt
+// The league's player tiers for skaters (Replacement < Depth < Good < Elite < Superstar), by points per game, rebuilt
 // from a season's saved totals the same way the live tiers are: each tier is a share of the league's starters at the
-// position group (Depth = the last starter, Elite = the top 45% of starters, Superstar = 12%, Franchise = 5%), with
+// position group (Depth = the last starter, Good = the top 45% of starters, Elite = 12%, Superstar = 5%), with
 // separate cutoffs for forwards and defence, rounded down to 0.05. Goalies are left out (their tiers use points per
 // team game, which the saved stats don't carry).
 export type TierCuts = { depth: number; elite: number; superstar: number; franchise: number };
@@ -96,7 +96,7 @@ export function skaterTierCutoffs(rows: PoolRow[], season: number, counts: Recor
 }
 
 export const tierNameOf = (ppg: number, c: TierCuts) =>
-  ppg >= c.franchise ? "Franchise" : ppg >= c.superstar ? "Superstar" : ppg >= c.elite ? "Elite" : ppg >= c.depth ? "Depth" : "Stream";
+  ppg >= c.franchise ? "Superstar" : ppg >= c.superstar ? "Elite" : ppg >= c.elite ? "Good" : ppg >= c.depth ? "Depth" : "Replacement";
 
 // The "rosterable" bar for the year-over-year awards: points per game at a position, at or above replacement level.
 export function rosterableBar(rows: PoolRow[], season: number, counts: Record<number, number> | null, teamCount: number): Record<string, number> | null {

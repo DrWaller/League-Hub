@@ -10,7 +10,7 @@ import { fetchLineupSlots, SLOT } from "@/lib/vor";
 type Row = { name: string; positionId: number; gp: number; appliedTotal: number; owner: string | null };
 
 export type Cutoffs = { depth: number; elite: number; superstar: number; franchise: number };
-export const TIER_NAMES = ["Stream", "Depth", "Elite", "Superstar", "Franchise"] as const;
+export const TIER_NAMES = ["Replacement", "Depth", "Good", "Elite", "Superstar"] as const;
 
 // The cutoffs the commissioner worked out by hand (average fantasy points per game).
 export const HAND_CUTOFFS: Record<"F" | "D" | "G", Cutoffs> = {

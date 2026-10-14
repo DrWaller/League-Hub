@@ -85,7 +85,7 @@ function Row({ p }: { p: DirPlayer }) {
 }
 
 export default function TierLists({ data }: { data: TierDirectory }) {
-  const [tier, setTier] = useState<Tier>("Franchise");
+  const [tier, setTier] = useState<Tier>("Superstar");
   const [group, setGroup] = useState("ALL");
   const [avail, setAvail] = useState(false);
   const [sort, setSort] = useState("est");
@@ -98,7 +98,7 @@ export default function TierLists({ data }: { data: TierDirectory }) {
     [data.players, group, avail, q]
   );
   const counts = useMemo(() => {
-    const c: Record<Tier, number> = { Franchise: 0, Superstar: 0, Elite: 0, Depth: 0, Stream: 0 };
+    const c: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
     for (const p of base) if (p.tier) c[p.tier]++;
     return c;
   }, [base]);
@@ -111,8 +111,8 @@ export default function TierLists({ data }: { data: TierDirectory }) {
   const c = data.tiers.cutoffs;
   const range = (g: "F" | "D" | "G") => {
     const x = c[g];
-    const lo = tier === "Franchise" ? x.franchise : tier === "Superstar" ? x.superstar : tier === "Elite" ? x.elite : tier === "Depth" ? x.depth : null;
-    const hi = tier === "Franchise" ? null : tier === "Superstar" ? x.franchise : tier === "Elite" ? x.superstar : tier === "Depth" ? x.elite : x.depth;
+    const lo = tier === "Superstar" ? x.franchise : tier === "Elite" ? x.superstar : tier === "Good" ? x.elite : tier === "Depth" ? x.depth : null;
+    const hi = tier === "Superstar" ? null : tier === "Elite" ? x.franchise : tier === "Good" ? x.superstar : tier === "Depth" ? x.elite : x.depth;
     return lo === null ? `under ${f2(hi!)}` : hi === null ? `${f2(lo)}+` : `${f2(lo)} to ${f2(hi - 0.01)}`;
   };
 

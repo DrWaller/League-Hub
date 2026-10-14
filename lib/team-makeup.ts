@@ -1,5 +1,5 @@
-// Server-side only. Team makeup: every rostered player rated by tier (Stream, Depth, Elite, Superstar,
-// Franchise) with his last-30-day form, and a keep / watch / drop signal. Built for deciding who on a roster
+// Server-side only. Team makeup: every rostered player rated by tier (Replacement, Depth, Good, Elite,
+// Superstar) with his last-30-day form, and a keep / watch / drop signal. Built for deciding who on a roster
 // is worth keeping and who can go.
 //
 // Rating = the player's average points per game this season pulled toward last season's average (so the first
@@ -242,7 +242,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         signal = "Core";
         why = `${tier}: a player you build around${goalie ? ` (≈ ${goalie.pace} pts projected)` : ""}`;
       } else if (tier === "Depth") {
-        if (form === "Stream" && l30 && l30.avg < cut.depth - 0.3) {
+        if (form === "Replacement" && l30 && l30.avg < cut.depth - 0.3) {
           signal = "Watch";
           why = `Depth, but ${r2(l30.avg)} over his last ${l30.gp} games`;
         } else {
@@ -251,10 +251,10 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         }
       } else if (form && tierRank(form) >= 1) {
         signal = "Watch";
-        why = `Rated Stream, but his last ${l30!.gp} games are ${form} level (${r2(l30!.avg)})`;
+        why = `Rated Replacement, but his last ${l30!.gp} games are ${form} level (${r2(l30!.avg)})`;
       } else {
         signal = "Drop candidate";
-        why = `Stream: below the starter line (${cut.depth.toFixed(2)}${group === "G" ? " per team game" : ""})`;
+        why = `Replacement: below the starter line (${cut.depth.toFixed(2)}${group === "G" ? " per team game" : ""})`;
       }
 
       let better: MakeupPlayer["better"] = null;
@@ -286,7 +286,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
       });
     }
     players.sort((a, b) => (a.group === b.group ? (b.est ?? -1) - (a.est ?? -1) : ["F", "D", "G"].indexOf(a.group) - ["F", "D", "G"].indexOf(b.group)));
-    const counts: Record<Tier, number> = { Franchise: 0, Superstar: 0, Elite: 0, Depth: 0, Stream: 0 };
+    const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
     for (const p of players) if (p.slot !== "IR" && p.tier) counts[p.tier]++;
     teams.push({ id: t.id, name: names.get(t.id) ?? `Team ${t.id}`, players, counts });
   }
@@ -296,7 +296,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
 
 // ---------------------------------------------------------------------------------------------
 // Every player in the league by tier: the rostered players from the team makeup, plus the free agents and
-// waiver players, so "show me all the Franchise players" has one answer whoever owns them.
+// waiver players, so "show me all the Superstar players" has one answer whoever owns them.
 export interface DirPlayer {
   id: number;
   name: string;
