@@ -120,26 +120,46 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
         }}
       />
       <BannerRafters banners={banners} />
-      {history?.career && history.career.wins + history.career.losses + history.career.ties > 0 && (
-        <section className="mb-8">
-          <h2 className="font-display text-2xl mb-4">Manager card</h2>
-          {/* eslint-disable-next-line @next/next/no-img-element -- generated image, cached at the CDN */}
-          <img src={`/api/cards/manager-card?managerId=${managerId}`} alt={`${manager.name} manager card`} loading="lazy" width={525} height={735} className="w-full max-w-sm rounded-xl shadow-lg" />
-          <a href={`/api/cards/manager-card?managerId=${managerId}`} download={`${manager.name}-manager-card.png`} className="mt-3 inline-block text-sm underline">Download the card</a>
-        </section>
-      )}
-      {history && <ManagerHistoryView h={history} />}
-      {history && <RivalriesView h={history} activeIds={activeIds} />}
-      <StyleTagsView tags={styleTags} />
-      {history && <ErasView h={history} currentSeason={seasonNow} />}
-      {playoffs && <PlayoffsView r={playoffs} />}
-      {luck && <AllPlayView r={luck} activeIds={activeIds} />}
-      {luck && <LuckView r={luck} />}
-      {history && <HeartbreakersView h={history} luck={luck?.me ?? null} />}
-      {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise} />}
-      {drafts && <DraftTendenciesView d={drafts} />}
-      {draftValue && <DraftValueView d={draftValue} />}
-      <h2 className="font-display text-2xl mb-4">Team by team</h2>
+
+      {/* Overview: the card beside the style labels and the finish-by-year chart. */}
+      <div className="grid gap-10 lg:grid-cols-[22rem_1fr] mb-10">
+        {history?.career && history.career.wins + history.career.losses + history.career.ties > 0 && (
+          <div>
+            {/* eslint-disable-next-line @next/next/no-img-element -- generated image, cached at the CDN */}
+            <img src={`/api/cards/manager-card?managerId=${managerId}`} alt={`${manager.name} manager card`} loading="lazy" width={525} height={735} className="w-full max-w-sm rounded-xl shadow-lg" />
+            <a href={`/api/cards/manager-card?managerId=${managerId}`} download={`${manager.name}-manager-card.png`} className="mt-3 inline-block text-sm underline">Download the card</a>
+          </div>
+        )}
+        <div>
+          <StyleTagsView tags={styleTags} />
+          {history && <ErasView h={history} currentSeason={seasonNow} />}
+        </div>
+      </div>
+
+      <nav aria-label="On this page" className="mb-10 flex flex-wrap gap-x-6 gap-y-2 text-sm border-y border-ice-line py-3">
+        <a href="#career" className="underline">Career</a>
+        <a href="#playoffs" className="underline">Playoffs</a>
+        <a href="#rivalries" className="underline">Rivalries</a>
+        <a href="#luck" className="underline">All-play and luck</a>
+        <a href="#drafts" className="underline">Drafts</a>
+        <a href="#players" className="underline">Players</a>
+        <a href="#seasons" className="underline">Team by team</a>
+      </nav>
+
+      <div id="career" className="scroll-mt-20">{history && <ManagerHistoryView h={history} />}</div>
+      <div id="playoffs" className="scroll-mt-20">{playoffs && <PlayoffsView r={playoffs} />}</div>
+      <div id="rivalries" className="scroll-mt-20">{history && <RivalriesView h={history} activeIds={activeIds} />}</div>
+      <div id="luck" className="scroll-mt-20">
+        {luck && <AllPlayView r={luck} activeIds={activeIds} />}
+        {luck && <LuckView r={luck} />}
+        {history && <HeartbreakersView h={history} luck={luck?.me ?? null} />}
+      </div>
+      <div id="drafts" className="scroll-mt-20">
+        {drafts && <DraftTendenciesView d={drafts} />}
+        {draftValue && <DraftValueView d={draftValue} />}
+      </div>
+      <div id="players" className="scroll-mt-20">{owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise} />}</div>
+      <h2 id="seasons" className="font-display text-2xl mb-4 scroll-mt-20">Team by team</h2>
       <ManagerTimelineView
         seasons={seasons}
         keepersBySeason={keepersBySeason}
