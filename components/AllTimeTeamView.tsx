@@ -1,6 +1,6 @@
 import type { AllTimeSpot, FranchiseEntry } from "@/lib/franchise-player";
 
-// The all-time team, laid out like a game-day lineup: two forward lines, two defence pairs and two goalies.
+// The all-time team in the NHL's all-star format: a first team and a second team, each with a goalie, two defencemen and a C, LW and RW.
 
 function Cell({ p, pos }: { p?: FranchiseEntry; pos: string }) {
   return (
@@ -35,30 +35,27 @@ export default function AllTimeTeamView({ team }: { team: AllTimeSpot[] }) {
   const C = by("C"), LW = by("LW"), RW = by("RW"), D = by("D"), G = by("G");
   if (team.every((t) => t.players.length === 0)) return null;
   const total = team.reduce((n, t) => n + t.players.reduce((m, p) => m + p.points, 0), 0);
+  const teams = [
+    { title: "First team", f: 0, d: 0 },
+    { title: "Second team", f: 1, d: 2 },
+  ];
   return (
     <section className="mb-12">
       <h2 className="font-display text-2xl mb-1">All-time team</h2>
       <p className="text-xs text-muted mb-4 max-w-2xl">
-        The top scorers at each position across this manager&apos;s ESPN seasons. Points are estimated from weekly roster looks and season totals, and a player listed at two positions fills one spot.
-        Together they scored about {Math.round(total).toLocaleString("en-US")} points.
+        The top scorers at each position across this manager&apos;s ESPN seasons, picked the way the NHL picks its all-star teams: one goalie, two defencemen, a centre and a left and right wing.
+        Points are estimated from weekly roster looks and season totals, and a player listed at two positions fills one spot.
+        Together the twelve scored about {Math.round(total).toLocaleString("en-US")} points.
       </p>
-      <div className="max-w-3xl space-y-4">
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Forwards</p>
-          {[0, 1].map((i) => (
-            <Row key={i} cols="grid-cols-3" cells={[{ p: LW[i], pos: "LW" }, { p: C[i], pos: "C" }, { p: RW[i], pos: "RW" }]} />
-          ))}
-        </div>
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Defence</p>
-          {[0, 2].map((i) => (
-            <Row key={i} cols="grid-cols-2" cells={[{ p: D[i], pos: "D" }, { p: D[i + 1], pos: "D" }]} />
-          ))}
-        </div>
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Goalies</p>
-          <Row cols="grid-cols-2" cells={[{ p: G[0], pos: "G" }, { p: G[1], pos: "G" }]} />
-        </div>
+      <div className="max-w-3xl space-y-8">
+        {teams.map((t) => (
+          <div key={t.title} className="space-y-2">
+            <h3 className="font-display text-lg">{t.title}</h3>
+            <Row cols="grid-cols-3" cells={[{ p: LW[t.f], pos: "LW" }, { p: C[t.f], pos: "C" }, { p: RW[t.f], pos: "RW" }]} />
+            <Row cols="grid-cols-2" cells={[{ p: D[t.d], pos: "D" }, { p: D[t.d + 1], pos: "D" }]} />
+            <Row cols="grid-cols-1" cells={[{ p: G[t.f], pos: "G" }]} />
+          </div>
+        ))}
       </div>
     </section>
   );
