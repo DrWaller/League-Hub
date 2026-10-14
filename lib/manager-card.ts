@@ -8,6 +8,7 @@ import { buildManagerHistory } from "./manager-history";
 import { buildRecords } from "./records";
 import { loadLogoData } from "./og-team-logo";
 import { activeManagerIds } from "./active-managers";
+import { loadFranchisePlayers } from "./franchise-player";
 
 export interface ManagerCardData {
   name: string;
@@ -31,6 +32,7 @@ export interface ManagerCardData {
   best: { season: number; record: string } | null;
   nemesis: { name: string; record: string } | null;
   victim: { name: string; record: string } | null;
+  franchise: { name: string; position: string; points: number; seasons: number } | null;
   tags: string[]; // the first one is the card's seal
   leagueName: string;
 }
@@ -79,7 +81,8 @@ export async function loadManagerCard(managerId: number): Promise<ManagerCardDat
   if (!tags.length) tags.push(seasonsPlayed >= 3 ? "Steady" : "Rookie");
 
   const latest = [...mySeasons].sort((a, b) => b.season - a.season)[0];
-  const [logos, colors] = await Promise.all([loadLogoData(), getTeamBannerColors()]);
+  const [logos, colors, franchiseList] = await Promise.all([loadLogoData(), getTeamBannerColors(), loadFranchisePlayers(managerId, 1).catch(() => [])]);
+  const star = franchiseList[0];
   const teamId = latest?.teamId;
   const col = teamId != null ? colors[teamId] : undefined;
 
@@ -105,6 +108,7 @@ export async function loadManagerCard(managerId: number): Promise<ManagerCardDat
     best: h.bestSeason ? { season: h.bestSeason.season, record: rec2({ w: h.bestSeason.wins, l: h.bestSeason.losses, t: h.bestSeason.ties }) } : null,
     nemesis: nemesis ? { name: nemesis.name, record: rec2(nemesis) } : null,
     victim: victim ? { name: victim.name, record: rec2(victim) } : null,
+    franchise: star ? { name: star.name, position: star.position.split(",").map((x) => x.trim()).filter((x) => x && x !== "Skt").join("/"), points: star.points, seasons: star.seasons.length } : null,
     tags: tags.slice(0, 4),
     leagueName: meta.name,
   };
