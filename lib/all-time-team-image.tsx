@@ -8,7 +8,6 @@ import type { AllTimePlayer, AllTimeTeamCardData } from "./all-time-team-card";
 
 const W = 1080;
 const H = 1350;
-const INK = "#10243B";
 
 const lighten = (hex: string, a: number) => {
   const n = parseInt(hex.slice(1), 16);
@@ -23,6 +22,12 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
   const c1 = isHex(d.primary) ? d.primary! : "#123A61";
   const trim = isHex(d.accent) ? d.accent! : lighten(c1, 0.35);
   const accent = isHex(d.accent) ? d.accent! : lighten(c1, 0.6);
+  // Everything is drawn from the team colour: darker shades for the panels, light tints for the quiet text.
+  const panelTop = shade(c1, 0.6);
+  const panelBottom = shade(c1, 0.8);
+  const soft = lighten(c1, 0.78);
+  const dim = "rgba(255,255,255,0.4)";
+  const dimName = "rgba(255,255,255,0.35)";
   const bg = `linear-gradient(160deg, ${shade(c1, 0.78)} 0%, ${shade(c1, 0.92)} 100%)`;
   const initials = (d.team ?? d.managerName).split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 3).join("").toUpperCase();
 
@@ -31,13 +36,13 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
 
   // One cell: position and points on the top line, the name (the same size across a row) and the seasons below.
   const cell = (pos: string, p: AllTimePlayer | null, size: number) => (
-    <div key={pos + (p?.name ?? "")} style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, height: 174, flexShrink: 0, overflow: "hidden", padding: "10px 16px 12px 16px", borderRadius: 14, border: `1px solid ${p ? accent : "#2A4767"}`, background: p ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)" }}>
+    <div key={pos + (p?.name ?? "")} style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, height: 174, flexShrink: 0, overflow: "hidden", padding: "10px 16px 12px 16px", borderRadius: 14, border: `1px solid ${p ? accent : dim}`, background: p ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.02)" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", height: 40 }}>
-        <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: 4, color: p ? accent : "#6C88A5" }}>{pos}</div>
+        <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 26, lineHeight: 1, letterSpacing: 4, color: p ? accent : dim }}>{pos}</div>
         {p ? <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 40, lineHeight: 1, color: accent }}>{pts(p.points)}</div> : null}
       </div>
-      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: p ? size : 30, lineHeight: 1.2, height: 64, alignItems: "center", color: p ? "#FFFFFF" : "#4F6A86", whiteSpace: "nowrap" }}>{p ? p.name.toUpperCase().slice(0, 24) : "OPEN SPOT"}</div>
-      <div style={{ display: "flex", fontSize: 26, fontWeight: 600, lineHeight: 1, color: "#9FB6CD" }}>{p ? `${p.seasons} season${p.seasons === 1 ? "" : "s"}` : ""}</div>
+      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: p ? size : 30, lineHeight: 1.2, height: 64, alignItems: "center", color: p ? "#FFFFFF" : dimName, whiteSpace: "nowrap" }}>{p ? p.name.toUpperCase().slice(0, 24) : "OPEN SPOT"}</div>
+      <div style={{ display: "flex", fontSize: 26, fontWeight: 600, lineHeight: 1, color: soft }}>{p ? `${p.seasons} season${p.seasons === 1 ? "" : "s"}` : ""}</div>
     </div>
   );
 
@@ -52,7 +57,7 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
   const panel = (title: string, t: AllTimeTeamCardData["teams"][number]) => {
     const sub = [t.LW, t.C, t.RW, t.D[0], t.D[1], t.G].reduce((n, p) => n + (p?.points ?? 0), 0);
     return (
-      <div key={title} style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center", padding: "16px 24px 24px 24px", borderRadius: 22, border: `4px solid ${trim}`, backgroundImage: `linear-gradient(170deg, ${INK} 0%, #0A1828 100%)` }}>
+      <div key={title} style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center", padding: "16px 24px 24px 24px", borderRadius: 22, border: `4px solid ${trim}`, backgroundImage: `linear-gradient(170deg, ${panelTop} 0%, ${panelBottom} 100%)` }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", height: 44, flexShrink: 0 }}>
           <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 36, lineHeight: 1, letterSpacing: 6, color: "#FFFFFF" }}>{title}</div>
           <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 28, lineHeight: 1, letterSpacing: 3, color: accent }}>{`${pts(sub)} PTS`}</div>
@@ -76,7 +81,7 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
           <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, lineHeight: 1.1, letterSpacing: 8, color: accent }}>ALL-TIME TEAM</div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: d.managerName.length > 14 ? 60 : 76, lineHeight: 1.1, color: "#FFFFFF", textTransform: "uppercase", whiteSpace: "nowrap" }}>{d.managerName.slice(0, 22)}</div>
-            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 28, lineHeight: 1.1, letterSpacing: 3, color: "#C9D6E6", textTransform: "uppercase", whiteSpace: "nowrap" }}>{(d.team ?? "").slice(0, 26)}</div>
+            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 28, lineHeight: 1.1, letterSpacing: 3, color: soft, textTransform: "uppercase", whiteSpace: "nowrap" }}>{(d.team ?? "").slice(0, 26)}</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 84, lineHeight: 1, color: "#FFFFFF" }}>{pts(d.total)}</div>
