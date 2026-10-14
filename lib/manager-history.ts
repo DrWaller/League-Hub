@@ -53,6 +53,9 @@ export interface ManagerHistory {
   closestWin: HistGame | null;
   luckyWin: HistGame | null; // fewest points in a win
   unluckyLoss: HistGame | null; // most points in a loss
+  closeLosses: HistGame[]; // lost by under a point, closest first
+  closeWins: HistGame[]; // won by under a point, closest first
+  robberies: HistGame[]; // the five highest-scoring losses
   winStreak: Streak | null;
   loseStreak: Streak | null;
   currentStreak: { kind: "W" | "L" | "T"; length: number } | null;
@@ -182,6 +185,9 @@ export function buildManagerHistory(managerId: number, managers: RecManager[], s
     closestWin: best(wins, (a, b) => a.score - a.oppScore - (b.score - b.oppScore)),
     luckyWin: best(wins, (a, b) => a.score - b.score),
     unluckyLoss: best(losses, (a, b) => b.score - a.score),
+    closeLosses: losses.filter((g) => g.oppScore - g.score < 1).sort((a, b) => a.oppScore - a.score - (b.oppScore - b.score)),
+    closeWins: wins.filter((g) => g.score - g.oppScore < 1).sort((a, b) => a.score - a.oppScore - (b.score - b.oppScore)),
+    robberies: [...losses].sort((a, b) => b.score - a.score).slice(0, 5),
     winStreak: streak("W"),
     loseStreak: streak("L"),
     currentStreak,

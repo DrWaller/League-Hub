@@ -17,6 +17,8 @@ import LuckView from "@/components/LuckView";
 import AllPlayView from "@/components/AllPlayView";
 import PlayoffsView from "@/components/PlayoffsView";
 import { buildPlayoffReport, type PlayoffReport } from "@/lib/manager-playoffs";
+import { loadFranchisePlayers, type FranchiseEntry } from "@/lib/franchise-player";
+import HeartbreakersView from "@/components/HeartbreakersView";
 import DraftValueView from "@/components/DraftValueView";
 import { loadDraftValue, type DraftValue } from "@/lib/draft-value";
 import { buildManagerLuck, type ManagerLuckReport } from "@/lib/manager-luck";
@@ -73,6 +75,12 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
   } catch (e) {
     console.error("draft value failed", e);
   }
+  let franchise: FranchiseEntry[] = [];
+  try {
+    franchise = await loadFranchisePlayers(managerId);
+  } catch (e) {
+    console.error("franchise player failed", e);
+  }
   let owned: Awaited<ReturnType<typeof loadOwnedPlayers>> = null;
   try {
     owned = await loadOwnedPlayers(managerId);
@@ -118,7 +126,8 @@ export default async function ManagerProfilePage({ params }: { params: { id: str
       {playoffs && <PlayoffsView r={playoffs} />}
       {luck && <AllPlayView r={luck} activeIds={activeIds} />}
       {luck && <LuckView r={luck} />}
-      {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} />}
+      {history && <HeartbreakersView h={history} luck={luck?.me ?? null} />}
+      {owned && <OwnedPlayersView players={owned.players} seasons={owned.seasons} franchise={franchise} />}
       {drafts && <DraftTendenciesView d={drafts} />}
       {draftValue && <DraftValueView d={draftValue} />}
       <h2 className="font-display text-2xl mb-4">Team by team</h2>

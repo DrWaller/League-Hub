@@ -3,6 +3,7 @@ import type { OwnedPlayer } from "@/lib/ownership";
 import type { HistGame, ManagerHistory, Streak } from "@/lib/manager-history";
 import { pts, ptsComma } from "@/lib/format";
 import Cup from "./Cup";
+import type { FranchiseEntry } from "@/lib/franchise-player";
 
 const rec = (w: number, l: number, t: number) => `${w}-${l}${t ? `-${t}` : ""}`;
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -144,23 +145,41 @@ export default function ManagerHistoryView({ h }: { h: ManagerHistory }) {
 
 // ---------------------------------------------------------------------------------------------------------------
 
-export function OwnedPlayersView({ players, seasons }: { players: OwnedPlayer[]; seasons: number[] }) {
+export function OwnedPlayersView({ players, seasons, franchise }: { players: OwnedPlayer[]; seasons: number[]; franchise?: FranchiseEntry[] }) {
   const first = seasons[0];
   const last = seasons[seasons.length - 1];
   const span = Array.from({ length: last - first + 1 }, (_, i) => first + i);
+  const star = franchise?.[0];
   return (
     <section className="mb-12">
-      <H2 note="The player a manager has kept coming back to. One square per season, filled when the player was on the roster for about two weeks or more.">Franchise player</H2>
-      {players[0] && players[0].seasons.length >= 2 && (
-        <div className="max-w-2xl mb-6 border-l-4 border-gold bg-ice-panel px-5 py-4">
+      <H2 note="The player who has scored the most points while on this manager's roster, estimated from weekly roster looks and season totals.">Franchise player</H2>
+      {star && (
+        <div className="max-w-2xl mb-8 border-l-4 border-gold bg-ice-panel px-5 py-4">
           <p className="text-sm text-muted">The franchise player</p>
-          <p className="font-display text-4xl leading-tight">{players[0].name}</p>
-          <p className="text-sm text-muted font-tabular">
-            {players[0].position}, on the roster for {players[0].seasons.length} seasons
-            {players[0].weeks > 0 ? `, about ${players[0].weeks} weeks` : ""} ({players[0].seasons[0]} to {players[0].seasons[players[0].seasons.length - 1]})
+          <p className="font-display text-4xl leading-tight">{star.name}</p>
+          <p className="text-sm font-tabular">
+            About <span className="font-semibold">{ptsComma(star.points)}</span> points for this team
           </p>
+          <p className="text-xs text-muted font-tabular">
+            {star.position}, {star.seasons.length} season{star.seasons.length === 1 ? "" : "s"} ({star.seasons[0]} to {star.seasons[star.seasons.length - 1]}), about {star.weeks} weeks
+            {star.best ? `, best year ${star.best.season} with about ${ptsComma(star.best.points)}` : ""}
+          </p>
+          {franchise && franchise.length > 1 && (
+            <ol className="mt-3 text-sm">
+              {franchise.slice(1).map((p, i) => (
+                <li key={p.name} className="flex justify-between gap-4 py-1 border-t border-ice-line/60">
+                  <span>
+                    {i + 2}. {p.name} <span className="text-xs text-muted">{p.position}</span>
+                  </span>
+                  <span className="font-tabular text-muted">about {ptsComma(p.points)}</span>
+                </li>
+              ))}
+            </ol>
+          )}
         </div>
       )}
+      <h3 className="font-display text-lg mb-1">Owned the longest</h3>
+      <p className="text-xs text-muted mb-2">One square per season, filled when the player was on the roster for about two weeks or more.</p>
       <ul className="max-w-2xl">
         {players.map((p) => (
           <li key={p.name} className="grid grid-cols-[1fr_auto] gap-x-4 items-center py-2 border-b border-ice-line/60">
