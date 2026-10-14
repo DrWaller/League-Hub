@@ -30,6 +30,31 @@ const OVERRIDES: { match: (manager: string, team: string | null) => boolean; loo
     match: (manager) => manager.trim().toLowerCase() === "matt",
     look: { accent: "#FFFFFF", panel: "#1B1D22" },
   },
+  {
+    // Dave: a royal blue and white raccoon on a blue maple leaf; a near-black navy behind the lineup so it doesn't blend with the header.
+    match: (manager) => manager.trim().toLowerCase() === "dave",
+    look: { primary: "#0B3A8F", accent: "#FFFFFF", panel: "#0A0F1C" },
+  },
+  {
+    // Calder: a royal blue H with a golden-orange bagel, so bagel-orange highlights on a blue-black panel.
+    match: (manager) => manager.trim().toLowerCase() === "calder",
+    look: { primary: "#0853CC", accent: "#E8913F", panel: "#050B1C" },
+  },
+  {
+    // Richard: gold and black, so charcoal panels (gold highlights come from his team colour).
+    match: (manager) => manager.trim().toLowerCase() === "richard",
+    look: { panel: "#1B1D22" },
+  },
+  {
+    // Tim: the Swedish flag's yellow and blue, taken from his logo.
+    match: (manager) => manager.trim().toLowerCase() === "tim",
+    look: { primary: "#2C6AA6", accent: "#FDDE03", panel: "#08142A" },
+  },
+  {
+    // Evan: teal header with the gold of the crossed sticks in his logo for the outline and highlights.
+    match: (manager) => manager.trim().toLowerCase() === "evan",
+    look: { accent: "#F4B82A" },
+  },
 ];
 
 export function teamLookOverride(manager: string, team: string | null): TeamLook | null {
