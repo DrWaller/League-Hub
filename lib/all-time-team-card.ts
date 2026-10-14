@@ -20,6 +20,7 @@ export interface AllTimeTeamCardData {
   primary?: string;
   trim?: string;
   accent?: string;
+  panel?: string; // the dark behind the lineup; a neutral charcoal when not set
   // [first team, second team]; each has LW, C, RW, D, D, G (null = open spot).
   teams: { LW: AllTimePlayer | null; C: AllTimePlayer | null; RW: AllTimePlayer | null; D: (AllTimePlayer | null)[]; G: AllTimePlayer | null }[];
   total: number;
@@ -55,6 +56,7 @@ export async function loadAllTimeTeamCard(managerId: number): Promise<AllTimeTea
     primary: look?.primary ?? col?.primary,
     trim: col?.trim,
     accent: look?.accent,
+    panel: look?.panel,
     teams,
     total,
     leagueName: meta.name,

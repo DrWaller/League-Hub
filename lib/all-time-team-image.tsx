@@ -22,10 +22,13 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
   const c1 = isHex(d.primary) ? d.primary! : "#123A61";
   const trim = isHex(d.accent) ? d.accent! : lighten(c1, 0.35);
   const accent = isHex(d.accent) ? d.accent! : lighten(c1, 0.6);
-  // Everything is drawn from the team colour: darker shades for the panels, light tints for the quiet text.
-  const panelTop = shade(c1, 0.6);
-  const panelBottom = shade(c1, 0.8);
-  const soft = lighten(c1, 0.78);
+  // Three roles: the team colour (header, outline), the accent, and a panel colour that differs from the team colour so the
+  // lineup stands out. The panel is charcoal unless the team has a dark colour of its own (see team-look.ts).
+  const panelBase = isHex(d.panel) ? d.panel! : "#1B1D22";
+  const panelTop = panelBase;
+  const panelBottom = shade(panelBase, 0.4);
+  const soft = lighten(panelBase, 0.72);
+  const headerSoft = lighten(c1, 0.8);
   const dim = "rgba(255,255,255,0.4)";
   const dimName = "rgba(255,255,255,0.35)";
   const bg = `linear-gradient(160deg, ${shade(c1, 0.78)} 0%, ${shade(c1, 0.92)} 100%)`;
@@ -81,7 +84,7 @@ export async function renderAllTimeTeam(d: AllTimeTeamCardData) {
           <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 34, lineHeight: 1.1, letterSpacing: 8, color: accent }}>ALL-TIME TEAM</div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: d.managerName.length > 14 ? 60 : 76, lineHeight: 1.1, color: "#FFFFFF", textTransform: "uppercase", whiteSpace: "nowrap" }}>{d.managerName.slice(0, 22)}</div>
-            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 28, lineHeight: 1.1, letterSpacing: 3, color: soft, textTransform: "uppercase", whiteSpace: "nowrap" }}>{(d.team ?? "").slice(0, 26)}</div>
+            <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 28, lineHeight: 1.1, letterSpacing: 3, color: headerSoft, textTransform: "uppercase", whiteSpace: "nowrap" }}>{(d.team ?? "").slice(0, 26)}</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0 }}>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 84, lineHeight: 1, color: "#FFFFFF" }}>{pts(d.total)}</div>
