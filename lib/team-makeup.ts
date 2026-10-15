@@ -60,11 +60,27 @@ export interface MakeupPlayer {
   goalie?: GoalieRating; // goalies only: est is points per team game
 }
 
+// How a roster grades against the rest of the league. Every non-IR player is worth points for his tier
+// (Superstar 10, Elite 6, Good 3, Depth 1, Replacement 0): lineup players count in full, bench players at 40%.
+// A player's worth is 70% his rating tier and 30% his last-30-day form tier (rating alone when he has no form).
+// Team scores are then put on a 0-100 scale against the league (50 = average team, 15 points = one standard deviation).
+export interface TeamRating {
+  rating: number; // overall, 0-100 (50 = league average)
+  grade: string; // A+ ... F, by how far above or below the league average
+  rank: number; // 1 = strongest roster
+  groups: Record<Group, number>; // same 0-100 scale, per position group
+  strongest: Group;
+  weakest: Group;
+  holes: number; // lineup players rated Replacement
+  note: string;
+}
+
 export interface MakeupTeam {
   id: number;
   name: string;
   players: MakeupPlayer[];
   counts: Record<Tier, number>; // non-IR players
+  rating?: TeamRating;
 }
 
 export interface TeamMakeup {
@@ -290,8 +306,58 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
     for (const p of players) if (p.slot !== "IR" && p.tier) counts[p.tier]++;
     teams.push({ id: t.id, name: names.get(t.id) ?? `Team ${t.id}`, players, counts });
   }
+  rateTeams(teams);
   teams.sort((a, b) => a.name.localeCompare(b.name));
   return { seasonGames, tiers, teams };
+}
+
+const TIER_WORTH: Record<Tier, number> = { Superstar: 10, Elite: 6, Good: 3, Depth: 1, Replacement: 0 };
+const GROUPS: Group[] = ["F", "D", "G"];
+const GROUP_NAME: Record<Group, string> = { F: "forwards", D: "defence", G: "goaltending" };
+
+function playerWorth(p: MakeupPlayer): number {
+  if (p.slot === "IR" || !p.tier) return 0;
+  const base = TIER_WORTH[p.tier];
+  const worth = p.form ? 0.7 * base + 0.3 * TIER_WORTH[p.form] : base;
+  return worth * (p.slot === "Bench" ? 0.4 : 1);
+}
+
+function gradeOf(z: number): string {
+  const steps: [number, string][] = [[1.4, "A+"], [1.0, "A"], [0.65, "A-"], [0.35, "B+"], [0.1, "B"], [-0.1, "B-"], [-0.35, "C+"], [-0.65, "C"], [-1.0, "C-"], [-1.4, "D"]];
+  for (const [min, g] of steps) if (z >= min) return g;
+  return "F";
+}
+
+// Mean and standard deviation, with a floor so a league of near-identical teams doesn't blow up the scale.
+function spread(xs: number[]): { mean: number; sd: number } {
+  const mean = xs.reduce((a, b) => a + b, 0) / (xs.length || 1);
+  const sd = Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / (xs.length || 1));
+  return { mean, sd: Math.max(sd, 0.5) };
+}
+
+function rateTeams(teams: MakeupTeam[]): void {
+  if (teams.length === 0) return;
+  const raw = teams.map((t) => {
+    const g: Record<Group, number> = { F: 0, D: 0, G: 0 };
+    for (const p of t.players) g[p.group] += playerWorth(p);
+    return { g, total: g.F + g.D + g.G };
+  });
+  const all = spread(raw.map((r) => r.total));
+  const by: Record<Group, { mean: number; sd: number }> = { F: spread(raw.map((r) => r.g.F)), D: spread(raw.map((r) => r.g.D)), G: spread(raw.map((r) => r.g.G)) };
+  const scaled = (v: number, s: { mean: number; sd: number }) => Math.round(Math.max(0, Math.min(100, 50 + (15 * (v - s.mean)) / s.sd)));
+  const order = raw.map((r, i) => ({ i, total: r.total })).sort((a, b) => b.total - a.total);
+  teams.forEach((t, i) => {
+    const r = raw[i];
+    const z = (r.total - all.mean) / all.sd;
+    const groups = { F: scaled(r.g.F, by.F), D: scaled(r.g.D, by.D), G: scaled(r.g.G, by.G) };
+    const sorted = [...GROUPS].sort((a, b) => groups[b] - groups[a]);
+    const holes = t.players.filter((p) => p.slot === "Lineup" && p.tier === "Replacement").length;
+    const strongest = sorted[0];
+    const weakest = sorted[2];
+    const top = t.counts.Superstar + t.counts.Elite;
+    const note = `${top} Superstar/Elite ${top === 1 ? "player" : "players"}; strongest at ${GROUP_NAME[strongest]}, thinnest at ${GROUP_NAME[weakest]}${holes > 0 ? `; ${holes} Replacement-level in the lineup` : ""}`;
+    t.rating = { rating: scaled(r.total, all), grade: gradeOf(z), rank: order.findIndex((o) => o.i === i) + 1, groups, strongest, weakest, holes, note };
+  });
 }
 
 // ---------------------------------------------------------------------------------------------

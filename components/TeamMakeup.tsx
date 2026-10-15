@@ -153,6 +153,50 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
       </section>
 
       <section className="mb-8">
+        <h2 className="font-display text-xl mb-1">Team ratings</h2>
+        <p className="text-xs text-muted mb-2">
+          Each roster graded against the other teams from its tier mix and recent form (50 = league average). Lineup players count in full, bench players at 40%, injured reserve not at all. Position columns use the
+          same scale, so you can see where a team is strong and where it&apos;s thin.
+        </p>
+        <div className="border border-ice-line bg-white overflow-x-auto">
+          <table className="w-full text-sm font-tabular">
+            <thead>
+              <tr className="text-muted text-xs border-b border-ice-line">
+                <th className="text-left px-2 py-2">#</th>
+                <th className="text-left px-2 py-2">Team</th>
+                <th className="px-2 py-2 text-center">Grade</th>
+                <th className="px-2 py-2 text-center">Rating</th>
+                <th className="px-2 py-2 text-center">F</th>
+                <th className="px-2 py-2 text-center">D</th>
+                <th className="px-2 py-2 text-center">G</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...data.teams]
+                .filter((t) => t.rating)
+                .sort((a, b) => a.rating!.rank - b.rating!.rank)
+                .map((t) => {
+                  const r = t.rating!;
+                  return (
+                    <tr key={t.id} onClick={() => pick(t.id)} className={`border-b border-ice-line last:border-0 cursor-pointer hover:bg-ice-panel ${t.id === id ? "bg-ice-panel font-semibold" : ""}`}>
+                      <td className="px-2 py-2 text-muted">{r.rank}</td>
+                      <td className="px-2 py-2 whitespace-nowrap">{t.name}</td>
+                      <td className="px-2 py-2 text-center font-display text-base">{r.grade}</td>
+                      <td className="px-2 py-2 text-center">{r.rating}</td>
+                      {(["F", "D", "G"] as const).map((g) => (
+                        <td key={g} className={`px-2 py-2 text-center ${r.groups[g] >= 60 ? "text-green-700" : r.groups[g] <= 40 ? "text-center-red" : "text-muted"}`}>
+                          {r.groups[g]}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="mb-8">
         <h2 className="font-display text-xl mb-1">All teams</h2>
         <p className="text-xs text-muted mb-2">Players by tier on each roster (injured reserve not counted). Tap a team for its players.</p>
         <div className="border border-ice-line bg-white overflow-x-auto">
@@ -194,7 +238,13 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
         <p className="text-muted">Pick a team above to see its players.</p>
       ) : (
         <section>
-          <h2 className="font-display text-2xl mb-3">{team.name}</h2>
+          <h2 className="font-display text-2xl mb-1">{team.name}</h2>
+          {team.rating ? (
+            <p className="text-sm mb-3">
+              <span className="font-display text-lg">{team.rating.grade}</span> <span className="text-muted font-tabular">· #{team.rating.rank} of {data.teams.length} · rating {team.rating.rating}</span>
+              <span className="block text-xs text-muted">{team.rating.note}</span>
+            </p>
+          ) : null}
           {(["F", "D", "G"] as const).map((g) => {
             const list = team.players.filter((p) => p.group === g);
             if (list.length === 0) return null;
