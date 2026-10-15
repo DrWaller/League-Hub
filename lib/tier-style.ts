@@ -3,12 +3,12 @@
 // franchise = Superstar, superstar = Elite, elite = Good, depth = Depth.
 export type Tier = "Replacement" | "Depth" | "Good" | "Elite" | "Superstar";
 export const TIERS: Tier[] = ["Superstar", "Elite", "Good", "Depth", "Replacement"];
-// Elite and Good are both green (deep and light) so the tiers that matter stand out at a glance. The player cards
-// (lib/tiers.ts) keep their own colours.
+// Elite is blue and Good is green, so the two tiers that matter are easy to tell apart at a glance. The player cards
+// (lib/tiers.ts) keep their own colours (Good is a muted blue there).
 export const TIER_STYLE: Record<Tier, { bg: string; fg: string }> = {
   Superstar: { bg: "#D9A441", fg: "#0C2740" },
-  Elite: { bg: "#1E7B3A", fg: "#FFFFFF" }, // deep green
-  Good: { bg: "#7CC47F", fg: "#0C2740" }, // lighter green, dark text so it stays readable
+  Elite: { bg: "#1B6FB5", fg: "#FFFFFF" }, // blue
+  Good: { bg: "#26864A", fg: "#FFFFFF" }, // green
   Depth: { bg: "#7C8794", fg: "#FFFFFF" },
   Replacement: { bg: "#B8574A", fg: "#FFFFFF" },
 };
