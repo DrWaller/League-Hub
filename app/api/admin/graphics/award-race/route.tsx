@@ -1,0 +1,123 @@
+import { NextRequest } from "next/server";
+import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
+import { regularSeasonFinals, computeLuck } from "@/lib/luck";
+import { getAllStored } from "@/lib/vor-store";
+import { buildTandems, getSleepingBeauty } from "@/lib/season-awards";
+import { loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
+import { fetchLineupSlots } from "@/lib/vor";
+import { loadAgeLookup } from "@/lib/trend-ages";
+import { checkHeadshots } from "@/lib/headshots";
+import { loadLogoData } from "@/lib/og-team-logo";
+import { renderPortraitRace, type RaceRow } from "@/lib/race-image";
+import { seasonFooter } from "@/lib/portrait-graphics";
+import { captionResponse } from "@/lib/captions";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const pts = (n: number) => n.toFixed(2);
+
+const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "breakout", "bounce", "improved", "calder"] as const;
+
+// One graphic per remaining season-long race (the player races use award-watch, lineup efficiency uses
+// lineup-season). Reads only what is already saved (no ESPN syncing), so making a graphic costs one render:
+// open the Award Races page first if the numbers look stale.
+export async function GET(req: NextRequest) {
+  try {
+    const race = (req.nextUrl.searchParams.get("race") || "").toLowerCase();
+    if (!(RACES as readonly string[]).includes(race)) return new Response(`race must be one of: ${RACES.join(", ")}`, { status: 400 });
+
+    const meta = await getLeagueMeta();
+    const [{ teams }, { matchups }] = await Promise.all([getStandings(), getMatchups()]);
+    const name = (id: number) => teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
+    const finished = Array.from(new Set(regularSeasonFinals(matchups).map((m) => m.week))).sort((a, b) => a - b);
+    const lastWeek = finished[finished.length - 1] ?? 0;
+
+    let title = "";
+    let tagline = "";
+    let rows: RaceRow[] = [];
+    let empty = "";
+
+    const teamRow = (id: number, rank: number, extra: Omit<RaceRow, "rank" | "name" | "teamId" | "teamName">): RaceRow => ({ rank, name: name(id), teamId: id, teamName: name(id), ...extra });
+    const record = (t: { wins: number; losses: number; ties: number }) => `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`;
+
+    if (race === "presidents") {
+      title = "Presidents' Trophy";
+      tagline = "Best regular-season record";
+      rows = [...teams]
+        .sort((a, b) => b.wins - b.losses - (a.wins - a.losses) || b.pointsFor - a.pointsFor)
+        .slice(0, 5)
+        .map((t, i) => teamRow(t.id, i + 1, { sub: `${pts(t.pointsFor)} PF`, value: record(t), gap: i === 0 ? "leader" : "" }));
+    } else if (race === "points") {
+      title = "Most Points Scored";
+      tagline = "Total regular-season points for";
+      const sorted = [...teams].sort((a, b) => b.pointsFor - a.pointsFor).slice(0, 5);
+      rows = sorted.map((t, i) => teamRow(t.id, i + 1, { sub: record(t), value: pts(t.pointsFor), gap: i === 0 ? "leader" : `-${pts(sorted[0].pointsFor - t.pointsFor)}` }));
+    } else if (race === "hardluck") {
+      title = "Hard Luck Manager";
+      tagline = "Actual wins vs. expected wins (all-play)";
+      empty = "No finished weeks yet.";
+      if (lastWeek > 0) {
+        const list = computeLuck(matchups, lastWeek)
+          .rows.map((r) => {
+            const games = r.actW + r.actL + r.actT;
+            const expected = r.expWinPct * games;
+            return { ...r, expected, gap: r.actW + r.actT * 0.5 - expected };
+          })
+          .sort((a, b) => a.gap - b.gap)
+          .slice(0, 5);
+        rows = list.map((r, i) =>
+          teamRow(r.teamId, i + 1, {
+            sub: `${r.actW}-${r.actL}${r.actT ? `-${r.actT}` : ""} actual, ${r.expected.toFixed(1)} expected`,
+            value: `${r.gap >= 0 ? "+" : "-"}${r.expected > 0 ? Math.abs((r.gap / r.expected) * 100).toFixed(0) : "0"}%`,
+            gap: i === 0 ? "most unlucky" : `${(r.gap - list[0].gap).toFixed(1)} wins back`,
+          })
+        );
+      }
+    } else if (race === "jennings") {
+      title = "William M. Jennings";
+      tagline = "Best goaltending tandem";
+      empty = "No finished weeks saved yet.";
+      const tandems = buildTandems(await getAllStored(meta.season));
+      rows = tandems.map((t) => teamRow(t.teamId, t.rank, { sub: t.goalies.map((g) => `${g.name} ${pts(g.points)}`).join(" / "), value: pts(t.points), gap: t.rank === 1 ? "leader" : `-${pts(tandems[0].points - t.points)}` }));
+    } else if (race === "sleeping") {
+      title = "Sleeping Beauty";
+      tagline = "Biggest draft-pick out-performer";
+      empty = "Needs the draft saved and at least one finished week.";
+      const sleepers = await getSleepingBeauty(meta.season);
+      rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin}`, gap: "spots up" }));
+    } else {
+      empty = "Nothing qualifies yet. Early in the season few players have enough games.";
+      const poolRows = await loadPoolStats(meta.season);
+      const slots = await fetchLineupSlots(meta.season).catch(() => null);
+      const award = buildTrendAwards(poolRows, meta.season, 5, { counts: slots, teamCount: teams.length }).find((a) => a.key === race);
+      const ageOf = await loadAgeLookup(meta.season);
+      title = award?.title ?? race;
+      tagline = { breakout: "Biggest jump into the Good tier or better", bounce: "Biggest rebound after a down year", improved: "Biggest gain on last season", calder: "Best rookie" }[race] ?? "";
+      rows = (award?.entries ?? []).map((e) => {
+        const age = ageOf(e.name, e.position, meta.season);
+        return { rank: e.rank, name: e.name, playerId: e.id, sub: `${e.position}${age ? ` - age ~${age}` : ""} - ${e.detail}`, value: e.value, gap: "" };
+      });
+    }
+
+    if (req.nextUrl.searchParams.get("caption")) {
+      const lines = rows.map((r) => `${r.rank}) ${r.name} - ${r.value} (${r.sub})`);
+      return captionResponse([title.toUpperCase(), tagline, "", ...lines, "", "#FantasyHockey"].join("\n"));
+    }
+    if (rows.length === 0) return new Response(empty || "Nothing to show yet.", { status: 400 });
+
+    const playerIds = rows.flatMap((r) => (r.playerId != null ? [r.playerId] : []));
+    const [logos, headshots] = await Promise.all([rows.some((r) => r.teamId != null) ? loadLogoData(false) : Promise.resolve({}), playerIds.length ? checkHeadshots(playerIds) : Promise.resolve(new Set<number>())]);
+    return await renderPortraitRace({
+      title,
+      subtitle: lastWeek > 0 ? `${tagline} - through week ${lastWeek}` : tagline,
+      footer: seasonFooter(meta.name, meta.season),
+      rows,
+      logos,
+      headshots,
+    });
+  } catch (err) {
+    console.error("Award race graphic failed", err);
+    return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });
+  }
+}

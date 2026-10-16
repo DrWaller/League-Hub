@@ -13,6 +13,7 @@ export default async function AdminDashboard() {
     { href: "/admin/keeper-import", label: "Import Keepers", desc: "Pull keepers from the Keeper History Google Sheet (preview first)." },
     { href: "/admin/formula-test", label: "Formula Test", desc: "Backtest the power rankings formula against every past season." },
     { href: "/admin/season-awards", label: "Season Awards", desc: "Year-long award races (Hart, Norris, Vezina, lineup efficiency and more), updated as each week finishes." },
+    { href: "/admin/award-graphics", label: "Award Race Graphics", desc: "A graphic for each season-long award race, made one at a time when you press its button." },
     { href: "/admin/past-awards", label: "Past Season Awards", desc: "Rebuild any finished season's award leaders from ESPN history (Hart, Art Ross, Calder, Hard Luck and more), one season at a time." },
     { href: "/admin/past-winners", label: "Past Winners", desc: "Fix or add any past award winner. The public Hall of Fame shows what is saved here." },
     { href: "/admin/draft-paste", label: "Paste a Draft", desc: "Paste a draft that isn't on ESPN (like the 2025 Fantrax draft) so the draft awards and recaps can use it." },
