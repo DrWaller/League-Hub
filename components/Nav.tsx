@@ -37,6 +37,7 @@ const NAV: Entry[] = [
     label: "League",
     items: [
       { href: "/awards", label: "Awards" },
+      { href: "/awards/races", label: "Award Races" },
       { href: "/newsletter", label: "Newsletter" },
       { href: "/keepers", label: "Keepers" },
       { href: "/managers", label: "Managers" },
@@ -52,7 +53,8 @@ const NAV: Entry[] = [
   },
 ];
 
-const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+const isActive = (pathname: string, href: string) =>
+  pathname === href || (pathname.startsWith(`${href}/`) && !(href === "/awards" && pathname.startsWith("/awards/races")));
 const groupActive = (pathname: string, e: Entry) => (e.href ? isActive(pathname, e.href) : (e.items ?? []).some((i) => isActive(pathname, i.href)));
 
 function Chevron({ open }: { open: boolean }) {
