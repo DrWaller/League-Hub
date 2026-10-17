@@ -6,6 +6,7 @@ import { buildTandems, getSleepingBeauty } from "@/lib/season-awards";
 import { loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
 import { fetchLineupSlots } from "@/lib/vor";
 import { loadAgeLookup } from "@/lib/trend-ages";
+import { loadRosterMoves, periodToWeek, buildPickups, addedLabel } from "@/lib/roster-moves";
 import { checkHeadshots } from "@/lib/headshots";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { renderPortraitRace, type RaceRow } from "@/lib/race-image";
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 const pts = (n: number) => n.toFixed(2);
 
-const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "breakout", "bounce", "improved", "calder"] as const;
+const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder"] as const;
 
 // One graphic per remaining season-long race (the player races use award-watch, lineup efficiency uses
 // lineup-season). Reads only what is already saved (no ESPN syncing), so making a graphic costs one render:
@@ -86,6 +87,18 @@ export async function GET(req: NextRequest) {
       empty = "Needs the draft saved and at least one finished week.";
       const sleepers = await getSleepingBeauty(meta.season);
       rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin}`, gap: "spots up" }));
+    } else if (race === "pickup") {
+      title = "Best Pickup";
+      tagline = "Best free-agent add of the season";
+      empty = "No pickup has scored yet. Open Award Races once so the adds are saved.";
+      const weekOf = await periodToWeek(meta.season);
+      if (weekOf) {
+        const list = buildPickups(await loadRosterMoves(meta.season), await getAllStored(meta.season), weekOf);
+        rows = list.map((p) => ({
+          rank: p.rank, name: p.name, playerId: p.playerId, sub: `${p.position} - ${name(p.teamId)} - added ${addedLabel(p.addedAt)}${p.rostered ? "" : " - since dropped"}`,
+          value: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)}`, gap: p.rank === 1 ? `VOR - ${pts(p.points)} pts` : `-${pts(list[0].vor - p.vor)}`,
+        }));
+      }
     } else {
       empty = "Nothing qualifies yet. Early in the season few players have enough games.";
       const poolRows = await loadPoolStats(meta.season);
