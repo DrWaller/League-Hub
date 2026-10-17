@@ -107,7 +107,8 @@ export async function syncRosterMoves(season: number, currentPeriod: number, lim
   const state = new Map(have.rows.map((r) => [Number(r.period), { final: Boolean(r.final), at: Number(r.fetched_at) }]));
   const now = Date.now();
   const todo: number[] = [];
-  for (let p = 1; p <= currentPeriod; p++) {
+  // Day 0 catches adds made between the draft and opening night, if ESPN files them there (a failure on day 0 is ignored).
+  for (let p = 0; p <= currentPeriod; p++) {
     const s = state.get(p);
     if (!s || (!s.final && now - s.at > REFRESH_MS)) todo.push(p);
   }
@@ -119,6 +120,13 @@ export async function syncRosterMoves(season: number, currentPeriod: number, lim
     await Promise.all(
       batch.slice(i, i + 5).map(async (p) => {
         const res = await fetchTransactionsRaw(season, p);
+        if (!res.ok && p === 0) {
+          await sql`
+            INSERT INTO roster_moves_periods (season, period, final, fetched_at) VALUES (${season}, 0, true, ${now})
+            ON CONFLICT (season, period) DO UPDATE SET final = true, fetched_at = ${now};
+          `;
+          return;
+        }
         if (!res.ok) {
           failed++;
           error = error ?? `ESPN transactions for day ${p} failed (${res.status ?? "no response"}).`;
@@ -132,7 +140,7 @@ export async function syncRosterMoves(season: number, currentPeriod: number, lim
             ON CONFLICT (season, tx_id, item_no) DO UPDATE SET period = EXCLUDED.period, moved_at = EXCLUDED.moved_at, team_id = EXCLUDED.team_id, player_id = EXCLUDED.player_id, move = EXCLUDED.move, source = EXCLUDED.source;
           `;
         }
-        const final = p < currentPeriod - 1;
+        const final = p < currentPeriod - 1 && p !== currentPeriod;
         await sql`
           INSERT INTO roster_moves_periods (season, period, final, fetched_at) VALUES (${season}, ${p}, ${final}, ${now})
           ON CONFLICT (season, period) DO UPDATE SET final = ${final}, fetched_at = ${now};

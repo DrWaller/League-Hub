@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/admin/matchups", label: "Matchup Blurbs" },
   { href: "/admin/graphics", label: "Graphics" },
   { href: "/admin/award-graphics", label: "Award Graphics" },
+  { href: "/admin/pickup-sync", label: "Update Pickups" },
   { href: "/admin/big-night-cards", label: "Big Night Cards" },
   { href: "/admin/player-cards", label: "Player Cards" },
   { href: "/admin/keepers", label: "Keepers" },

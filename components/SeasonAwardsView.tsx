@@ -9,10 +9,9 @@ import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-tre
 import { fetchLineupSlots } from "@/lib/vor";
 import { pts } from "@/lib/format";
 import { loadAgeLookup } from "@/lib/trend-ages";
-import { syncRosterMoves, addedLabel } from "@/lib/roster-moves";
-import { syncVorRates } from "@/lib/vor-rates";
-import { syncPickupDays, getPickupLog, type PickupLogEntry } from "@/lib/best-pickup";
-import { getCurrentScoringPeriod } from "@/lib/espn-daily";
+import { addedLabel } from "@/lib/roster-moves";
+import { runPickupSyncStep } from "@/lib/pickup-sync";
+import { getPickupLog, type PickupLogEntry } from "@/lib/best-pickup";
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
@@ -87,15 +86,9 @@ export default async function SeasonAwardsView() {
   }
 
   try {
-    const day = (await getCurrentScoringPeriod()).current;
-    if (day) {
-      const m = await syncRosterMoves(meta.season, day);
-      if (m.error) notes.push(m.error);
-      else if (m.waiting > 0) notes.push(`${m.waiting} day(s) of free-agent adds still loading`);
-      const r = await syncVorRates(meta.season, meta.currentWeek);
-      const d = await syncPickupDays(meta.season, day, meta.currentWeek);
-      if (r.waiting + d.waiting + d.failed > 0) notes.push(`${r.waiting + d.waiting + d.failed} step(s) of pickup tracking still loading`);
-    }
+    const step = await runPickupSyncStep();
+    if (step.errors.length > 0) notes.push(...step.errors);
+    else if (!step.done) notes.push("Pickup tracking is still catching up");
   } catch (e) {
     notes.push(`Free-agent adds: ${e instanceof Error ? e.message : String(e)}`);
   }

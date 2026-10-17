@@ -3,18 +3,27 @@ import { getStandings, getLeagueMeta } from "@/lib/espn";
 import { getTeamLogos } from "@/lib/content";
 import { getPickupLog } from "@/lib/best-pickup";
 import { addedLabel } from "@/lib/roster-moves";
+import { runPickupSyncStep, getPickupCounts } from "@/lib/pickup-sync";
 import TeamLogo from "@/components/TeamLogo";
 import { pts } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Every free-agent or waiver add of the season, tracked day by day: which games he started for the team that
 // added him (those count), which he sat (those don't), and when he was dropped. Best Pickup is the top of this list.
-// Read-only: the Award Races page does the saving, so opening this costs nothing from ESPN.
+// Opening this saves one limited batch of new days (the Award Races page does the same), so it stays current.
 export default async function PickupLogPage() {
   const meta = await getLeagueMeta();
   const [{ teams }, logos] = await Promise.all([getStandings(), getTeamLogos()]);
   const name = (id: number) => teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
+  let step: Awaited<ReturnType<typeof runPickupSyncStep>> | null = null;
+  try {
+    step = await runPickupSyncStep();
+  } catch {
+    /* the table below still shows what is saved */
+  }
+  const counts = await getPickupCounts(meta.season);
   let log: Awaited<ReturnType<typeof getPickupLog>> = null;
   try {
     log = await getPickupLog(meta.season);
@@ -28,6 +37,11 @@ export default async function PickupLogPage() {
       <h1 className="font-display text-3xl mb-1">Pickup Log</h1>
       <p className="text-muted mb-4 max-w-prose">
         Every free-agent or waiver add this season, tracked day by day from the add until the team drops him. A game only counts if he was in the starting lineup (benched games are shown but don&apos;t count). VOR is his started points minus replacement level for each game started. Draft picks and trades are never tracked.
+      </p>
+      <p className="text-xs text-muted mb-4">
+        {counts.pickupAdds} free-agent or waiver adds found, {counts.daysChecked} days checked.
+        {step && !step.done ? " Still catching up on earlier days: reload in a moment." : ""}
+        {step && step.errors.length > 0 ? ` ${step.errors.join(" ")}` : ""}
       </p>
       {log === null ? (
         <p className="text-sm text-muted">The Week Days calendar isn&apos;t saved yet, so adds can&apos;t be matched to weeks.</p>
