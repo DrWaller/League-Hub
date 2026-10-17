@@ -73,22 +73,31 @@ export async function syncPickupDays(season: number, currentPeriod: number, curr
   await ensureTables();
   const weekOf = await periodToWeek(season);
   if (!weekOf || currentPeriod < 2) return { saved: 0, waiting: 0, failed: 0 };
+  void currentWeek; // days count as soon as they are over, even inside the week still being played
   const done = new Set((await sql`SELECT period FROM pickup_days_done WHERE season = ${season};`).rows.map((r) => Number(r.period)));
+  // Every finished day (yesterday and earlier). Yesterday is re-read on each update, since ESPN can still adjust
+  // its stats overnight; it is never marked done, so it doesn't count as "waiting".
+  const lastDay = currentPeriod - 1;
   const todo: number[] = [];
-  for (let p = 1; p < currentPeriod; p++) if (!done.has(p) && weekOf(p) < currentWeek) todo.push(p);
-  if (todo.length === 0) return { saved: 0, waiting: 0, failed: 0 };
+  for (let p = 1; p < lastDay; p++) if (!done.has(p)) todo.push(p);
+  const refresh = lastDay >= 1;
+  if (todo.length === 0 && !refresh) return { saved: 0, waiting: 0, failed: 0 };
 
   const index = indexMoves(await loadRosterMoves(season));
   const firstPickupPeriod = Math.min(Infinity, ...[...index.values()].flatMap((g) => g.filter((e) => e.pickup).map((e) => e.period)));
   let saved = 0;
   let failed = 0;
-  for (const day of todo.slice(0, limit)) {
+  const batch = todo.slice(0, limit);
+  if (refresh && batch.length < limit + 1) batch.push(lastDay);
+  for (const day of batch) {
+    const isLatest = day === lastDay;
     if (day < firstPickupPeriod) {
+      if (isLatest) continue;
       await sql`INSERT INTO pickup_days_done (season, period) VALUES (${season}, ${day}) ON CONFLICT DO NOTHING;`;
       saved++;
       continue;
     }
-    const data = await fetchRosterDay(season, day, true);
+    const data = await fetchRosterDay(season, day, !isLatest);
     if (!data?.teams) {
       failed++;
       continue;
@@ -114,7 +123,7 @@ export async function syncPickupDays(season: number, currentPeriod: number, curr
         FROM json_to_recordset(${json}::json) AS r(team_id integer, player_id integer, name text, position text, slot_id integer, active boolean, points real);
       `;
     }
-    await sql`INSERT INTO pickup_days_done (season, period) VALUES (${season}, ${day}) ON CONFLICT DO NOTHING;`;
+    if (!isLatest) await sql`INSERT INTO pickup_days_done (season, period) VALUES (${season}, ${day}) ON CONFLICT DO NOTHING;`;
     saved++;
   }
   return { saved, waiting: Math.max(0, todo.length - limit), failed };
@@ -155,7 +164,17 @@ export interface PickupLogEntry {
   rank: number;
 }
 
-const sourceLabel = (s: string) => (s === "FREEAGENT" ? "Free agent" : s.startsWith("WAIVER") ? "Waivers" : s);
+// The week's replacement level; a week still being played has none saved yet, so the latest finished week's is used.
+function rateFor(rates: Map<number, Record<string, number>>, week: number, position: string): number {
+  const exact = rates.get(week)?.[position];
+  if (exact != null) return exact;
+  let best = -1;
+  for (const w of rates.keys()) if (w <= week && w > best && rates.get(w)?.[position] != null) best = w;
+  if (best < 0) for (const w of rates.keys()) if (rates.get(w)?.[position] != null && (best < 0 || w < best)) best = w;
+  return best < 0 ? 0 : rates.get(best)![position];
+}
+
+const sourceLabel =(s: string) => (s === "FREEAGENT" ? "Free agent" : s.startsWith("WAIVER") ? "Waivers" : s);
 
 // Every tracked pickup, best first (by VOR of his starts, then points).
 export function buildPickupLog(days: PickupDay[], moves: RosterMove[], rates: Map<number, Record<string, number>>, weekOf: (p: number) => number): PickupLogEntry[] {
@@ -185,7 +204,7 @@ export function buildPickupLog(days: PickupDay[], moves: RosterMove[], rates: Ma
       if (d.active) {
         started++;
         counted += d.points;
-        vor += d.points - (rates.get(weekOf(d.period))?.[d.position] ?? 0);
+        vor += d.points - (rateFor(rates, weekOf(d.period), d.position));
       } else {
         benched++;
         bench += d.points;
