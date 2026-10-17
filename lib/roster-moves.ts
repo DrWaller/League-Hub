@@ -7,7 +7,6 @@
 
 import { sql } from "./db";
 import { getWeekCalendar } from "./week-calendar";
-import type { StoredVor } from "./vor-store";
 
 const LEAGUE_ID = process.env.ESPN_LEAGUE_ID || "78683444";
 const ESPN_S2 = process.env.ESPN_S2;
@@ -176,89 +175,6 @@ export async function periodToWeek(season: number): Promise<((period: number) =>
   };
 }
 
-export interface PickupEntry {
-  playerId: number;
-  name: string;
-  position: string;
-  teamId: number;
-  addedAt: number;
-  addedWeek: number;
-  vor: number;
-  points: number;
-  weeks: number; // finished weeks that counted
-  rostered: boolean; // still on that team's roster
-  rank: number;
-}
-
-const PICKUP_SOURCES = new Set(["FREEAGENT", "WAIVER", "WAIVER_BUDGET"]);
-
-// Best Pickup: every free-agent or waiver ADD (not draft picks, not trades), scored by the VOR the player produced
-// for the team that added him, from the week of the add until that team dropped or traded him. Weeks are the
-// stored finished weeks, and the weekly numbers only count days the player was on a roster, so the days before
-// the add (when he was a free agent) never count. A player added, dropped and re-added by one team is one entry.
-export function buildPickups(moves: RosterMove[], vor: StoredVor[], weekOfPeriod: (p: number) => number, top = 5): PickupEntry[] {
-  const groups = new Map<string, RosterMove[]>();
-  for (const m of moves) {
-    const k = `${m.teamId}:${m.playerId}`;
-    const g = groups.get(k);
-    if (g) g.push(m);
-    else groups.set(k, [m]);
-  }
-  const byPlayerWeek = new Map<string, StoredVor>();
-  for (const r of vor) byPlayerWeek.set(`${r.playerId}:${r.week}`, r);
-
-  const lastWeek = Math.max(0, ...vor.map((r) => r.week));
-  const out: Omit<PickupEntry, "rank">[] = [];
-  for (const [key, list] of groups) {
-    const [teamStr, playerStr] = key.split(":");
-    const teamId = Number(teamStr);
-    const playerId = Number(playerStr);
-    const sorted = [...list].sort((a, b) => a.movedAt - b.movedAt || a.itemNo - b.itemNo);
-    const weeks = new Set<number>();
-    const st: { openWeek: number | null } = { openWeek: null };
-    let firstAt = 0;
-    let firstWeek = 0;
-    const closeAt = (week: number) => {
-      if (st.openWeek === null) return;
-      for (let w = st.openWeek; w <= Math.max(st.openWeek, week); w++) weeks.add(w);
-      st.openWeek = null;
-    };
-    for (const m of sorted) {
-      const week = weekOfPeriod(m.period);
-      if (m.move === "add" && PICKUP_SOURCES.has(m.source) && st.openWeek === null) {
-        st.openWeek = week;
-        if (!firstAt) {
-          firstAt = m.movedAt;
-          firstWeek = week;
-        }
-      } else if (m.move === "drop" && st.openWeek !== null) {
-        closeAt(week);
-      }
-    }
-    if (!firstAt) continue;
-    const stillOn = st.openWeek !== null;
-    if (st.openWeek !== null) closeAt(Math.max(st.openWeek, lastWeek));
-    let v = 0;
-    let p = 0;
-    let n = 0;
-    let name = "";
-    let position = "";
-    for (const w of weeks) {
-      const r = byPlayerWeek.get(`${playerId}:${w}`);
-      if (!r || r.teamId !== teamId) continue;
-      v += r.vor;
-      p += r.points;
-      n++;
-      name = r.name;
-      position = r.position;
-    }
-    if (n === 0) continue;
-    out.push({ playerId, name, position, teamId, addedAt: firstAt, addedWeek: firstWeek, vor: v, points: p, weeks: n, rostered: stillOn });
-  }
-  return out
-    .sort((a, b) => b.vor - a.vor || b.points - a.points)
-    .slice(0, top)
-    .map((e, i) => ({ ...e, rank: i + 1 }));
-}
+export const PICKUP_SOURCES = new Set(["FREEAGENT", "WAIVER", "WAIVER_BUDGET"]);
 
 export const addedLabel = (ms: number) => (ms > 0 ? new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Toronto" }) : "");

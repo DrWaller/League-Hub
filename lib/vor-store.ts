@@ -4,6 +4,7 @@
 
 import { sql } from "./db";
 import { getWeekVor } from "./vor";
+import { saveRates } from "./vor-rates";
 import type { MonthlyPeriod } from "./types";
 
 async function ensureTable() {
@@ -81,6 +82,7 @@ export async function syncSeasonVor(season: number, currentWeek: number, limit =
       SELECT ${season}, ${week}, r.player_id, r.name, r.position, r.team_id, r.points, r.vor, r.replacement
       FROM json_to_recordset(${json}::json) AS r(player_id integer, name text, position text, team_id integer, points real, vor real, replacement real);
     `;
+    await saveRates(season, week, vor.replacementPerGame).catch(() => null);
     saved++;
   }
   return { saved, waiting: Math.max(0, missing.length - limit) };

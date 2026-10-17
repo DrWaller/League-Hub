@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
 import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncSeasonVor } from "@/lib/vor-store";
@@ -8,7 +9,9 @@ import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-tre
 import { fetchLineupSlots } from "@/lib/vor";
 import { pts } from "@/lib/format";
 import { loadAgeLookup } from "@/lib/trend-ages";
-import { syncRosterMoves, loadRosterMoves, periodToWeek, buildPickups, addedLabel } from "@/lib/roster-moves";
+import { syncRosterMoves, addedLabel } from "@/lib/roster-moves";
+import { syncVorRates } from "@/lib/vor-rates";
+import { syncPickupDays, getPickupLog, type PickupLogEntry } from "@/lib/best-pickup";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -89,6 +92,9 @@ export default async function SeasonAwardsView() {
       const m = await syncRosterMoves(meta.season, day);
       if (m.error) notes.push(m.error);
       else if (m.waiting > 0) notes.push(`${m.waiting} day(s) of free-agent adds still loading`);
+      const r = await syncVorRates(meta.season, meta.currentWeek);
+      const d = await syncPickupDays(meta.season, day, meta.currentWeek);
+      if (r.waiting + d.waiting + d.failed > 0) notes.push(`${r.waiting + d.waiting + d.failed} step(s) of pickup tracking still loading`);
     }
   } catch (e) {
     notes.push(`Free-agent adds: ${e instanceof Error ? e.message : String(e)}`);
@@ -119,10 +125,10 @@ export default async function SeasonAwardsView() {
   } catch {
     /* empty: the draft may not be stored yet */
   }
-  let pickups: ReturnType<typeof buildPickups> = [];
+  let pickups: PickupLogEntry[] = [];
   try {
-    const weekOf = await periodToWeek(meta.season);
-    if (weekOf) pickups = buildPickups(await loadRosterMoves(meta.season), await getAllStored(meta.season), weekOf);
+    const log = await getPickupLog(meta.season);
+    if (log) pickups = log.slice(0, 5);
     else notes.push("Free-agent adds need the Week Days calendar saved (admin: Week Days)");
   } catch {
     /* empty */
@@ -179,6 +185,7 @@ export default async function SeasonAwardsView() {
       <p className="text-sm text-muted mb-4">
         {through > 0 ? `Player races through week ${through}.` : "No finished weeks yet."} {notes.length > 0 ? `${notes.join("; ")}: refresh to continue.` : ""}
       </p>
+      <p className="text-sm mb-3"><Link href="/awards/pickups" className="text-rink underline">Full pickup log: every add, who started, who sat →</Link></p>
       <div className="grid gap-4 md:grid-cols-2 mb-4">
         {playerCards}
         <Card
@@ -235,12 +242,16 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Best Pickup"
-          blurb="Best free-agent or waiver add of the season, tracked from the draft on: the most VOR a player produced for the team that added him, from his add until that team dropped or traded him. Draft picks and trades don't count."
+          blurb="Best free-agent or waiver add of the season, tracked day by day from the add until the team drops him. Only games he started count (benched games don't), scored as VOR. Draft picks and trades never count."
           rows={pickups.map((p) => ({
-            key: `${p.teamId}-${p.playerId}`, name: p.name, sub: `${p.position} · ${name(p.teamId)} · added ${addedLabel(p.addedAt)}${p.rostered ? "" : " · since dropped"}`, value: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`,
-            gap: p.rank === 1 ? `${pts(p.points)} pts` : `-${pts(pickups[0].vor - p.vor)}`, rank: p.rank,
+            key: `${p.teamId}-${p.playerId}`,
+            name: p.name,
+            sub: `${p.position} · ${name(p.teamId)} · added ${addedLabel(p.addedAt)} (${p.source.toLowerCase()}) · ${p.started} start${p.started === 1 ? "" : "s"}${p.benched ? `, ${p.benched} benched` : ""}${p.droppedAt ? ` · dropped ${addedLabel(p.droppedAt)}` : ""}`,
+            value: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`,
+            gap: p.rank === 1 ? `${pts(p.pointsCounted)} pts` : `-${pts(pickups[0].vor - p.vor)}`,
+            rank: p.rank,
           }))}
-          note="No pickup has scored yet. Adds count from the draft; points show once the week finishes."
+          note="No pickup has started a game yet. Adds are tracked from the draft; games show once the week finishes."
         />
         {trends.map((t) => (
           <Card

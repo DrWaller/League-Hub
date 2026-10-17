@@ -6,7 +6,8 @@ import { buildTandems, getSleepingBeauty } from "@/lib/season-awards";
 import { loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
 import { fetchLineupSlots } from "@/lib/vor";
 import { loadAgeLookup } from "@/lib/trend-ages";
-import { loadRosterMoves, periodToWeek, buildPickups, addedLabel } from "@/lib/roster-moves";
+import { addedLabel } from "@/lib/roster-moves";
+import { getPickupLog } from "@/lib/best-pickup";
 import { checkHeadshots } from "@/lib/headshots";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { renderPortraitRace, type RaceRow } from "@/lib/race-image";
@@ -91,14 +92,12 @@ export async function GET(req: NextRequest) {
       title = "Best Pickup";
       tagline = "Best free-agent add of the season";
       empty = "No pickup has scored yet. Open Award Races once so the adds are saved.";
-      const weekOf = await periodToWeek(meta.season);
-      if (weekOf) {
-        const list = buildPickups(await loadRosterMoves(meta.season), await getAllStored(meta.season), weekOf);
-        rows = list.map((p) => ({
-          rank: p.rank, name: p.name, playerId: p.playerId, sub: `${p.position} - ${name(p.teamId)} - added ${addedLabel(p.addedAt)}${p.rostered ? "" : " - since dropped"}`,
-          value: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)}`, gap: p.rank === 1 ? `VOR - ${pts(p.points)} pts` : `-${pts(list[0].vor - p.vor)}`,
-        }));
-      }
+      const list = ((await getPickupLog(meta.season)) ?? []).slice(0, 5);
+      rows = list.map((p) => ({
+        rank: p.rank, name: p.name, playerId: p.playerId,
+        sub: `${p.position} - ${name(p.teamId)} - added ${addedLabel(p.addedAt)} - ${p.started} start${p.started === 1 ? "" : "s"}${p.benched ? `, ${p.benched} benched` : ""}${p.droppedAt ? ` - dropped ${addedLabel(p.droppedAt)}` : ""}`,
+        value: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)}`, gap: p.rank === 1 ? `VOR - ${pts(p.pointsCounted)} pts` : `-${pts(list[0].vor - p.vor)}`,
+      }));
     } else {
       empty = "Nothing qualifies yet. Early in the season few players have enough games.";
       const poolRows = await loadPoolStats(meta.season);
