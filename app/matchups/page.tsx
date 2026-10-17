@@ -8,6 +8,7 @@ import TeamLogo from "@/components/TeamLogo";
 import { pts, ptsComma } from "@/lib/format";
 import { getWeekGamesPlayed, type WeekGamesPlayed } from "@/lib/games-played";
 import { projectMatchup } from "@/lib/win-probability";
+import MatchupProjection from "@/components/MatchupProjection";
 
 export const dynamic = "force-dynamic";
 
@@ -139,44 +140,24 @@ export default async function MatchupsPage({
                 <span className="font-display text-xl">{pts(m.awayScore)}</span>
               </div>
               {gamesPlayed && gamesPlayed[m.homeTeamId] && gamesPlayed[m.awayTeamId] && (
-                <div className="mt-3 border-t border-ice-line pt-3 text-xs font-tabular text-muted space-y-1">
-                  {[
-                    { id: m.homeTeamId, name: home?.name },
-                    { id: m.awayTeamId, name: away?.name },
-                  ].map(({ id, name }) => {
-                    const g = gamesPlayed![id];
-                    return (
-                      <div key={id} className="flex items-center justify-between gap-3">
-                        <span className="truncate">{name ?? id} · games</span>
-                        <span className="whitespace-nowrap">
-                          {g.played} played
-                          {g.projected !== null && (
-                            <>
-                              {" · "}
-                              {g.projected} left{" · "}
-                              <span className="text-ice">{g.played + g.projected} proj</span>
-                            </>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {proj && (
-                    <div className="pt-2 mt-1 border-t border-ice-line space-y-1">
-                      {[
-                        { id: m.homeTeamId, name: home?.name, final: proj.homeFinal, win: proj.homeWinPct },
-                        { id: m.awayTeamId, name: away?.name, final: proj.awayFinal, win: proj.awayWinPct },
-                      ].map((r) => (
-                        <div key={r.id} className="flex items-center justify-between gap-3">
-                          <span className="truncate">{r.name ?? r.id} · projected</span>
-                          <span className="whitespace-nowrap">
-                            {pts(r.final)} · <span className={r.win >= 50 ? "text-ice font-semibold" : ""}>{r.win}% win</span>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <MatchupProjection
+                  a={{
+                    name: home?.name ?? String(m.homeTeamId),
+                    logo: logos[m.homeTeamId],
+                    played: gamesPlayed[m.homeTeamId].played,
+                    left: gamesPlayed[m.homeTeamId].projected,
+                    final: proj?.homeFinal ?? null,
+                    win: proj?.homeWinPct ?? null,
+                  }}
+                  b={{
+                    name: away?.name ?? String(m.awayTeamId),
+                    logo: logos[m.awayTeamId],
+                    played: gamesPlayed[m.awayTeamId].played,
+                    left: gamesPlayed[m.awayTeamId].projected,
+                    final: proj?.awayFinal ?? null,
+                    win: proj?.awayWinPct ?? null,
+                  }}
+                />
               )}
               <p className="text-xs text-muted mt-3">
                 {m.isExcluded ? "Final · doesn't count toward records" : m.isPlayoff ? "Final · playoff game" : m.isFinal ? "Final" : "In progress"}
