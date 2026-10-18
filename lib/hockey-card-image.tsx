@@ -4,6 +4,7 @@ import { NO_CACHE } from "./og-theme";
 import { headshotUrl } from "./headshots";
 import { TIERS, tierOf } from "./tiers";
 import { nhlTeam, shade } from "./nhl-colors";
+import { pctDisplay } from "./format";
 import type { CardOpts } from "./player-card-opts";
 
 // Hockey card (a true 5:7 trading card): the player on his NHL team's colours, a nameplate across the bottom of
@@ -122,7 +123,7 @@ export async function renderHockeyCard(opts: CardOpts) {
         {/* back of the card: stats */}
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, borderRadius: 22, padding: "20px 28px 18px 28px", backgroundImage: `linear-gradient(170deg, ${INK} 0%, #0A1828 100%)`, border: `4px solid ${trim}` }}>
           <div style={{ display: "flex", gap: 14 }}>
-            {([["FANTASY PTS", points.total.value.toFixed(2)], ["PER GAME", points.avg.value.toFixed(2)], [opts.groupName === "forwards" ? "FWD PERCENTILE" : opts.groupName === "defensemen" ? "D PERCENTILE" : "G PERCENTILE", `${Math.min(99, Math.floor(points.avg.position.pct))}`]] as [string, string][]).map(([label, value]) => (
+            {([["FANTASY PTS", points.total.value.toFixed(2)], ["PER GAME", points.avg.value.toFixed(2)], [opts.groupName === "forwards" ? "FWD PERCENTILE" : opts.groupName === "defensemen" ? "D PERCENTILE" : "G PERCENTILE", `${pctDisplay(points.avg.position.pct)}`]] as [string, string][]).map(([label, value]) => (
               <div key={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, borderRadius: 14, background: "rgba(255,255,255,0.07)", padding: "8px 0 6px 0" }}>
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 20, letterSpacing: 4, color: accent }}>{label}</div>
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 76, lineHeight: 1.05, color: "#FFFFFF" }}>{value}</div>

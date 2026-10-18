@@ -3,6 +3,10 @@
 export const pts = (n: number) => n.toFixed(2);
 export const ptsComma = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Every percentile shown on a graphic goes through this one rule: round DOWN and cap at 99, so a player is only
+// shown as 99th once he is truly in the 99+ range (the Superstar cutoff) and nobody is ever shown as 100th.
+export const pctDisplay = (pct: number) => Math.max(0, Math.min(99, Math.floor(pct)));
+
 // 1st, 2nd, 3rd, 4th ... 11th, 12th, 13th ... 21st, 22nd, 101st.
 export function ordinal(n: number): string {
   const v = Math.abs(Math.round(n));

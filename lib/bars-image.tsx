@@ -5,6 +5,7 @@ import type { Tier } from "./tier-style";
 import { Group, PointsComparison, RadarAxis, scaleColor, sectionOf } from "./radar";
 import type { TierName } from "./tiers";
 import { HeroTiles, formatValue } from "./radar-image";
+import { pctDisplay } from "./format";
 
 // Player Bars card (portrait): the same data as the radar, drawn like Baseball Savant's
 // percentile panel -- one bar per category on a shared scale, a numbered circle at the end of
@@ -130,7 +131,7 @@ export async function renderPortraitBars(opts: {
                               borderRadius: CIRCLE / 2, background: color, border: "3px solid #FFFFFF", fontFamily: display, fontSize: 23, fontWeight: 700, color: "#FFFFFF",
                             }}
                           >
-                            {String(Math.round(a.pct))}
+                            {String(pctDisplay(a.pct))}
                           </div>
                         ) : null}
                       </div>

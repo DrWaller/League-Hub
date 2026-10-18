@@ -2,7 +2,7 @@ import { OG } from "./og-theme";
 import { frame } from "./portrait-graphics";
 import { PlayerHeader } from "./player-header";
 import type { Tier } from "./tier-style";
-import { ordinal } from "./format";
+import { ordinal, pctDisplay } from "./format";
 import { TIERS, type TierName } from "./tiers";
 import { PointsComparison, RadarAxis, Standing, scaleColor } from "./radar";
 
@@ -80,7 +80,7 @@ export function HeroTiles({ points, positionLabel, display, tier }: { points: Po
         <div key={l} style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 3 }}>
           <div style={{ display: "flex", width: 138, fontSize: 18, fontWeight: 600, letterSpacing: 1, color: "#9FB6CD" }}>{l}</div>
           <div style={{ display: "flex", fontFamily: display, fontSize: 28, fontWeight: 700, color: "#FFFFFF" }}>{`#${st.rank}`}</div>
-          <div style={{ display: "flex", fontSize: 20, fontWeight: 700, color: scaleColor(st.pct, true) }}>{ordinal(st.pct)}</div>
+          <div style={{ display: "flex", fontSize: 20, fontWeight: 700, color: scaleColor(st.pct, true) }}>{ordinal(pctDisplay(st.pct))}</div>
         </div>
       ))}
     </div>
@@ -163,7 +163,7 @@ export async function renderPortraitRadar(opts: {
               <div key={a.statId} style={{ position: "absolute", left: p.x - LABEL_W / 2, top: p.y - LABEL_H / 2, width: LABEL_W, height: LABEL_H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: qualified ? 1 : 0.55 }}>
                 <div style={{ display: "flex", fontFamily: display, fontSize: 27, fontWeight: 700, letterSpacing: 1, color: "#C9D6E6", lineHeight: 1 }}>{a.label}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: 46, fontWeight: 700, color: pctColor(a.pct), lineHeight: 1.05 }}>{String(Math.round(a.pct))}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: 46, fontWeight: 700, color: pctColor(a.pct), lineHeight: 1.05 }}>{String(pctDisplay(a.pct))}</div>
                   {marker(a.pct) ? <div style={{ display: "flex", fontSize: 18, color: pctColor(a.pct) }}>{marker(a.pct)}</div> : null}
                 </div>
               </div>

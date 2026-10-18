@@ -14,6 +14,7 @@ import {
   getWeeklyPlayerStats,
 } from "./espn";
 import { getWeekVor } from "./vor";
+import { pctDisplay } from "./format";
 import { checkHeadshots, headshotUrl, urlExists } from "./headshots";
 import {
   buildRadar,
@@ -306,7 +307,7 @@ export function debugJson(p: Profile) {
 }
 
 export function profileCaption(p: Profile, title: string, teamName?: string, leagueTier?: string | null): string {
-  const lines = p.axes.map((a) => `${a.label} ${Math.round(a.pct)}`).join(" | ");
+  const lines = p.axes.map((a) => `${a.label} ${pctDisplay(a.pct)}`).join(" | ");
   const counts = p.counts.map((c) => `${c.label} ${c.value}`).join(" | ");
   const pts = p.points;
   return [

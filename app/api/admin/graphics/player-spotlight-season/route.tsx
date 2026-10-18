@@ -23,7 +23,8 @@ const PAST_WEEKS = 24; // a past season: every week up to here that has data (we
 
 // Player Spotlight, full season: one featured player over the whole season so far (or a past season). By default the most
 // valuable player over replacement (the sum of his weekly VOR), optionally narrowed by ?position= or picked with ?playerId=.
-// ?endWeek=N stops at a given week; without it, the current season runs through the last completed week.
+// ?endWeek=N stops at a given week; without it, the current season runs through the CURRENT week (games played so far
+// included), so its games, points and stats match the other player graphics, which use the full season to date.
 export async function GET(req: NextRequest) {
   try {
     const params = req.nextUrl.searchParams;
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     if (isPast && (await getPlayedElsewhereSeasons()).has(seasonParam)) {
       return new Response(`${seasonParam} was played on Fantrax, so there's no ESPN player data to use.`, { status: 400 });
     }
-    const endWeek = Number(params.get("endWeek")) || (isPast ? PAST_WEEKS : Math.max(1, meta.currentWeek - 1));
+    const endWeek = Number(params.get("endWeek")) || (isPast ? PAST_WEEKS : Math.max(1, meta.currentWeek));
 
     const [period, teams] = await Promise.all([
       getPeriodVor(1, endWeek, seasonParam, meta.season),
