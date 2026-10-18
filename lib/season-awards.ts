@@ -4,6 +4,7 @@
 
 import { getAllStored, type StoredVor } from "./vor-store";
 import { sql } from "./db";
+import { loadLiveVor } from "./vor-live";
 
 export interface PlayerAward {
   key: string;
@@ -81,7 +82,11 @@ export function buildRaces(rows: StoredVor[], throughWeek?: number, top = 5): Pl
 }
 
 export async function getPlayerRaces(season: number, throughWeek?: number, top = 5): Promise<PlayerRace[]> {
-  return buildRaces(await getAllStored(season), throughWeek, top);
+  const stored = await getAllStored(season);
+  // The week in progress counts too (as of the last daily refresh), unless a past week was asked for.
+  const have = new Set(stored.map((r) => r.week));
+  const live = throughWeek ? [] : (await loadLiveVor(season)).filter((r) => !have.has(r.week));
+  return buildRaces([...stored, ...live], throughWeek, top);
 }
 
 // ---------------------------------------------------------------------------------------------------------

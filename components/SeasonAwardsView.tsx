@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
 import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncSeasonVor } from "@/lib/vor-store";
+import { syncLiveVor } from "@/lib/vor-live";
 import { syncSeasonLineups, getStoredLineups, summarizeSeason } from "@/lib/lineup-store";
 import { getPlayerRaces, buildTandems, getSleepingBeauty, PAST_WINNERS } from "@/lib/season-awards";
 import { getAllStored } from "@/lib/vor-store";
@@ -68,6 +69,7 @@ export default async function SeasonAwardsView() {
   try {
     const v = await syncSeasonVor(meta.season, meta.currentWeek);
     if (v.waiting > 0) notes.push(`${v.waiting} week(s) of player data still loading`);
+    if (v.waiting === 0) await syncLiveVor(meta.season, meta.currentWeek);
   } catch (e) {
     notes.push(`Player data: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -176,7 +178,7 @@ export default async function SeasonAwardsView() {
         The year-long races, updated as each week finishes. Arrows show movement since the previous week. Gaps are to the leader.
       </p>
       <p className="text-sm text-muted mb-4">
-        {through > 0 ? `Player races through week ${through}.` : "No finished weeks yet."} {notes.length > 0 ? `${notes.join("; ")}: refresh to continue.` : ""}
+        {through > 0 ? `Player races through week ${through}${through >= meta.currentWeek ? " (in progress, updated daily)" : ""}.` : "No finished weeks yet."} {notes.length > 0 ? `${notes.join("; ")}: refresh to continue.` : ""}
       </p>
       <p className="text-sm mb-3"><Link href="/awards/pickups" className="text-rink underline">Full pickup log: every add, who started, who sat →</Link></p>
       <div className="grid gap-4 md:grid-cols-2 mb-4">
