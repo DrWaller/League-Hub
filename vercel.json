@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/cron/lines",
-      "schedule": "0 15 * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }
