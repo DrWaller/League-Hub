@@ -12,6 +12,7 @@ import { fetchRosterDay } from "@/lib/games-played";
 import { getBestAvailable, NHL_ABBREV } from "@/lib/best-available";
 import { getLeagueTiers, loadPools, tierOf, tierRank, type LeagueTiers, type Tier } from "@/lib/league-tiers";
 import { getSeasonGames, type SeasonGames } from "@/lib/season-games";
+import { fetchLineupSlots } from "@/lib/vor";
 import { getGoalieUsage } from "@/lib/goalie-starts";
 import type { Group } from "@/lib/radar";
 
@@ -60,10 +61,13 @@ export interface MakeupPlayer {
   goalie?: GoalieRating; // goalies only: est is points per team game
 }
 
-// How a roster grades against the rest of the league. Every non-IR player is worth points for his tier
-// (Superstar 10, Elite 6, Good 3, Depth 1, Replacement 0): lineup players count in full, bench players at 40%.
-// A player's worth is 70% his rating tier and 30% his last-30-day form tier (rating alone when he has no form).
-// Team scores are then put on a 0-100 scale against the league (50 = average team, 15 points = one standard deviation).
+// How a roster grades against the rest of the league. Each player is worth his rating minus the league's starter
+// line for his position (points per game above the line, so a starter below the line counts against the team).
+// A team's starters are its best players at each position for the league's real lineup slots, whatever slot
+// ESPN happens to show today (IR excluded); last season stays in the rating through the blend. The last-30-day
+// line only adjusts a skater once it covers fewer games than his season (70% rating, 30% last 30 days), because
+// before that it is just the season average counted twice. Team scores are then put on a 0-100 scale against the
+// league (50 = average team, 15 points = one standard deviation).
 export interface TeamRating {
   rating: number; // overall, 0-100 (50 = league average)
   grade: string; // A+ ... F, by how far above or below the league average
@@ -71,7 +75,7 @@ export interface TeamRating {
   groups: Record<Group, number>; // same 0-100 scale, per position group
   strongest: Group;
   weakest: Group;
-  holes: number; // lineup players rated Replacement
+  holes: number; // counted starters rated Replacement
   note: string;
 }
 
@@ -306,20 +310,31 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
     for (const p of players) if (p.slot !== "IR" && p.tier) counts[p.tier]++;
     teams.push({ id: t.id, name: names.get(t.id) ?? `Team ${t.id}`, players, counts });
   }
-  rateTeams(teams);
+  await rateTeams(teams, tiers, season);
   teams.sort((a, b) => a.name.localeCompare(b.name));
   return { seasonGames, tiers, teams };
 }
 
-const TIER_WORTH: Record<Tier, number> = { Superstar: 10, Elite: 6, Good: 3, Depth: 1, Replacement: 0 };
 const GROUPS: Group[] = ["F", "D", "G"];
 const GROUP_NAME: Record<Group, string> = { F: "forwards", D: "defence", G: "goaltending" };
 
-function playerWorth(p: MakeupPlayer): number {
-  if (p.slot === "IR" || !p.tier) return 0;
-  const base = TIER_WORTH[p.tier];
-  const worth = p.form ? 0.7 * base + 0.3 * TIER_WORTH[p.form] : base;
-  return worth * (p.slot === "Bench" ? 0.4 : 1);
+// Points per game above the starter line for his position (null when he can't be counted: IR or unrated).
+function valueOver(p: MakeupPlayer, line: number): number | null {
+  if (p.slot === "IR" || p.est === null) return null;
+  let v = p.est;
+  if (p.group !== "G" && p.l30 && p.l30.gp >= 5 && p.l30.gp < p.gp) v = 0.7 * v + 0.3 * p.l30.avg;
+  return v - line;
+}
+
+// How many starters per group the league's lineup has (ESPN slot ids: 0 C, 1 LW, 2 RW, 3 F, 4 D, 5 G, 6 Util).
+// If the settings can't be read, the most players any team has in a non-bench slot stands in.
+async function startingSlots(teams: MakeupTeam[], season: number): Promise<{ F: number; D: number; G: number; util: number }> {
+  const c = await fetchLineupSlots(season).catch(() => null);
+  if (c && (c[4] ?? 0) + (c[5] ?? 0) + (c[0] ?? 0) + (c[1] ?? 0) + (c[2] ?? 0) + (c[3] ?? 0) > 0) {
+    return { F: (c[0] ?? 0) + (c[1] ?? 0) + (c[2] ?? 0) + (c[3] ?? 0), D: c[4] ?? 0, G: c[5] ?? 0, util: c[6] ?? 0 };
+  }
+  const most = (g: Group) => Math.max(0, ...teams.map((t) => t.players.filter((p) => p.group === g && p.slot === "Lineup").length));
+  return { F: most("F"), D: most("D"), G: most("G"), util: 0 };
 }
 
 function gradeOf(z: number): string {
@@ -332,14 +347,34 @@ function gradeOf(z: number): string {
 function spread(xs: number[]): { mean: number; sd: number } {
   const mean = xs.reduce((a, b) => a + b, 0) / (xs.length || 1);
   const sd = Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / (xs.length || 1));
-  return { mean, sd: Math.max(sd, 0.5) };
+  return { mean, sd: Math.max(sd, 0.2) };
 }
 
-function rateTeams(teams: MakeupTeam[]): void {
+async function rateTeams(teams: MakeupTeam[], tiers: LeagueTiers, season: number): Promise<void> {
   if (teams.length === 0) return;
+  const slots = await startingSlots(teams, season);
+  const starterIds = new Map<number, Set<number>>(); // team id -> the players counted as starters
   const raw = teams.map((t) => {
     const g: Record<Group, number> = { F: 0, D: 0, G: 0 };
-    for (const p of t.players) g[p.group] += playerWorth(p);
+    const chosen = new Set<number>();
+    const ranked = (grp: Group) =>
+      t.players
+        .filter((p) => p.group === grp)
+        .map((p) => ({ p, v: valueOver(p, tiers.cutoffs[grp].depth) }))
+        .filter((x): x is { p: MakeupPlayer; v: number } => x.v !== null)
+        .sort((a, b) => b.v - a.v);
+    const take = (list: { p: MakeupPlayer; v: number }[], n: number) => {
+      for (const x of list.slice(0, Math.max(0, n))) {
+        g[x.p.group] += x.v;
+        chosen.add(x.p.id);
+      }
+    };
+    take(ranked("F"), slots.F);
+    take(ranked("D"), slots.D);
+    take(ranked("G"), slots.G);
+    // Util takes the best skater left over, forward or defence.
+    take([...ranked("F"), ...ranked("D")].filter((x) => !chosen.has(x.p.id)).sort((a, b) => b.v - a.v), slots.util);
+    starterIds.set(t.id, chosen);
     return { g, total: g.F + g.D + g.G };
   });
   const all = spread(raw.map((r) => r.total));
@@ -351,7 +386,7 @@ function rateTeams(teams: MakeupTeam[]): void {
     const z = (r.total - all.mean) / all.sd;
     const groups = { F: scaled(r.g.F, by.F), D: scaled(r.g.D, by.D), G: scaled(r.g.G, by.G) };
     const sorted = [...GROUPS].sort((a, b) => groups[b] - groups[a]);
-    const holes = t.players.filter((p) => p.slot === "Lineup" && p.tier === "Replacement").length;
+    const holes = t.players.filter((p) => starterIds.get(t.id)?.has(p.id) && p.tier === "Replacement").length;
     const strongest = sorted[0];
     const weakest = sorted[2];
     const top = t.counts.Superstar + t.counts.Elite;
