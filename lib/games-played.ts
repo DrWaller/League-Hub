@@ -12,6 +12,7 @@
 // lineup is currently saved for each remaining day.
 
 import { getScoringPeriodsForWeek } from "@/lib/espn";
+import { getWeekCalendar, periodsForWeek } from "@/lib/week-calendar";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 
 const LEAGUE_ID = process.env.ESPN_LEAGUE_ID || "78683444";
@@ -140,6 +141,21 @@ export async function getWeekGamesPlayed(week: number, season: number): Promise<
   const status = await getCurrentScoringPeriod();
   const current = status.current;
   if (current === null) return null;
+
+  // ESPN only lists days that already have points, so on a live week the days still to come (tomorrow's
+  // lineups) are missing and would never count as "games left". Extend through the week's last day using
+  // the saved week calendar; with none saved, assume a 7-day week (week 1 can be shorter, so skip it).
+  try {
+    const last = periods[periods.length - 1];
+    const cal = await getWeekCalendar(season);
+    const saved = cal ? periodsForWeek(cal.lengths, week) : null;
+    let end = saved?.length ? saved[saved.length - 1] : week > 1 ? periods[0] + 6 : last;
+    if (end > last && end - last <= 7) {
+      for (let sp = last + 1; sp <= end; sp++) if (sp >= current) periods.push(sp);
+    }
+  } catch {
+    /* keep the days ESPN gave */
+  }
 
   const needsSchedule = periods.some((p) => p >= current);
   const [days, pro, agg] = await Promise.all([
