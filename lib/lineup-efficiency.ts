@@ -15,10 +15,9 @@ import { getScoringPeriodsForWeek } from "@/lib/espn";
 import { getCurrentScoringPeriod } from "@/lib/espn-daily";
 import { fetchRosterDay } from "@/lib/games-played";
 import { fetchLineupSlots, SLOT, type Pos } from "@/lib/vor";
+import { bestDayLineup, type SlotCounts } from "@/lib/best-lineup";
 
 const POS_BY_ID: Record<number, Pos> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
-const FORWARDS: Pos[] = ["C", "LW", "RW"];
-const SKATERS: Pos[] = ["C", "LW", "RW", "D"];
 const BENCH = 7;
 const IR = 8;
 
@@ -30,28 +29,8 @@ export interface DayPlayer {
   slotId: number; // the slot he was really in that day
 }
 
-export type SlotCounts = Record<"C" | "LW" | "RW" | "F" | "D" | "G" | "Util", number>;
-
-// Best possible lineup from one day's players. Pure function (easy to test).
-export function bestDayLineup(players: { id: number; position: Pos; points: number }[], slots: SlotCounts): { total: number; chosen: Set<number> } {
-  const chosen = new Set<number>();
-  let total = 0;
-  const take = (eligible: Pos[], n: number) => {
-    const cands = players.filter((p) => !chosen.has(p.id) && eligible.includes(p.position)).sort((a, b) => b.points - a.points);
-    for (const p of cands.slice(0, Math.max(0, n))) {
-      chosen.add(p.id);
-      total += p.points;
-    }
-  };
-  take(["C"], slots.C);
-  take(["LW"], slots.LW);
-  take(["RW"], slots.RW);
-  take(["D"], slots.D);
-  take(["G"], slots.G);
-  take(FORWARDS, slots.F);
-  take(SKATERS, slots.Util);
-  return { total, chosen };
-}
+export { bestDayLineup };
+export type { SlotCounts };
 
 export interface BenchPlayer {
   id: number;

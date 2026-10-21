@@ -72,6 +72,11 @@ export default function MatchupProjection({ a, b }: { a: ProjectionSide; b: Proj
           </div>
         ))}
       </div>
+      {hasProj && (
+        <p className="text-[10px] text-muted mt-2 leading-snug">
+          Days after today assume each team&apos;s best lineup; today uses the lineup as set.
+        </p>
+      )}
     </div>
   );
 }
