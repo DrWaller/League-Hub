@@ -59,12 +59,18 @@ export async function runNightly(opts: { period?: number; save: boolean }): Prom
 // that is already saved is left alone unless force is set. Used by the morning
 // job (so one missed day heals itself the next morning) and by the admin
 // "Refresh from ESPN" button.
-export async function catchUpNights(days: number, force = false): Promise<{ ok: boolean; saved: number; error?: string }> {
+export async function catchUpNights(
+  days: number,
+  force = false,
+  budgetMs?: number // stop starting new nights after this long (so a long backfill fits in one request)
+): Promise<{ ok: boolean; saved: number; stoppedEarly?: boolean; error?: string }> {
   const season = currentSeason();
   const status = await getCurrentScoringPeriod();
   if (!status.connected || status.current === null) return { ok: false, saved: 0, error: "ESPN isn't connected." };
   let saved = 0;
+  const startedAt = Date.now();
   for (let k = days; k >= 1; k--) {
+    if (budgetMs && Date.now() - startedAt > budgetMs) return { ok: true, saved, stoppedEarly: true };
     const period = status.current - k;
     if (period < 1) continue;
     const date = nightDate(status.current, period);

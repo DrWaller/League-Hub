@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 // Commissioner page: every big-night card for a night, ready to open or save.
 // Open /admin/big-night-cards for the latest saved night, or ?date=YYYY-MM-DD.
-export default async function BigNightCardsPage({ searchParams }: { searchParams: { date?: string; refreshed?: string } }) {
+export default async function BigNightCardsPage({ searchParams }: { searchParams: { date?: string; refreshed?: string; more?: string } }) {
   const season = currentSeason();
   const [night, recent] = await Promise.all([getNight(season, searchParams.date), getRecentNights(season, 10)]);
 
@@ -31,6 +31,7 @@ export default async function BigNightCardsPage({ searchParams }: { searchParams
             : Number(refreshed) > 0
               ? `Refreshed from ESPN: ${refreshed} night${Number(refreshed) === 1 ? "" : "s"} saved.`
               : "Refreshed from ESPN: nothing new to save."}
+          {searchParams.more === "1" && " Not finished yet: tap the season backfill link again to carry on."}
         </p>
       )}
 
@@ -46,6 +47,14 @@ export default async function BigNightCardsPage({ searchParams }: { searchParams
           Refresh from ESPN
         </Link>
       )}
+
+      <p className="font-body text-sm text-muted">
+        Fantasy Monster counts every saved night.{" "}
+        <Link href="/api/admin/nightly-blurbs/refresh?days=all" className="text-rink hover:underline">
+          Backfill the whole season
+        </Link>{" "}
+        (saves any missing nights; tap again if it says it isn&apos;t finished).
+      </p>
 
       {recent.length > 1 && (
         <div className="flex flex-wrap gap-2">
