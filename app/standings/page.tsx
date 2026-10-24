@@ -45,6 +45,7 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
     live = current.live;
     rows = current.teams;
   }
+  const hasTies = rows.some((t) => t.ties > 0); // the T column only appears once someone has a tie
   const noDataElsewhere = isPast && !live && elsewhere.has(season);
 
   return (
@@ -91,7 +92,7 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                 <th className="py-2 pr-2 md:pr-4 font-body font-normal">Team</th>
                 <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">W</th>
                 <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">L</th>
-                <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">T</th>
+                {hasTies && <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">T</th>}
                 <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">PF</th>
                 <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">PA</th>
                 {!isPast && <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">Streak</th>}
@@ -115,7 +116,7 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                   </td>
                   <td className="py-2.5 pr-2 md:pr-4 text-right">{t.wins}</td>
                   <td className="py-2.5 pr-2 md:pr-4 text-right">{t.losses}</td>
-                  <td className="py-2.5 pr-2 md:pr-4 text-right">{t.ties}</td>
+                  {hasTies && <td className="py-2.5 pr-2 md:pr-4 text-right">{t.ties}</td>}
                   <td className="py-2.5 pr-2 md:pr-4 text-right">{ptsComma(t.pointsFor)}</td>
                   <td className="py-2.5 pr-2 md:pr-4 text-right">{ptsComma(t.pointsAgainst)}</td>
                   {!isPast && <td className="py-2.5 pr-2 md:pr-4 text-right">{t.streak ?? "—"}</td>}
