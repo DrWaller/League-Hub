@@ -87,14 +87,14 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
           <table className="w-full text-sm font-tabular border-collapse">
             <thead>
               <tr className="text-left text-muted border-b border-ice-line">
-                <th className="py-2 pr-4 font-body font-normal">#</th>
-                <th className="py-2 pr-4 font-body font-normal">Team</th>
-                <th className="py-2 pr-4 font-body font-normal text-right">W</th>
-                <th className="py-2 pr-4 font-body font-normal text-right">L</th>
-                <th className="py-2 pr-4 font-body font-normal text-right">T</th>
-                <th className="py-2 pr-4 font-body font-normal text-right">PF</th>
-                <th className="py-2 pr-4 font-body font-normal text-right">PA</th>
-                {!isPast && <th className="py-2 pr-4 font-body font-normal text-right">Streak</th>}
+                <th className="py-2 pr-2 md:pr-4 font-body font-normal">#</th>
+                <th className="py-2 pr-2 md:pr-4 font-body font-normal">Team</th>
+                <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">W</th>
+                <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">L</th>
+                <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">T</th>
+                <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">PF</th>
+                <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">PA</th>
+                {!isPast && <th className="py-2 pr-2 md:pr-4 font-body font-normal text-right">Streak</th>}
               </tr>
             </thead>
             <tbody>
@@ -105,20 +105,20 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                     !isPast && i === playoffLine - 1 ? "border-b-2 border-b-center-red" : ""
                   }`}
                 >
-                  <td className="py-3 pr-4 text-muted">{i + 1}</td>
-                  <td className="py-3 pr-4 font-body">
-                    <div className="flex items-center gap-2">
+                  <td className="py-2.5 pr-2 md:pr-4 text-muted">{i + 1}</td>
+                  <td className="py-2.5 pr-2 md:pr-4 font-body">
+                    <div className="flex items-center gap-3">
                       {/* Logos are matched by team id, which is only trustworthy for the current season */}
-                      <TeamLogo url={isPast ? undefined : logos[t.id]} name={t.name} size={24} />
-                      {t.name}
+                      <TeamLogo url={isPast ? undefined : logos[t.id]} name={t.name} size={44} />
+                      <span className="leading-tight">{t.name}</span>
                     </div>
                   </td>
-                  <td className="py-3 pr-4 text-right">{t.wins}</td>
-                  <td className="py-3 pr-4 text-right">{t.losses}</td>
-                  <td className="py-3 pr-4 text-right">{t.ties}</td>
-                  <td className="py-3 pr-4 text-right">{ptsComma(t.pointsFor)}</td>
-                  <td className="py-3 pr-4 text-right">{ptsComma(t.pointsAgainst)}</td>
-                  {!isPast && <td className="py-3 pr-4 text-right">{t.streak ?? "—"}</td>}
+                  <td className="py-2.5 pr-2 md:pr-4 text-right">{t.wins}</td>
+                  <td className="py-2.5 pr-2 md:pr-4 text-right">{t.losses}</td>
+                  <td className="py-2.5 pr-2 md:pr-4 text-right">{t.ties}</td>
+                  <td className="py-2.5 pr-2 md:pr-4 text-right">{ptsComma(t.pointsFor)}</td>
+                  <td className="py-2.5 pr-2 md:pr-4 text-right">{ptsComma(t.pointsAgainst)}</td>
+                  {!isPast && <td className="py-2.5 pr-2 md:pr-4 text-right">{t.streak ?? "—"}</td>}
                 </tr>
               ))}
             </tbody>
