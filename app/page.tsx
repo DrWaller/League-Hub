@@ -18,7 +18,21 @@ export default async function HomePage() {
   const matchups = all.matchups.filter((m) => m.week === meta.currentWeek);
 
   const top3 = teams.slice(0, 3);
-  const marquee = matchups[0];
+  // Marquee matchup: early in the week (little scoring yet) the two best teams in the
+  // standings; once a game has real points on the board, the closest game, with the better
+  // teams breaking ties.
+  const rankOf = (id: number) => {
+    const i = teams.findIndex((t) => t.id === id);
+    return i === -1 ? teams.length : i;
+  };
+  const strength = (m: (typeof matchups)[number]) => rankOf(m.homeTeamId) + rankOf(m.awayTeamId); // lower = better
+  const margin = (m: (typeof matchups)[number]) => Math.abs(m.homeScore - m.awayScore);
+  const hasData = (m: (typeof matchups)[number]) => m.isFinal || m.homeScore + m.awayScore >= 40;
+  const live = matchups.filter(hasData);
+  const marquee =
+    live.length > 0
+      ? [...live].sort((a, b) => margin(a) - margin(b) || strength(a) - strength(b))[0]
+      : [...matchups].sort((a, b) => strength(a) - strength(b))[0];
   const teamById = (id: number) => teams.find((t) => t.id === id);
 
   return (
