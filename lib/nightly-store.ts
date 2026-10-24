@@ -1,5 +1,5 @@
 import { sql } from "./db";
-import type { BlurbKind, NightlyBlurb } from "./nightly-blurbs";
+import { isMonsterNight, type BlurbKind, type NightlyBlurb } from "./nightly-blurbs";
 
 // Table is created on first use, like the rest of the hub's tables.
 async function ensureTable() {
@@ -119,5 +119,52 @@ export async function getNight(season: number, date?: string): Promise<StoredNig
   } catch (err) {
     console.error("getNight failed (is Postgres connected?)", err);
     return null;
+  }
+}
+
+export interface MonsterCount {
+  playerId: number;
+  name: string;
+  position: string;
+  teamId: number;
+  teamName: string;
+  nights: number; // Monster Nights this season
+  best: number; // his biggest night, in fantasy points
+  total: number; // fantasy points across his Monster Nights
+}
+
+// "Fantasy Monster": how many Monster Nights each player has had this season, most first (ties go to the
+// bigger best night). Counts every player on a Big Night card, rostered or not, and only nights the
+// nightly job has saved.
+export async function getMonsterCounts(season: number): Promise<MonsterCount[]> {
+  try {
+    await ensureTable();
+    const r = await sql`
+      SELECT player_id, team_id, team_name, player_name, position, points, night_date
+      FROM nightly_blurbs
+      WHERE season = ${season}
+      ORDER BY night_date ASC;
+    `;
+    const byPlayer = new Map<number, MonsterCount>();
+    for (const row of r.rows) {
+      const position = (row.position as string) ?? "?";
+      const points = Number(row.points);
+      if (!isMonsterNight(points, position)) continue;
+      const id = Number(row.player_id);
+      const cur = byPlayer.get(id) ?? {
+        playerId: id, name: row.player_name as string, position, teamId: Number(row.team_id), teamName: (row.team_name as string) ?? "",
+        nights: 0, best: 0, total: 0,
+      };
+      cur.nights += 1;
+      cur.best = Math.max(cur.best, points);
+      cur.total += points;
+      cur.teamId = Number(row.team_id); // rows run oldest to newest, so this ends on his latest fantasy team
+      cur.teamName = (row.team_name as string) ?? cur.teamName;
+      byPlayer.set(id, cur);
+    }
+    return Array.from(byPlayer.values()).sort((a, b) => b.nights - a.nights || b.best - a.best);
+  } catch (err) {
+    console.error("getMonsterCounts failed (is Postgres connected?)", err);
+    return [];
   }
 }

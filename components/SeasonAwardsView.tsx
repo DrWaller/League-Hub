@@ -13,6 +13,7 @@ import { loadAgeLookup } from "@/lib/trend-ages";
 import { addedLabel } from "@/lib/roster-moves";
 import { runPickupSyncStep } from "@/lib/pickup-sync";
 import { getPickupLog, type PickupLogEntry } from "@/lib/best-pickup";
+import { getMonsterCounts } from "@/lib/nightly-store";
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
@@ -125,6 +126,12 @@ export default async function SeasonAwardsView() {
     const log = await getPickupLog(meta.season);
     if (log) pickups = log.slice(0, 5);
     else notes.push("Free-agent adds need the Week Days calendar saved (admin: Week Days)");
+  } catch {
+    /* empty */
+  }
+  let monsters: Awaited<ReturnType<typeof getMonsterCounts>> = [];
+  try {
+    monsters = (await getMonsterCounts(meta.season)).slice(0, 5);
   } catch {
     /* empty */
   }
@@ -247,6 +254,19 @@ export default async function SeasonAwardsView() {
             rank: p.rank,
           }))}
           note="No pickup has started a game yet. Adds are tracked from the draft; games show once the week finishes."
+        />
+        <Card
+          title="Fantasy Monster"
+          blurb="Most Monster Nights this season (7+ fantasy points for a forward or goalie, 6+ for a defenseman). Any player counts, rostered or not; ties go to the bigger best night."
+          rows={monsters.map((m, i) => ({
+            key: String(m.playerId),
+            name: m.name,
+            sub: `${m.position} · ${m.teamName || name(m.teamId)} · best night ${pts(m.best)}`,
+            value: `${m.nights} night${m.nights === 1 ? "" : "s"}`,
+            gap: i === 0 ? `${pts(m.total)} pts` : `-${monsters[0].nights - m.nights}`,
+            rank: i + 1,
+          }))}
+          note="No Monster Nights yet this season."
         />
         {trends.map((t) => (
           <Card
