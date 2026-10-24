@@ -35,8 +35,8 @@ export function NightBlock({
   const rest = night.blurbs.filter((b) => !b.gameOfNight);
   return (
     <section>
-      <div className="flex items-baseline justify-between gap-4 mb-4">
-        <h2 className="font-display text-2xl">
+      <div className="flex items-baseline justify-between gap-3 md:gap-4 mb-3 md:mb-4">
+        <h2 className="font-display text-xl md:text-2xl">
           {heading}
           {subheading && <span className="ml-3 font-body text-sm text-muted">{subheading}</span>}
         </h2>
@@ -44,16 +44,16 @@ export function NightBlock({
       </div>
 
       {star && (
-        <div className="bg-rink text-ice rounded-sm border-l-4 border-center-red p-6 md:p-8 mb-3">
-          <p className="font-body text-sm text-ice/70 mb-1">Game of the Night</p>
+        <div className="bg-rink text-ice rounded-sm border-l-4 border-center-red p-4 md:p-8 mb-3">
+          <p className="font-body text-xs md:text-sm uppercase tracking-widest text-ice/60 mb-1">Game of the Night</p>
           <div className="flex items-baseline justify-between gap-4">
-            <p className="font-display text-2xl md:text-3xl leading-tight">
+            <p className="font-display text-xl md:text-3xl leading-tight">
               {star.playerName} <span className="font-body text-sm text-ice/60">{star.position}</span>
               {isMonsterNight(star.points, star.position) && <MonsterTag onDark />}
             </p>
-            <p className="font-display text-3xl md:text-4xl shrink-0">{pts(star.points)}</p>
+            <p className="font-display text-3xl md:text-4xl shrink-0 leading-none">{pts(star.points)}</p>
           </div>
-          <p className="font-body mt-2 text-ice/90">{star.text}</p>
+          <p className="font-body text-sm md:text-base mt-2 text-ice/90">{star.text}</p>
         </div>
       )}
 
@@ -88,7 +88,7 @@ export default async function LastNight() {
       heading="Last Night"
       subheading={prettyDate(night.date)}
       action={
-        <Link href="/last-night" className="shrink-0 bg-rink text-ice font-body text-sm px-4 py-2 rounded-sm hover:bg-rink-deep">
+        <Link href="/last-night" className="shrink-0 bg-rink text-ice font-body text-xs md:text-sm px-3 py-1.5 md:px-4 md:py-2 rounded-sm hover:bg-rink-deep">
           All big nights →
         </Link>
       }
