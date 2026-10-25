@@ -82,6 +82,14 @@ function Row({ p }: { p: MakeupPlayer }) {
             <div className="font-semibold truncate">{p.name}</div>
             <div className="text-xs text-muted">
               {p.nhl} · {p.pos}
+              {p.posRank !== null ? (
+                <span
+                  title={`Rated ${p.posRank} of ${p.posCount} ${p.pos} in the league (rostered and available)`}
+                  className={`ml-1.5 px-1.5 py-px rounded-sm font-tabular ${p.posRank <= 10 ? "bg-gold/25 text-rink font-semibold" : "bg-ice-panel text-muted"}`}
+                >
+                  {p.pos} #{p.posRank}
+                </span>
+              ) : null}
               {p.slot !== "Lineup" ? ` · ${p.slot}` : ""}
               {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
             </div>
@@ -319,6 +327,7 @@ export default function TeamMakeup({ data, selected, logos }: { data: Data; sele
             );
           })}
           <p className="text-xs text-muted max-w-prose">
+            The position badge (e.g. D #1) ranks him by rating against every player at his position in the league, owned or available; gold means top 10.
             Skater rating = his average this season pulled toward last season&apos;s, so a few games don&apos;t swing it. L30 shows his last 30 days against the same cutoffs; an arrow means his form is a
             tier or more away from his rating. Core is Good and above, Keep is Depth, and Drop candidate is Replacement with no recent surge. Watch means the rating and the recent form disagree.
             &quot;Available&quot; names the best free agent at his position who rates above him. Goalies are rated on points per team game: points per start (quality) times his share of his team&apos;s starts (security), so a goalie who starts more climbs; the projection is his points so far plus his team&apos;s real games left in the fantasy regular season at that rate, with his start share pulled toward last season&apos;s and capped. A hurt goalie keeps his season share so his tier holds.

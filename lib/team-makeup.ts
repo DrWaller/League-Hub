@@ -52,6 +52,8 @@ export interface MakeupPlayer {
   priorAvg: number | null; // last season (20+ games)
   est: number | null; // the rating: this season blended with last
   tier: Tier | null;
+  posRank: number | null; // 1 = best-rated player in the league at his exact position (C, LW, RW, D or G), owned or not
+  posCount: number; // how many rated players share his position
   l30: { gp: number; avg: number } | null;
   form: Tier | null; // tier of his last 30 days (needs a few games)
   trend: "up" | "down" | null; // form is a tier or more above / below his rating
@@ -191,6 +193,14 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
 
   // Free agents rated the same way (this season pulled toward ESPN's projection), best first, by group.
   const faRated: Record<Group, { id: number; name: string; est: number; tier: Tier; team: string }[]> = { F: [], D: [], G: [] };
+  // Every rated player's rating by exact position, rostered and free agents together, for the position rank.
+  const ratingsByPos = new Map<string, number[]>();
+  const addRating = (pos: string, est: number | null) => {
+    if (est === null || !Number.isFinite(est)) return;
+    const list = ratingsByPos.get(pos) ?? [];
+    list.push(r2(est));
+    ratingsByPos.set(pos, list);
+  };
   if (fa) {
     for (const p of fa.players) {
       const g: Group = p.position === "G" ? "G" : p.position === "D" ? "D" : "F";
@@ -201,6 +211,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         if (r) {
           const tier = tierOf(r.est, tiers.cutoffs.G);
           if (tier) faRated.G.push({ id: p.id, name: p.name, est: r2(r.est), tier, team: p.team });
+          addRating(p.position, r.est);
         }
         continue;
       }
@@ -209,6 +220,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
       const est = s && s.gp > 0 ? (s.gp * s.avg + k * base) / (s.gp + k) : null;
       const tier = est === null ? null : tierOf(est, tiers.cutoffs[g]);
       if (est !== null && tier) faRated[g].push({ id: p.id, name: p.name, est: r2(est), tier, team: p.team });
+      addRating(p.position, est);
     }
     for (const g of ["F", "D", "G"] as Group[]) faRated[g].sort((a, b) => b.est - a.est);
   }
@@ -296,6 +308,8 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         priorAvg: priorAvg === null ? null : r2(priorAvg),
         est: est === null ? null : r2(est),
         tier,
+        posRank: null,
+        posCount: 0,
         l30: l30 ? { gp: l30.gp, avg: r2(l30.avg) } : null,
         form,
         trend,
@@ -305,10 +319,19 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         goalie,
       });
     }
+    for (const p of players) addRating(p.pos, p.est);
     players.sort((a, b) => (a.group === b.group ? (b.est ?? -1) - (a.est ?? -1) : ["F", "D", "G"].indexOf(a.group) - ["F", "D", "G"].indexOf(b.group)));
     const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
     for (const p of players) if (p.slot !== "IR" && p.tier) counts[p.tier]++;
     teams.push({ id: t.id, name: names.get(t.id) ?? `Team ${t.id}`, players, counts });
+  }
+  for (const t of teams) {
+    for (const p of t.players) {
+      const all = ratingsByPos.get(p.pos);
+      if (!all || p.est === null) continue;
+      p.posCount = all.length;
+      p.posRank = 1 + all.filter((x) => x > p.est!).length;
+    }
   }
   await rateTeams(teams, tiers, season);
   teams.sort((a, b) => a.name.localeCompare(b.name));
