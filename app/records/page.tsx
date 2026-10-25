@@ -5,6 +5,7 @@ import { GameRecord, SeasonRow } from "@/lib/records";
 import { pts, ptsComma } from "@/lib/format";
 import { AllPlayTable } from "@/components/AllPlayView";
 import { buildManagerLuck } from "@/lib/manager-luck";
+import { NIGHT_RECORDS_FROM_SEASON } from "@/lib/records-config";
 import { getAllTimeNights } from "@/lib/nightly-store";
 import { prettyDate } from "@/lib/nightly-blurbs";
 
@@ -180,7 +181,7 @@ export default async function RecordsPage() {
             <section>
               <h2 className="font-display text-2xl mb-1">Single-night records</h2>
               <p className="text-sm text-muted mb-4 max-w-prose">
-                The biggest single-day scores{nights.seasons.length ? ` across ${range(nights.seasons)}` : ""}, including the current season. Players are any player on any roster; teams count the players in the active lineup that day.
+                The biggest single-day scores{nights.seasons.length ? ` across ${range(nights.seasons)}` : ""}, including the current season. Players are any player on any roster; teams count the players in the active lineup that day. Counted from {NIGHT_RECORDS_FROM_SEASON} on, when the league scoring changed.
               </p>
               <div className="grid md:grid-cols-2 gap-8">
                 <div>

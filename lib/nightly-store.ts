@@ -1,4 +1,5 @@
 import { sql } from "./db";
+import { NIGHT_RECORDS_FROM_SEASON } from "./records-config";
 import { isMonsterNight, type BlurbKind, type NightlyBlurb } from "./nightly-blurbs";
 
 // Table is created on first use, like the rest of the hub's tables.
@@ -322,9 +323,9 @@ export async function getAllTimeNights(limit = 10): Promise<{ players: AllTimePl
     await ensureTable();
     await ensureTeamTable();
     const [p, t, s] = await Promise.all([
-      sql`SELECT season, player_id, player_name, position, team_name, points, night_date, stat_line FROM nightly_blurbs ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
-      sql`SELECT season, team_name, points, night_date FROM team_nightly ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
-      sql`SELECT DISTINCT season FROM team_nightly ORDER BY season;`,
+      sql`SELECT season, player_id, player_name, position, team_name, points, night_date, stat_line FROM nightly_blurbs WHERE season >= ${NIGHT_RECORDS_FROM_SEASON} ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
+      sql`SELECT season, team_name, points, night_date FROM team_nightly WHERE season >= ${NIGHT_RECORDS_FROM_SEASON} ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
+      sql`SELECT DISTINCT season FROM team_nightly WHERE season >= ${NIGHT_RECORDS_FROM_SEASON} ORDER BY season;`,
     ]);
     return {
       players: p.rows.map((x) => ({
