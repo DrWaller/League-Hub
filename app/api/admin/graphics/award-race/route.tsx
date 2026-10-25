@@ -8,6 +8,7 @@ import { fetchLineupSlots } from "@/lib/vor";
 import { loadAgeLookup } from "@/lib/trend-ages";
 import { addedLabel } from "@/lib/roster-moves";
 import { getPickupLog } from "@/lib/best-pickup";
+import { getMonsterCounts } from "@/lib/nightly-store";
 import { checkHeadshots } from "@/lib/headshots";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { renderPortraitRace, type RaceRow } from "@/lib/race-image";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 const pts = (n: number) => n.toFixed(2);
 
-const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder"] as const;
+const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder", "monster"] as const;
 
 // One graphic per remaining season-long race (the player races use award-watch, lineup efficiency uses
 // lineup-season). Reads only what is already saved (no ESPN syncing), so making a graphic costs one render:
@@ -88,6 +89,16 @@ export async function GET(req: NextRequest) {
       empty = "Needs the draft saved and at least one finished week.";
       const sleepers = await getSleepingBeauty(meta.season);
       rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin}`, gap: "spots up" }));
+    } else if (race === "monster") {
+      title = "Fantasy Monster";
+      tagline = "Most Monster Nights this season";
+      empty = "No Monster Nights saved yet this season.";
+      const list = (await getMonsterCounts(meta.season)).slice(0, 5);
+      rows = list.map((m, i) => ({
+        rank: i + 1, name: m.name, playerId: m.playerId,
+        sub: `${m.position} - ${m.teamName || name(m.teamId)} - best night ${pts(m.best)}`,
+        value: `${m.nights}`, gap: i === 0 ? `night${m.nights === 1 ? "" : "s"} - ${pts(m.total)} pts` : `-${list[0].nights - m.nights}`,
+      }));
     } else if (race === "pickup") {
       title = "Best Pickup";
       tagline = "Best free-agent add of the season";
