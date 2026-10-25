@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
+import TeamLogo from "@/components/TeamLogo";
 import { TIERS, TIER_STYLE, type Tier } from "@/lib/tier-style";
 import type { MakeupPlayer, Signal, TeamMakeup as Data } from "@/lib/team-makeup";
 
@@ -17,6 +18,46 @@ const SIGNAL_STYLE: Record<Signal, string> = {
   Unrated: "border border-ice-line text-muted",
 };
 
+// Letter grade colour: A green, B blue, C grey, D amber, F red (the +/- doesn't change it).
+const GRADE_COLOR: Record<string, string> = { A: "#26864A", B: "#1B6FB5", C: "#7C8794", D: "#C98A2B", F: "#C41E3A" };
+const gradeColor = (grade: string) => GRADE_COLOR[grade[0]?.toUpperCase()] ?? "#7C8794";
+
+function GradeChip({ grade, size = "md" }: { grade: string; size?: "md" | "lg" }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center rounded-md font-display text-white shrink-0 ${size === "lg" ? "w-14 h-14 text-3xl" : "w-10 h-10 text-xl"}`}
+      style={{ background: gradeColor(grade) }}
+    >
+      {grade}
+    </span>
+  );
+}
+
+// 0-100 bar with a tick at 50 (league average).
+function RatingBar({ value, color }: { value: number; color: string }) {
+  const w = Math.max(2, Math.min(100, value));
+  return (
+    <div className="relative h-2 rounded-full bg-ice-panel overflow-hidden">
+      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${w}%`, background: color }} />
+      <div className="absolute inset-y-0 left-1/2 w-px bg-board/40" />
+    </div>
+  );
+}
+
+function GroupPill({ label, value }: { label: string; value: number }) {
+  const hi = value >= 60;
+  const lo = value <= 40;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-tabular ${
+        hi ? "bg-green-100 text-green-800" : lo ? "bg-red-100 text-center-red" : "bg-ice-panel text-muted"
+      }`}
+    >
+      <span className="font-semibold">{label}</span> {value}
+    </span>
+  );
+}
+
 function Badge({ tier, small }: { tier: Tier | null; small?: boolean }) {
   if (!tier) return <span className={`inline-block px-1.5 py-0.5 text-xs text-muted border border-ice-line ${small ? "" : "w-[74px] text-center"}`}>–</span>;
   const s = TIER_STYLE[tier];
@@ -28,9 +69,13 @@ function Badge({ tier, small }: { tier: Tier | null; small?: boolean }) {
 }
 
 function Row({ p }: { p: MakeupPlayer }) {
+  const accent = p.tier ? TIER_STYLE[p.tier].bg : "#CBD6E2";
   return (
-    <div className={`px-3 py-2.5 flex gap-3 ${p.slot === "IR" ? "opacity-70" : ""}`}>
-      <PlayerPhoto playerId={p.id} name={p.name} size={36} />
+    <div
+      className={`pl-3 pr-3 py-3 flex gap-3 border-l-4 ${p.slot === "IR" ? "opacity-70" : ""} ${p.signal === "Drop candidate" ? "bg-center-red/5" : ""}`}
+      style={{ borderLeftColor: accent }}
+    >
+      <PlayerPhoto playerId={p.id} name={p.name} size={44} />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -85,7 +130,7 @@ function Row({ p }: { p: MakeupPlayer }) {
   );
 }
 
-export default function TeamMakeup({ data, selected }: { data: Data; selected: number | null }) {
+export default function TeamMakeup({ data, selected, logos }: { data: Data; selected: number | null; logos: Record<number, string> }) {
   const [id, setId] = useState<number | null>(selected);
 
   useEffect(() => {
@@ -159,73 +204,71 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
           injured reserve doesn&apos;t count. Each starter is worth his rating minus the starter line for his position, so a star counts for the points he scores and a starter below the line counts against the team. Position
           columns use the same scale, so you can see where a team is strong and where it&apos;s thin.
         </p>
-        <div className="border border-ice-line bg-white overflow-x-auto">
-          <table className="w-full text-sm font-tabular">
-            <thead>
-              <tr className="text-muted text-xs border-b border-ice-line">
-                <th className="text-left px-2 py-2">#</th>
-                <th className="text-left px-2 py-2">Team</th>
-                <th className="px-2 py-2 text-center">Grade</th>
-                <th className="px-2 py-2 text-center">Rating</th>
-                <th className="px-2 py-2 text-center">F</th>
-                <th className="px-2 py-2 text-center">D</th>
-                <th className="px-2 py-2 text-center">G</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...data.teams]
-                .filter((t) => t.rating)
-                .sort((a, b) => a.rating!.rank - b.rating!.rank)
-                .map((t) => {
-                  const r = t.rating!;
-                  return (
-                    <tr key={t.id} onClick={() => pick(t.id)} className={`border-b border-ice-line last:border-0 cursor-pointer hover:bg-ice-panel ${t.id === id ? "bg-ice-panel font-semibold" : ""}`}>
-                      <td className="px-2 py-2 text-muted">{r.rank}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{t.name}</td>
-                      <td className="px-2 py-2 text-center font-display text-base">{r.grade}</td>
-                      <td className="px-2 py-2 text-center">{r.rating}</td>
+        <ol className="border border-ice-line bg-white divide-y divide-ice-line">
+          {[...data.teams]
+            .filter((t) => t.rating)
+            .sort((a, b) => a.rating!.rank - b.rating!.rank)
+            .map((t) => {
+              const r = t.rating!;
+              return (
+                <li key={t.id}>
+                  <button
+                    onClick={() => pick(t.id)}
+                    className={`w-full text-left px-3 py-3 hover:bg-ice-panel/60 ${t.id === id ? "bg-ice-panel" : ""}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-5 text-center font-display text-muted shrink-0">{r.rank}</span>
+                      <TeamLogo url={logos[t.id]} name={t.name} size={40} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`truncate ${t.id === id ? "font-semibold" : "font-medium"}`}>{t.name}</span>
+                          <span className="text-xs text-muted font-tabular shrink-0">{r.rating}</span>
+                        </div>
+                        <div className="mt-1.5">
+                          <RatingBar value={r.rating} color={gradeColor(r.grade)} />
+                        </div>
+                      </div>
+                      <GradeChip grade={r.grade} />
+                    </div>
+                    <div className="mt-2 pl-8 flex gap-1.5">
                       {(["F", "D", "G"] as const).map((g) => (
-                        <td key={g} className={`px-2 py-2 text-center ${r.groups[g] >= 60 ? "text-green-700" : r.groups[g] <= 40 ? "text-center-red" : "text-muted"}`}>
-                          {r.groups[g]}
-                        </td>
+                        <GroupPill key={g} label={g} value={r.groups[g]} />
                       ))}
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+        </ol>
       </section>
 
       <section className="mb-8">
         <h2 className="font-display text-xl mb-1">All teams</h2>
-        <p className="text-xs text-muted mb-2">Players by tier on each roster (injured reserve not counted). Tap a team for its players.</p>
-        <div className="border border-ice-line bg-white overflow-x-auto">
-          <table className="w-full text-sm font-tabular">
-            <thead>
-              <tr className="text-muted text-xs border-b border-ice-line">
-                <th className="text-left px-3 py-2">Team</th>
-                {TIERS.map((t) => (
-                  <th key={t} className="px-1.5 py-2 text-center">
-                    <span className="inline-block w-3 h-3" style={{ background: TIER_STYLE[t].bg }} title={t} />
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.teams.map((t) => (
-                <tr key={t.id} onClick={() => pick(t.id)} className={`border-b border-ice-line last:border-0 cursor-pointer hover:bg-ice-panel ${t.id === id ? "bg-ice-panel font-semibold" : ""}`}>
-                  <td className="px-3 py-2 whitespace-nowrap">{t.name}</td>
-                  {TIERS.map((k) => (
-                    <td key={k} className={`text-center ${t.counts[k] === 0 ? "text-muted/50" : ""}`}>
+        <p className="text-xs text-muted mb-2">Each bar is a roster split by tier, best on the left (injured reserve not counted). Tap a team for its players.</p>
+        <ul className="border border-ice-line bg-white divide-y divide-ice-line">
+          {data.teams.map((t) => (
+            <li key={t.id}>
+              <button onClick={() => pick(t.id)} className={`w-full text-left px-3 py-3 hover:bg-ice-panel/60 ${t.id === id ? "bg-ice-panel" : ""}`}>
+                <div className="flex items-center gap-2.5 mb-2">
+                  <TeamLogo url={logos[t.id]} name={t.name} size={28} />
+                  <span className={`truncate ${t.id === id ? "font-semibold" : "font-medium"}`}>{t.name}</span>
+                </div>
+                <div className="flex h-7 rounded-md overflow-hidden gap-px bg-white">
+                  {TIERS.filter((k) => t.counts[k] > 0).map((k) => (
+                    <div
+                      key={k}
+                      className="flex items-center justify-center text-xs font-semibold font-tabular"
+                      style={{ flex: t.counts[k], background: TIER_STYLE[k].bg, color: TIER_STYLE[k].fg }}
+                      title={`${t.counts[k]} ${k}`}
+                    >
                       {t.counts[k]}
-                    </td>
+                    </div>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
         <p className="text-xs text-muted mt-2 flex flex-wrap gap-x-3 gap-y-1">
           {TIERS.map((t) => (
             <span key={t} className="inline-flex items-center gap-1">
@@ -239,13 +282,28 @@ export default function TeamMakeup({ data, selected }: { data: Data; selected: n
         <p className="text-muted">Pick a team above to see its players.</p>
       ) : (
         <section>
-          <h2 className="font-display text-2xl mb-1">{team.name}</h2>
-          {team.rating ? (
-            <p className="text-sm mb-3">
-              <span className="font-display text-lg">{team.rating.grade}</span> <span className="text-muted font-tabular">· #{team.rating.rank} of {data.teams.length} · rating {team.rating.rating}</span>
-              <span className="block text-xs text-muted">{team.rating.note}</span>
-            </p>
-          ) : null}
+          <div className="bg-rink text-ice rounded-md p-4 mb-4 flex items-center gap-4">
+            <div className="rounded-md bg-white/10 p-1.5 shrink-0">
+              <TeamLogo url={logos[team.id]} name={team.name} size={56} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-2xl leading-tight">{team.name}</h2>
+              {team.rating ? (
+                <>
+                  <p className="text-xs text-ice/70 font-tabular mt-0.5">
+                    #{team.rating.rank} of {data.teams.length} · rating {team.rating.rating}
+                  </p>
+                  <div className="mt-2 flex gap-1.5">
+                    {(["F", "D", "G"] as const).map((g) => (
+                      <GroupPill key={g} label={g} value={team.rating!.groups[g]} />
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </div>
+            {team.rating ? <GradeChip grade={team.rating.grade} size="lg" /> : null}
+          </div>
+          {team.rating ? <p className="text-xs text-muted mb-4">{team.rating.note}</p> : null}
           {(["F", "D", "G"] as const).map((g) => {
             const list = team.players.filter((p) => p.group === g);
             if (list.length === 0) return null;
