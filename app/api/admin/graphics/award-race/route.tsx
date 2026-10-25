@@ -8,7 +8,10 @@ import { fetchLineupSlots } from "@/lib/vor";
 import { loadAgeLookup } from "@/lib/trend-ages";
 import { addedLabel } from "@/lib/roster-moves";
 import { getPickupLog } from "@/lib/best-pickup";
-import { getMonsterCounts } from "@/lib/nightly-store";
+import { getMonsterCounts, getBiggestNights } from "@/lib/nightly-store";
+import { getBiggestWeeks, getBiggestMonths } from "@/lib/vor-store";
+import { getMonthlyPeriods } from "@/lib/content";
+import { prettyDate } from "@/lib/nightly-blurbs";
 import { checkHeadshots } from "@/lib/headshots";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { renderPortraitRace, type RaceRow } from "@/lib/race-image";
@@ -20,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 const pts = (n: number) => n.toFixed(2);
 
-const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder", "monster"] as const;
+const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder", "monster", "night", "week", "month"] as const;
 
 // One graphic per remaining season-long race (the player races use award-watch, lineup efficiency uses
 // lineup-season). Reads only what is already saved (no ESPN syncing), so making a graphic costs one render:
@@ -98,6 +101,36 @@ export async function GET(req: NextRequest) {
         rank: i + 1, name: m.name, playerId: m.playerId,
         sub: `${m.position} - ${m.teamName || name(m.teamId)} - best night ${pts(m.best)}`,
         value: `${m.nights}`, gap: i === 0 ? `night${m.nights === 1 ? "" : "s"} - ${pts(m.total)} pts` : `-${list[0].nights - m.nights}`,
+      }));
+    } else if (race === "night") {
+      title = "Biggest Night";
+      tagline = "Biggest single-night fantasy score";
+      empty = "No nights saved yet.";
+      const list = await getBiggestNights(meta.season, 5);
+      rows = list.map((n, i) => ({
+        rank: i + 1, name: n.name, playerId: n.playerId,
+        sub: `${n.position} - ${n.teamName || name(n.teamId)} - ${prettyDate(n.date)}${n.statLine ? ` - ${n.statLine}` : ""}`,
+        value: pts(n.points), gap: i === 0 ? "pts - record" : `-${pts(list[0].points - n.points)}`,
+      }));
+    } else if (race === "week") {
+      title = "Biggest Week";
+      tagline = "Biggest single-week VOR";
+      empty = "No finished weeks saved yet. Open Award Races once so the weeks are saved.";
+      const list = await getBiggestWeeks(meta.season, 5);
+      rows = list.map((w, i) => ({
+        rank: i + 1, name: w.name, playerId: w.playerId,
+        sub: `${w.position} - ${name(w.teamId)} - Week ${w.week}`,
+        value: `${w.vor >= 0 ? "+" : ""}${pts(w.vor)}`, gap: i === 0 ? `VOR - ${pts(w.points)} pts` : `-${pts(list[0].vor - w.vor)}`,
+      }));
+    } else if (race === "month") {
+      title = "Biggest Month";
+      tagline = "Biggest monthly VOR";
+      empty = "Needs Monthly Periods set up and at least one finished week.";
+      const list = await getBiggestMonths(meta.season, await getMonthlyPeriods(meta.season), 5);
+      rows = list.map((m, i) => ({
+        rank: i + 1, name: m.name, playerId: m.playerId,
+        sub: `${m.position} - ${name(m.teamId)} - ${m.periodLabel}${m.complete ? "" : " (in progress)"}`,
+        value: `${m.vor >= 0 ? "+" : ""}${pts(m.vor)}`, gap: i === 0 ? `VOR - ${pts(m.points)} pts` : `-${pts(list[0].vor - m.vor)}`,
       }));
     } else if (race === "pickup") {
       title = "Best Pickup";

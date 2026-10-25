@@ -13,8 +13,10 @@ import { loadAgeLookup } from "@/lib/trend-ages";
 import { addedLabel } from "@/lib/roster-moves";
 import { runPickupSyncStep } from "@/lib/pickup-sync";
 import { getPickupLog, type PickupLogEntry } from "@/lib/best-pickup";
-import { getMonsterCounts } from "@/lib/nightly-store";
-import { getTeamLogos } from "@/lib/content";
+import { getMonsterCounts, getBiggestNights } from "@/lib/nightly-store";
+import { getBiggestWeeks, getBiggestMonths } from "@/lib/vor-store";
+import { prettyDate } from "@/lib/nightly-blurbs";
+import { getTeamLogos, getMonthlyPeriods } from "@/lib/content";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import TeamLogo from "@/components/TeamLogo";
 
@@ -172,6 +174,15 @@ export default async function SeasonAwardsView() {
   } catch {
     /* empty */
   }
+  let bigNights: Awaited<ReturnType<typeof getBiggestNights>> = [];
+  let bigWeeks: Awaited<ReturnType<typeof getBiggestWeeks>> = [];
+  let bigMonths: Awaited<ReturnType<typeof getBiggestMonths>> = [];
+  try {
+    const periods = await getMonthlyPeriods(meta.season);
+    [bigNights, bigWeeks, bigMonths] = await Promise.all([getBiggestNights(meta.season, 5), getBiggestWeeks(meta.season, 5), getBiggestMonths(meta.season, periods, 5)]);
+  } catch {
+    /* empty */
+  }
   let trends: ReturnType<typeof buildTrendAwards> = [];
   try {
     const poolRows = await loadPoolStats(meta.season);
@@ -309,6 +320,51 @@ export default async function SeasonAwardsView() {
             share: monsters[0].nights > 0 ? m.nights / monsters[0].nights : undefined,
           }))}
           note="No Monster Nights yet this season."
+        />
+        <Card
+          title="Biggest Night"
+          blurb="The biggest single-night fantasy score of the season, any player, rostered or not."
+          rows={bigNights.map((n, i) => ({
+            key: `${n.playerId}-${n.date}`,
+            name: n.name,
+            sub: `${n.position} · ${n.teamName || name(n.teamId)} · ${prettyDate(n.date)}${n.statLine ? ` · ${n.statLine}` : ""}`,
+            value: `${pts(n.points)} pts`,
+            gap: i === 0 ? "record" : `-${pts(bigNights[0].points - n.points)}`,
+            rank: i + 1,
+            playerId: n.playerId,
+            share: bigNights[0].points > 0 ? n.points / bigNights[0].points : undefined,
+          }))}
+          note="No nights saved yet."
+        />
+        <Card
+          title="Biggest Week"
+          blurb="The biggest single-week VOR of the season (points above a replacement player, so it counts the games he played)."
+          rows={bigWeeks.map((w, i) => ({
+            key: `${w.playerId}-${w.week}`,
+            name: w.name,
+            sub: `${w.position} · ${name(w.teamId)} · Week ${w.week}`,
+            value: `${w.vor >= 0 ? "+" : ""}${pts(w.vor)} VOR`,
+            gap: i === 0 ? `${pts(w.points)} pts` : `-${pts(bigWeeks[0].vor - w.vor)}`,
+            rank: i + 1,
+            playerId: w.playerId,
+            share: bigWeeks[0].vor > 0 ? w.vor / bigWeeks[0].vor : undefined,
+          }))}
+          note="No finished weeks saved yet."
+        />
+        <Card
+          title="Biggest Month"
+          blurb="The biggest monthly VOR of the season (his weekly VOR added up across a Monthly Period)."
+          rows={bigMonths.map((m, i) => ({
+            key: `${m.playerId}-${m.periodLabel}`,
+            name: m.name,
+            sub: `${m.position} · ${name(m.teamId)} · ${m.periodLabel}${m.complete ? "" : " (in progress)"}`,
+            value: `${m.vor >= 0 ? "+" : ""}${pts(m.vor)} VOR`,
+            gap: i === 0 ? `${pts(m.points)} pts` : `-${pts(bigMonths[0].vor - m.vor)}`,
+            rank: i + 1,
+            playerId: m.playerId,
+            share: bigMonths[0].vor > 0 ? m.vor / bigMonths[0].vor : undefined,
+          }))}
+          note="Needs Monthly Periods set up (admin) and at least one finished week."
         />
         {trends.map((t) => (
           <Card

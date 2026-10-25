@@ -168,3 +168,42 @@ export async function getMonsterCounts(season: number): Promise<MonsterCount[]> 
     return [];
   }
 }
+
+export interface BigNight {
+  playerId: number;
+  name: string;
+  position: string;
+  teamId: number;
+  teamName: string;
+  points: number;
+  date: string; // YYYY-MM-DD (Toronto)
+  statLine: string | null;
+}
+
+// "Biggest Night": the highest single-night fantasy scores of the season, any player, rostered or not.
+// Only nights the nightly job saved can appear (every night that matters is a Big Night anyway).
+export async function getBiggestNights(season: number, limit = 5): Promise<BigNight[]> {
+  try {
+    await ensureTable();
+    const r = await sql`
+      SELECT player_id, player_name, position, team_id, team_name, points, night_date, stat_line
+      FROM nightly_blurbs
+      WHERE season = ${season}
+      ORDER BY points DESC, night_date ASC
+      LIMIT ${limit};
+    `;
+    return r.rows.map((row) => ({
+      playerId: Number(row.player_id),
+      name: row.player_name as string,
+      position: (row.position as string) ?? "?",
+      teamId: Number(row.team_id),
+      teamName: (row.team_name as string) ?? "",
+      points: Number(row.points),
+      date: row.night_date as string,
+      statLine: (row.stat_line as string | null) ?? null,
+    }));
+  } catch (err) {
+    console.error("getBiggestNights failed (is Postgres connected?)", err);
+    return [];
+  }
+}
