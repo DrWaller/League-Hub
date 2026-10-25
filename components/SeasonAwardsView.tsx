@@ -16,6 +16,7 @@ import { getPickupLog, type PickupLogEntry } from "@/lib/best-pickup";
 import { getMonsterCounts, getBiggestNights } from "@/lib/nightly-store";
 import { getBiggestWeeks, getBiggestMonths } from "@/lib/vor-store";
 import { prettyDate } from "@/lib/nightly-blurbs";
+import { biggestTeamWeeks, biggestTeamMonths } from "@/lib/manager-bests";
 import { getTeamLogos, getMonthlyPeriods } from "@/lib/content";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import TeamLogo from "@/components/TeamLogo";
@@ -174,15 +175,19 @@ export default async function SeasonAwardsView() {
   } catch {
     /* empty */
   }
+  let teamMonthsSource: Awaited<ReturnType<typeof getMonthlyPeriods>> = [];
   let bigNights: Awaited<ReturnType<typeof getBiggestNights>> = [];
   let bigWeeks: Awaited<ReturnType<typeof getBiggestWeeks>> = [];
   let bigMonths: Awaited<ReturnType<typeof getBiggestMonths>> = [];
   try {
     const periods = await getMonthlyPeriods(meta.season);
+    teamMonthsSource = periods;
     [bigNights, bigWeeks, bigMonths] = await Promise.all([getBiggestNights(meta.season, 5), getBiggestWeeks(meta.season, 5), getBiggestMonths(meta.season, periods, 5)]);
   } catch {
     /* empty */
   }
+  const teamWeeks = biggestTeamWeeks(matchups, 5);
+  const teamMonths = biggestTeamMonths(matchups, teamMonthsSource, 5);
   let trends: ReturnType<typeof buildTrendAwards> = [];
   try {
     const poolRows = await loadPoolStats(meta.season);
@@ -363,6 +368,36 @@ export default async function SeasonAwardsView() {
             rank: i + 1,
             playerId: m.playerId,
             share: bigMonths[0].vor > 0 ? m.vor / bigMonths[0].vor : undefined,
+          }))}
+          note="Needs Monthly Periods set up (admin) and at least one finished week."
+        />
+        <Card
+          title="Manager's Biggest Week"
+          blurb="The highest single-week score by a team this season (regular-season games only)."
+          rows={teamWeeks.map((w, i) => ({
+            key: `${w.teamId}-${w.week}`,
+            name: name(w.teamId),
+            sub: `Week ${w.week} · ${w.score > w.oppScore ? "beat" : w.score < w.oppScore ? "lost to" : "tied"} ${name(w.oppId)} ${pts(w.oppScore)}`,
+            value: pts(w.score),
+            gap: i === 0 ? "record" : `-${pts(teamWeeks[0].score - w.score)}`,
+            rank: i + 1,
+            logo: logos[w.teamId],
+            share: teamWeeks[0].score > 0 ? w.score / teamWeeks[0].score : undefined,
+          }))}
+          note="No finished weeks yet."
+        />
+        <Card
+          title="Manager's Biggest Month"
+          blurb="The most points a team scored across one Monthly Period (weeks finished so far; unfinished months are marked)."
+          rows={teamMonths.map((m, i) => ({
+            key: `${m.teamId}-${m.periodLabel}`,
+            name: name(m.teamId),
+            sub: `${m.periodLabel} · ${m.weeks} week${m.weeks === 1 ? "" : "s"}${m.complete ? "" : " (in progress)"}`,
+            value: pts(m.points),
+            gap: i === 0 ? "record" : `-${pts(teamMonths[0].points - m.points)}`,
+            rank: i + 1,
+            logo: logos[m.teamId],
+            share: teamMonths[0].points > 0 ? m.points / teamMonths[0].points : undefined,
           }))}
           note="Needs Monthly Periods set up (admin) and at least one finished week."
         />

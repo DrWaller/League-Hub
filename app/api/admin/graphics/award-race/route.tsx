@@ -12,6 +12,7 @@ import { getMonsterCounts, getBiggestNights } from "@/lib/nightly-store";
 import { getBiggestWeeks, getBiggestMonths } from "@/lib/vor-store";
 import { getMonthlyPeriods } from "@/lib/content";
 import { prettyDate } from "@/lib/nightly-blurbs";
+import { biggestTeamWeeks, biggestTeamMonths } from "@/lib/manager-bests";
 import { checkHeadshots } from "@/lib/headshots";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { renderPortraitRace, type RaceRow } from "@/lib/race-image";
@@ -23,7 +24,7 @@ export const dynamic = "force-dynamic";
 
 const pts = (n: number) => n.toFixed(2);
 
-const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder", "monster", "night", "week", "month"] as const;
+const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder", "monster", "night", "week", "month", "mgrweek", "mgrmonth"] as const;
 
 // One graphic per remaining season-long race (the player races use award-watch, lineup efficiency uses
 // lineup-season). Reads only what is already saved (no ESPN syncing), so making a graphic costs one render:
@@ -132,6 +133,30 @@ export async function GET(req: NextRequest) {
         sub: `${m.position} - ${name(m.teamId)} - ${m.periodLabel}${m.complete ? "" : " (in progress)"}`,
         value: `${m.vor >= 0 ? "+" : ""}${pts(m.vor)}`, gap: i === 0 ? `VOR - ${pts(m.points)} pts` : `-${pts(list[0].vor - m.vor)}`,
       }));
+    } else if (race === "mgrweek") {
+      title = "Manager's Biggest Week";
+      tagline = "Highest single-week team score";
+      empty = "No finished weeks yet.";
+      const list = biggestTeamWeeks(matchups, 5);
+      rows = list.map((w, i) =>
+        teamRow(w.teamId, i + 1, {
+          sub: `Week ${w.week} - ${w.score > w.oppScore ? "beat" : w.score < w.oppScore ? "lost to" : "tied"} ${name(w.oppId)} ${pts(w.oppScore)}`,
+          value: pts(w.score),
+          gap: i === 0 ? "record" : `-${pts(list[0].score - w.score)}`,
+        })
+      );
+    } else if (race === "mgrmonth") {
+      title = "Manager's Biggest Month";
+      tagline = "Most points across a Monthly Period";
+      empty = "Needs Monthly Periods set up and at least one finished week.";
+      const list = biggestTeamMonths(matchups, await getMonthlyPeriods(meta.season), 5);
+      rows = list.map((m, i) =>
+        teamRow(m.teamId, i + 1, {
+          sub: `${m.periodLabel} - ${m.weeks} week${m.weeks === 1 ? "" : "s"}${m.complete ? "" : " (in progress)"}`,
+          value: pts(m.points),
+          gap: i === 0 ? "record" : `-${pts(list[0].points - m.points)}`,
+        })
+      );
     } else if (race === "pickup") {
       title = "Best Pickup";
       tagline = "Best free-agent add of the season";
