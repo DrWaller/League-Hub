@@ -68,24 +68,44 @@ export async function runNightly(opts: { period?: number; save: boolean }): Prom
 // that is already saved is left alone unless force is set. Used by the morning
 // job (so one missed day heals itself the next morning) and by the admin
 // "Refresh from ESPN" button.
+export interface CatchUpResult {
+  ok: boolean;
+  saved: number;
+  checked: number; // nights from the start of the season that were looked at
+  alreadyDone: number; // nights that already had their team totals saved
+  unreadable: number; // nights ESPN gave nothing usable for
+  firstProblem?: string;
+  stoppedEarly?: boolean;
+  error?: string;
+}
+
 export async function catchUpNights(
   days: number,
   force = false,
   budgetMs?: number // stop starting new nights after this long (so a long backfill fits in one request)
-): Promise<{ ok: boolean; saved: number; stoppedEarly?: boolean; error?: string }> {
+): Promise<CatchUpResult> {
   const season = currentSeason();
   const status = await getCurrentScoringPeriod();
-  if (!status.connected || status.current === null) return { ok: false, saved: 0, error: "ESPN isn't connected." };
-  let saved = 0;
+  const empty = { saved: 0, checked: 0, alreadyDone: 0, unreadable: 0 };
+  if (!status.connected || status.current === null) return { ok: false, ...empty, error: "ESPN isn't connected." };
+  const res: CatchUpResult = { ok: true, ...empty };
   const startedAt = Date.now();
   for (let k = days; k >= 1; k--) {
-    if (budgetMs && Date.now() - startedAt > budgetMs) return { ok: true, saved, stoppedEarly: true };
+    if (budgetMs && Date.now() - startedAt > budgetMs) return { ...res, stoppedEarly: true };
     const period = status.current - k;
     if (period < 1) continue;
     const date = nightDate(status.current, period);
-    if (!force && (await hasTeamNights(season, date))) continue; // team totals are saved with every night, so this also covers nights saved before they existed
+    res.checked++;
+    if (!force && (await hasTeamNights(season, date))) {
+      res.alreadyDone++; // team totals are saved with every night, so this also covers nights saved before they existed
+      continue;
+    }
     const r = await runNightly({ period, save: true });
-    if (r.ok && r.saved) saved++;
+    if (r.ok && r.saved) res.saved++;
+    else {
+      res.unreadable++;
+      if (!res.firstProblem) res.firstProblem = `${date}: ${r.error ?? "ESPN returned no players for that day"}`;
+    }
   }
-  return { ok: true, saved };
+  return res;
 }

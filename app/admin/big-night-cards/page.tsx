@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 // Commissioner page: every big-night card for a night, ready to open or save.
 // Open /admin/big-night-cards for the latest saved night, or ?date=YYYY-MM-DD.
-export default async function BigNightCardsPage({ searchParams }: { searchParams: { date?: string; refreshed?: string; more?: string } }) {
+export default async function BigNightCardsPage({ searchParams }: { searchParams: { date?: string; refreshed?: string; more?: string; checked?: string; done?: string; bad?: string; why?: string } }) {
   const season = currentSeason();
   const [night, recent] = await Promise.all([getNight(season, searchParams.date), getRecentNights(season, 10)]);
 
@@ -24,14 +24,21 @@ export default async function BigNightCardsPage({ searchParams }: { searchParams
         <p className="font-body text-muted mt-1">One card per player who had a big night. Open one full size to save it, or grab its caption.</p>
       </div>
 
-      {refreshed && (
+      {searchParams.checked !== undefined && (
+        <p className="font-body text-sm bg-ice-panel border border-ice-line px-4 py-3 rounded">
+          Season backfill: looked at {searchParams.checked} night{searchParams.checked === "1" ? "" : "s"}. {refreshed} saved now, {searchParams.done} already complete
+          {Number(searchParams.bad) > 0 ? `, ${searchParams.bad} couldn't be read from ESPN${searchParams.why ? ` (${searchParams.why})` : ""}` : ""}.
+          {searchParams.more === "1" ? " Not finished: tap the backfill button again." : " That's every night so far."}
+        </p>
+      )}
+
+      {searchParams.checked === undefined && refreshed && (
         <p className="font-body text-sm bg-ice-panel border border-ice-line px-4 py-3 rounded">
           {refreshed === "error"
             ? "Couldn't reach ESPN just now. Try again in a minute."
             : Number(refreshed) > 0
               ? `Refreshed from ESPN: ${refreshed} night${Number(refreshed) === 1 ? "" : "s"} saved.`
               : "Refreshed from ESPN: nothing new to save."}
-          {searchParams.more === "1" && " Not finished yet: tap the season backfill link again to carry on."}
         </p>
       )}
 

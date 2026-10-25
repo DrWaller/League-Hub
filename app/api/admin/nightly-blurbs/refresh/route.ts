@@ -19,5 +19,11 @@ export async function GET(req: NextRequest) {
   const back = new URL("/admin/big-night-cards", req.url);
   back.searchParams.set("refreshed", result.ok ? String(result.saved) : "error");
   if (result.stoppedEarly) back.searchParams.set("more", "1");
+  if (all) {
+    back.searchParams.set("checked", String(result.checked));
+    back.searchParams.set("done", String(result.alreadyDone));
+    back.searchParams.set("bad", String(result.unreadable));
+    if (result.firstProblem) back.searchParams.set("why", result.firstProblem.slice(0, 160));
+  }
   return NextResponse.redirect(back);
 }
