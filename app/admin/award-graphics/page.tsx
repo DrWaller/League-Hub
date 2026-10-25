@@ -17,6 +17,16 @@ export default async function AwardGraphicsPage() {
         Each one is only made when you press its button, so this page uses no server time until you ask. The graphics read the numbers already saved: open Award Races (or Season Awards) once after a week finishes to refresh them.
       </p>
 
+      <div className="mb-6 border border-ice-line bg-white px-4 py-3 text-sm space-y-2 max-w-prose">
+        <p className="font-semibold">Night awards empty or incomplete?</p>
+        <p className="text-muted">
+          Fantasy Monster, Biggest Night and Manager&apos;s Biggest Night count from saved nights. This saves every night since the start of the season (about 45 seconds a tap; tap again until it says nothing new).
+        </p>
+        <a href="/api/admin/nightly-blurbs/refresh?days=all" className="inline-block bg-rink text-ice px-4 py-2 rounded-sm hover:bg-rink-deep">
+          Backfill the whole season
+        </a>
+      </div>
+
       {nights.length > 0 && (
         <section className="mb-8 border border-ice-line bg-white p-4">
           <h2 className="font-display text-lg">Biggest Night cards</h2>

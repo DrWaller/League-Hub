@@ -48,13 +48,15 @@ export default async function BigNightCardsPage({ searchParams }: { searchParams
         </Link>
       )}
 
-      <p className="font-body text-sm text-muted">
-        Fantasy Monster counts every saved night.{" "}
-        <Link href="/api/admin/nightly-blurbs/refresh?days=all" className="text-rink hover:underline">
+      <div className="font-body text-sm border border-ice-line bg-white px-4 py-3 rounded space-y-2">
+        <p className="font-semibold">Backfill the season</p>
+        <p className="text-muted">
+          Saves every night from the start of the season that isn&apos;t saved yet. The Fantasy Monster, Biggest Night and Manager&apos;s Biggest Night awards count from these. It stops after about 45 seconds; tap again until it says nothing new to save.
+        </p>
+        <Link href="/api/admin/nightly-blurbs/refresh?days=all" className="inline-block bg-rink text-ice px-4 py-2 rounded-sm hover:bg-rink-deep">
           Backfill the whole season
-        </Link>{" "}
-        (saves any missing nights; tap again if it says it isn&apos;t finished).
-      </p>
+        </Link>
+      </div>
 
       {recent.length > 1 && (
         <div className="flex flex-wrap gap-2">
