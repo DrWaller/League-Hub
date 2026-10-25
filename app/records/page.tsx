@@ -1,7 +1,8 @@
 import { getLeagueMeta } from "@/lib/espn";
 import { loadRecords } from "@/lib/records-data";
 import { luckColor } from "@/lib/luck";
-import { GameRecord, SeasonRow } from "@/lib/records";
+import { GameRecord, SeasonRow, buildRecords } from "@/lib/records";
+import Link from "next/link";
 import { pts, ptsComma } from "@/lib/format";
 import { AllPlayTable } from "@/components/AllPlayView";
 import { buildManagerLuck } from "@/lib/manager-luck";
@@ -31,56 +32,88 @@ function SectionHead({ title, blurb }: { title: string; blurb?: string }) {
   );
 }
 
+const MEDAL = ["#d4a82a", "#aab4bf", "#b8794a"]; // gold, silver, bronze
+
 // One record list: the record-holder gets a hero panel, the rest are ranked rows (optionally with a share bar).
-function RecordList({ title, tag, items, bars = true }: { title: string; tag?: string; items: RItem[]; bars?: boolean }) {
+// tone "bad" is for the low/worst lists: a red accent instead of gold.
+function RecordList({ title, tag, items, bars = true, tone = "good" }: { title: string; tag?: string; items: RItem[]; bars?: boolean; tone?: "good" | "bad" }) {
   if (items.length === 0) return null;
   const [top, ...rest] = items;
   const maxW = Math.max(...items.map((i) => i.weight ?? 0), 0.0001);
+  const bad = tone === "bad";
   return (
-    <div className="border border-ice-line rounded-md overflow-hidden bg-white shadow-[0_1px_0_rgba(18,58,97,0.04)]">
-      <div className="bg-gradient-to-br from-rink to-rink-deep text-ice p-4">
-        <div className="flex items-center justify-between mb-3">
+    <div className={`rounded-md overflow-hidden bg-white shadow-sm border ${bad ? "border-center-red/30" : "border-ice-line"}`}>
+      <div className={`relative overflow-hidden text-ice p-4 bg-gradient-to-br ${bad ? "from-rink-deep via-rink-deep to-center-red/70" : "from-rink to-rink-deep"}`}>
+        <span className="absolute -right-2 -bottom-5 font-display text-[7rem] leading-none text-white/[0.06] select-none pointer-events-none">1</span>
+        <div className="relative flex items-center justify-between mb-3">
           <h3 className="font-display text-lg">{title}</h3>
-          {tag && <span className="text-[10px] uppercase tracking-widest rounded-full bg-gold/25 text-gold px-2 py-0.5">{tag}</span>}
+          {tag && (
+            <span className={`text-[10px] uppercase tracking-widest rounded-full px-2 py-0.5 ${bad ? "bg-center-red/40 text-white" : "bg-gold/25 text-gold"}`}>{tag}</span>
+          )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="relative flex items-center gap-3">
           {top.playerId ? (
-            <PlayerPhoto playerId={top.playerId} name={top.name} size={56} />
+            <PlayerPhoto playerId={top.playerId} name={top.name} size={60} />
           ) : (
-            <span className="w-9 h-9 shrink-0 rounded-full bg-gold text-rink-deep font-display flex items-center justify-center">1</span>
+            <span className="w-10 h-10 shrink-0 rounded-full font-display text-lg flex items-center justify-center text-rink-deep" style={{ background: bad ? "#e5e9ee" : MEDAL[0] }}>1</span>
           )}
           <div className="min-w-0 flex-1">
             <div className="font-body font-semibold leading-tight truncate">{top.name}</div>
             <div className="text-xs text-ice/70 leading-snug">{top.sub}</div>
           </div>
           <div className="text-right shrink-0 font-tabular">
-            <div className="font-display text-2xl leading-none text-gold">{top.value}</div>
+            <div className={`font-display text-[1.7rem] leading-none ${bad ? "text-white" : "text-gold"}`}>{top.value}</div>
             {top.note && <div className="text-[11px] text-ice/70 mt-1">{top.note}</div>}
           </div>
         </div>
       </div>
-      <ol className="divide-y divide-ice-line/60 font-tabular">
-        {rest.map((r, i) => (
-          <li key={r.key} className="px-4 py-2.5">
-            <div className="flex items-center gap-3">
-              <span className="w-5 text-center text-xs text-muted shrink-0">{i + 2}</span>
-              <div className="min-w-0 flex-1 font-body">
-                <div className="truncate text-sm font-semibold">{r.name}</div>
-                <div className="text-xs text-muted leading-snug">{r.sub}</div>
+      <ol className="font-tabular">
+        {rest.map((r, i) => {
+          const rank = i + 2;
+          const medal = !bad && rank <= 3 ? MEDAL[rank - 1] : null;
+          return (
+            <li key={r.key} className={`px-4 py-2.5 border-t border-ice-line/60 ${i % 2 === 0 ? "bg-white" : "bg-ice/40"}`}>
+              <div className="flex items-center gap-3">
+                <span
+                  className={`w-6 h-6 shrink-0 rounded-full text-[11px] flex items-center justify-center font-display ${medal ? "text-white" : "bg-ice-panel text-muted"}`}
+                  style={medal ? { background: medal } : undefined}
+                >
+                  {rank}
+                </span>
+                {r.playerId && <PlayerPhoto playerId={r.playerId} name={r.name} size={30} />}
+                <div className="min-w-0 flex-1 font-body">
+                  <div className="truncate text-sm font-semibold">{r.name}</div>
+                  <div className="text-xs text-muted leading-snug">{r.sub}</div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-display text-base leading-none">{r.value}</div>
+                  {r.note && <div className="text-[11px] text-muted mt-0.5">{r.note}</div>}
+                </div>
               </div>
-              <div className="text-right shrink-0 text-sm">
-                {r.value}
-                {r.note && <div className="text-[11px] text-muted">{r.note}</div>}
-              </div>
-            </div>
-            {bars && r.weight != null && (
-              <div className="ml-8 mt-1.5 h-1 rounded-full bg-ice-line/60 overflow-hidden">
-                <div className="h-full bg-rink-bright" style={{ width: `${Math.max(4, (r.weight / maxW) * 100)}%` }} />
-              </div>
-            )}
-          </li>
-        ))}
+              {bars && r.weight != null && (
+                <div className="ml-9 mt-1.5 h-1 rounded-full bg-ice-line/60 overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-rink-bright to-rink" style={{ width: `${Math.max(4, (r.weight / maxW) * 100)}%` }} />
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ol>
+    </div>
+  );
+}
+
+// Two-way switch (a link, so it works without scripts) for which seasons the season and single-game lists count.
+function EraToggle({ from, current }: { from: number | null; current: boolean }) {
+  const base = "px-3 py-1 text-xs rounded-full transition";
+  return (
+    <div className="inline-flex items-center gap-1 rounded-full bg-ice-panel p-1 font-body mb-4">
+      <Link href="/records" scroll={false} className={`${base} ${!current ? "bg-rink text-ice shadow-sm" : "text-muted hover:text-rink"}`}>
+        All seasons
+      </Link>
+      <Link href={`/records?from=${from ?? 2021}`} scroll={false} className={`${base} ${current ? "bg-rink text-ice shadow-sm" : "text-muted hover:text-rink"}`}>
+        {from ?? 2021} on
+      </Link>
     </div>
   );
 }
@@ -115,13 +148,16 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-export default async function RecordsPage() {
+export default async function RecordsPage({ searchParams }: { searchParams: { from?: string } }) {
   const meta = await getLeagueMeta();
   const { records, seasonsUsed, seasonsSkipped, managerCount, managers, recSeasons } = await loadRecords(meta.season);
   const allPlay = records.careers.length > 0 ? buildManagerLuck(0, managers, recSeasons).all : [];
   const nameOf = new Map(records.careers.map((c) => [c.managerId, c.name]));
   const hasData = records.careers.length > 0;
   const nights = await getAllTimeNights(10);
+  // Optional cutoff for the season and single-game lists (?from=2021). The all-time standings, all-play and head-to-head stay on every season.
+  const fromYear = Number(searchParams?.from) || null;
+  const cut = fromYear ? buildRecords(managers, recSeasons.filter((r) => r.season >= fromYear)) : records;
   const topTitles = [...records.careers].sort((a, b) => b.titles - a.titles)[0];
   const bestPct = [...records.careers].filter((c) => c.wins + c.losses + c.ties >= 20).sort((a, b) => b.winPct - a.winPct)[0];
   const maxPct = Math.max(...records.careers.map((c) => c.winPct), 0.0001);
@@ -140,8 +176,8 @@ export default async function RecordsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-5 font-tabular">
               {topTitles && topTitles.titles > 0 && <Tile label="Most titles" value={`${topTitles.name} · ${topTitles.titles}`} sub="all-time" />}
               {bestPct && <Tile label="Best win %" value={pct(bestPct.winPct)} sub={bestPct.name} />}
-              {records.highScores[0] && (
-                <Tile label="Highest score" value={records.highScores[0].score.toFixed(2)} sub={`${records.highScores[0].managerName ?? records.highScores[0].teamName}, ${records.highScores[0].season}`} />
+              {cut.highScores[0] && (
+                <Tile label="Highest score" value={cut.highScores[0].score.toFixed(2)} sub={`${cut.highScores[0].managerName ?? cut.highScores[0].teamName}, ${cut.highScores[0].season}`} />
               )}
               {nights.players[0] && <Tile label="Biggest night" value={nights.players[0].points.toFixed(2)} sub={nights.players[0].name} />}
             </div>
@@ -222,20 +258,22 @@ export default async function RecordsPage() {
 
           <section>
             <SectionHead title="Best and worst seasons" />
+            <EraToggle from={fromYear} current={fromYear != null} />
             <div className="grid md:grid-cols-3 gap-4">
-              <RecordList title="Best records" tag="Best" items={seasonItems(records.bestSeasons)} />
-              <RecordList title="Worst records" tag="Worst" items={seasonItems(records.worstSeasons)} bars={false} />
-              <RecordList title="Most points" tag="Scoring" items={seasonItems(records.highScoringSeasons, true)} />
+              <RecordList title="Best records" tag="Best" items={seasonItems(cut.bestSeasons)} />
+              <RecordList title="Worst records" tag="Worst" tone="bad" items={seasonItems(cut.worstSeasons)} bars={false} />
+              <RecordList title="Most points" tag="Scoring" items={seasonItems(cut.highScoringSeasons, true)} />
             </div>
           </section>
 
           <section>
             <SectionHead title="Single-game records" />
+            <EraToggle from={fromYear} current={fromYear != null} />
             <div className="grid md:grid-cols-2 gap-4">
-              <RecordList title="Highest scores" tag="High" items={gameItems(records.highScores, "score")} />
-              <RecordList title="Lowest scores" tag="Low" items={gameItems(records.lowScores, "score")} bars={false} />
-              <RecordList title="Biggest blowouts" tag="Margin" items={gameItems(records.biggestWins, "margin")} />
-              <RecordList title="Closest finishes" tag="Nail-biters" items={gameItems(records.closestGames, "margin")} bars={false} />
+              <RecordList title="Highest scores" tag="High" items={gameItems(cut.highScores, "score")} />
+              <RecordList title="Lowest scores" tag="Low" tone="bad" items={gameItems(cut.lowScores, "score")} bars={false} />
+              <RecordList title="Biggest blowouts" tag="Margin" items={gameItems(cut.biggestWins, "margin")} />
+              <RecordList title="Closest finishes" tag="Nail-biters" items={gameItems(cut.closestGames, "margin")} bars={false} />
             </div>
           </section>
 
