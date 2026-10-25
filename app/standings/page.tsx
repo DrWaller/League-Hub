@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { getStandings, getLeagueMeta } from "@/lib/espn";
 import { getTeamLogos, getPlayedElsewhereSeasons } from "@/lib/content";
@@ -45,6 +46,7 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
     live = current.live;
     rows = current.teams;
   }
+  const maxPf = Math.max(1, ...rows.map((t) => t.pointsFor));
   const hasTies = rows.some((t) => t.ties > 0); // the T column only appears once someone has a tie
   const noDataElsewhere = isPast && !live && elsewhere.has(season);
 
@@ -100,8 +102,8 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
             </thead>
             <tbody>
               {rows.map((t, i) => (
+                <Fragment key={t.id}>
                 <tr
-                  key={t.id}
                   className={`border-b border-ice-line/60 ${
                     !isPast && i === playoffLine - 1 ? "border-b-2 border-b-center-red" : ""
                   }`}
@@ -111,7 +113,12 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                     <div className="flex items-center gap-3">
                       {/* Logos are matched by team id, which is only trustworthy for the current season */}
                       <TeamLogo url={isPast ? undefined : logos[t.id]} name={t.name} size={44} />
-                      <span className="leading-tight">{t.name}</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="leading-tight block">{t.name}</span>
+                        <div className="mt-1.5 h-1 rounded-full bg-ice-panel overflow-hidden" title={`${ptsComma(t.pointsFor)} PF`}>
+                          <div className="h-full rounded-full bg-rink-bright" style={{ width: `${Math.max(4, (t.pointsFor / maxPf) * 100)}%` }} />
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="py-2.5 pr-2 md:pr-4 text-right">{t.wins}</td>
@@ -119,8 +126,30 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                   {hasTies && <td className="py-2.5 pr-2 md:pr-4 text-right">{t.ties}</td>}
                   <td className="py-2.5 pr-2 md:pr-4 text-right">{ptsComma(t.pointsFor)}</td>
                   <td className="py-2.5 pr-2 md:pr-4 text-right">{ptsComma(t.pointsAgainst)}</td>
-                  {!isPast && <td className="py-2.5 pr-2 md:pr-4 text-right">{t.streak ?? "—"}</td>}
+                  {!isPast && (
+                    <td className="py-2.5 pr-2 md:pr-4 text-right">
+                      {t.streak ? (
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            /^W/i.test(t.streak) ? "bg-green-100 text-green-800" : /^L/i.test(t.streak) ? "bg-red-100 text-center-red" : "bg-ice-panel text-muted"
+                          }`}
+                        >
+                          {t.streak}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  )}
                 </tr>
+                {!isPast && i === playoffLine - 1 && i < rows.length - 1 && (
+                  <tr>
+                    <td colSpan={9} className="pt-1 pb-0.5 text-[10px] uppercase tracking-widest text-center-red font-semibold">
+                      Playoff line &middot; top {playoffLine} qualify
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
