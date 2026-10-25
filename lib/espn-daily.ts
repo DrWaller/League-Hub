@@ -122,3 +122,59 @@ export async function getDailyPlayerLines(sp: number): Promise<{
 
   return { live: true, players, teamNames, diag };
 }
+
+// ---- Probe: does ESPN still return day-by-day lineups for a PAST season? ----
+// Diagnostic only (admin). For one season it asks for several scoring days and reports, for each, whether ESPN
+// answered, how many players had a stat line for that day, and each team's total for it (active lineup only), so
+// the totals can be checked against what ESPN showed at the time.
+export interface DailyProbeDay {
+  period: number;
+  http: number | null;
+  teams: number;
+  rosterEntries: number;
+  playersWithDayStats: number;
+  activeWithDayStats: number;
+  teamTotals: { teamId: number; name: string; points: number }[]; // top 3
+  error?: string;
+}
+
+export async function probeDailySeason(season: number, periods: number[]): Promise<{ season: number; configured: boolean; days: DailyProbeDay[] }> {
+  if (!ESPN_S2 || !ESPN_SWID) return { season, configured: false, days: [] };
+  const days: DailyProbeDay[] = [];
+  for (const sp of periods) {
+    const day: DailyProbeDay = { period: sp, http: null, teams: 0, rosterEntries: 0, playersWithDayStats: 0, activeWithDayStats: 0, teamTotals: [] };
+    try {
+      const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mRoster&view=mTeam&scoringPeriodId=${sp}`;
+      const res = await fetch(url, { headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` }, cache: "no-store" });
+      day.http = res.status;
+      if (res.ok) {
+        const data = await res.json();
+        const totals = new Map<number, { name: string; points: number }>();
+        for (const t of data?.teams ?? []) {
+          day.teams++;
+          const name = t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || `Team ${t.id}`;
+          for (const e of t.roster?.entries ?? []) {
+            day.rosterEntries++;
+            const dayStat = (e.playerPoolEntry?.player?.stats ?? []).find((x: any) => x.scoringPeriodId === sp && x.statSourceId === 0);
+            if (!dayStat) continue;
+            day.playersWithDayStats++;
+            if (NON_SCORING_SLOTS.has(e.lineupSlotId)) continue;
+            day.activeWithDayStats++;
+            const cur = totals.get(t.id) ?? { name, points: 0 };
+            cur.points += Number(dayStat.appliedTotal) || 0;
+            totals.set(t.id, cur);
+          }
+        }
+        day.teamTotals = Array.from(totals, ([teamId, v]) => ({ teamId, name: v.name, points: Math.round(v.points * 100) / 100 }))
+          .sort((a, b) => b.points - a.points)
+          .slice(0, 3);
+      } else {
+        day.error = (await res.text()).slice(0, 160);
+      }
+    } catch (err) {
+      day.error = err instanceof Error ? err.message : String(err);
+    }
+    days.push(day);
+  }
+  return { season, configured: true, days };
+}
