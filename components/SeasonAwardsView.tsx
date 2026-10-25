@@ -13,7 +13,7 @@ import { loadAgeLookup } from "@/lib/trend-ages";
 import { addedLabel } from "@/lib/roster-moves";
 import { runPickupSyncStep } from "@/lib/pickup-sync";
 import { getPickupLog, type PickupLogEntry } from "@/lib/best-pickup";
-import { getMonsterCounts, getBiggestNights } from "@/lib/nightly-store";
+import { getMonsterCounts, getBiggestNights, getBiggestTeamNights } from "@/lib/nightly-store";
 import { getBiggestWeeks, getBiggestMonths } from "@/lib/vor-store";
 import { prettyDate } from "@/lib/nightly-blurbs";
 import { biggestTeamWeeks, biggestTeamMonths } from "@/lib/manager-bests";
@@ -188,6 +188,7 @@ export default async function SeasonAwardsView() {
   } catch {
     /* empty */
   }
+  const teamNights = await getBiggestTeamNights(meta.season, 5);
   const teamWeeks = biggestTeamWeeks(matchups, 5);
   const teamMonths = biggestTeamMonths(matchups, teamMonthsSource, 5);
   let trends: ReturnType<typeof buildTrendAwards> = [];
@@ -375,6 +376,22 @@ export default async function SeasonAwardsView() {
             share: bigMonths[0].vor > 0 ? m.vor / bigMonths[0].vor : undefined,
           }))}
           note="Needs Monthly Periods set up (admin) and at least one finished week."
+        />
+        <Card
+          title="Manager's Biggest Night"
+          blurb="The most points a team scored in a single night (the players in its active lineup that day)."
+          rows={teamNights.map((n, i) => ({
+            key: `${n.teamId}-${n.date}`,
+            name: name(n.teamId),
+            sub: "single-night team score",
+            when: prettyDate(n.date),
+            value: pts(n.points),
+            gap: i === 0 ? "record" : `-${pts(teamNights[0].points - n.points)}`,
+            rank: i + 1,
+            logo: logos[n.teamId],
+            share: teamNights[0].points > 0 ? n.points / teamNights[0].points : undefined,
+          }))}
+          note="No team nights saved yet (tap Backfill the whole season on the admin Big Night Cards page)."
         />
         <Card
           title="Manager's Biggest Week"

@@ -4,7 +4,7 @@
 
 import { currentSeason, getCurrentScoringPeriod, getDailyPlayerLines } from "./espn-daily";
 import { nightDate, scanNight, type NightScan } from "./nightly-blurbs";
-import { getNight, saveNight } from "./nightly-store";
+import { hasTeamNights, saveNight, saveTeamNights } from "./nightly-store";
 
 export interface NightlyResult {
   ok: boolean;
@@ -49,6 +49,15 @@ export async function runNightly(opts: { period?: number; save: boolean }): Prom
   let saved = false;
   if (opts.save && date && day.players.length > 0) {
     await saveNight(season, period, date, scan.blurbs);
+    // Each team's total for the night (active lineup only), for Manager's Biggest Night.
+    const totals = new Map<number, number>();
+    for (const p of day.players) if (p.active) totals.set(p.teamId, (totals.get(p.teamId) ?? 0) + p.points);
+    await saveTeamNights(
+      season,
+      period,
+      date,
+      Array.from(totals, ([teamId, points]) => ({ teamId, teamName: day.teamNames[teamId] ?? `Team ${teamId}`, points: Math.round(points * 100) / 100 }))
+    );
     saved = true;
   }
 
@@ -74,7 +83,7 @@ export async function catchUpNights(
     const period = status.current - k;
     if (period < 1) continue;
     const date = nightDate(status.current, period);
-    if (!force && (await getNight(season, date))) continue;
+    if (!force && (await hasTeamNights(season, date))) continue; // team totals are saved with every night, so this also covers nights saved before they existed
     const r = await runNightly({ period, save: true });
     if (r.ok && r.saved) saved++;
   }

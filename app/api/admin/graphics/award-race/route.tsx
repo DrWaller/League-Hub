@@ -8,7 +8,7 @@ import { fetchLineupSlots } from "@/lib/vor";
 import { loadAgeLookup } from "@/lib/trend-ages";
 import { addedLabel } from "@/lib/roster-moves";
 import { getPickupLog } from "@/lib/best-pickup";
-import { getMonsterCounts, getBiggestNights } from "@/lib/nightly-store";
+import { getMonsterCounts, getBiggestNights, getBiggestTeamNights } from "@/lib/nightly-store";
 import { getBiggestWeeks, getBiggestMonths } from "@/lib/vor-store";
 import { getMonthlyPeriods } from "@/lib/content";
 import { prettyDate } from "@/lib/nightly-blurbs";
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 
 const pts = (n: number) => n.toFixed(2);
 
-const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder", "monster", "night", "week", "month", "mgrweek", "mgrmonth"] as const;
+const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder", "monster", "night", "week", "month", "mgrnight", "mgrweek", "mgrmonth"] as const;
 
 // One graphic per remaining season-long race (the player races use award-watch, lineup efficiency uses
 // lineup-season). Reads only what is already saved (no ESPN syncing), so making a graphic costs one render:
@@ -133,6 +133,14 @@ export async function GET(req: NextRequest) {
         sub: `${m.position} - ${name(m.teamId)} - ${m.periodLabel}${m.complete ? "" : " (in progress)"}`,
         value: `${m.vor >= 0 ? "+" : ""}${pts(m.vor)}`, gap: i === 0 ? `VOR - ${pts(m.points)} pts` : `-${pts(list[0].vor - m.vor)}`,
       }));
+    } else if (race === "mgrnight") {
+      title = "Manager's Biggest Night";
+      tagline = "Highest single-night team score";
+      empty = "No team nights saved yet. Run the season backfill on the admin Big Night Cards page.";
+      const list = await getBiggestTeamNights(meta.season, 5);
+      rows = list.map((n, i) =>
+        teamRow(n.teamId, i + 1, { sub: prettyDate(n.date), value: pts(n.points), gap: i === 0 ? "record" : `-${pts(list[0].points - n.points)}` })
+      );
     } else if (race === "mgrweek") {
       title = "Manager's Biggest Week";
       tagline = "Highest single-week team score";

@@ -19,6 +19,7 @@ const RACES: { key: string; title: string; url: string }[] = [
   { key: "night", title: "Biggest Night", url: "/api/admin/graphics/award-race?race=night" },
   { key: "week", title: "Biggest Week", url: "/api/admin/graphics/award-race?race=week" },
   { key: "month", title: "Biggest Month", url: "/api/admin/graphics/award-race?race=month" },
+  { key: "mgrnight", title: "Manager's Biggest Night", url: "/api/admin/graphics/award-race?race=mgrnight" },
   { key: "mgrweek", title: "Manager's Biggest Week", url: "/api/admin/graphics/award-race?race=mgrweek" },
   { key: "mgrmonth", title: "Manager's Biggest Month", url: "/api/admin/graphics/award-race?race=mgrmonth" },
   { key: "pickup", title: "Best Pickup", url: "/api/admin/graphics/award-race?race=pickup" },

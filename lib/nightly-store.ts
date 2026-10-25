@@ -207,3 +207,71 @@ export async function getBiggestNights(season: number, limit = 5): Promise<BigNi
     return [];
   }
 }
+
+// ---- Team nights ("Manager's Biggest Night") ----
+// What each fantasy team scored on one night: the points of the players in its active lineup that day.
+async function ensureTeamTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS team_nightly (
+      season INTEGER NOT NULL,
+      scoring_period INTEGER NOT NULL,
+      night_date TEXT NOT NULL,
+      team_id INTEGER NOT NULL,
+      team_name TEXT,
+      points DOUBLE PRECISION NOT NULL,
+      PRIMARY KEY (season, scoring_period, team_id)
+    );
+  `;
+}
+
+export interface TeamNightRow {
+  teamId: number;
+  teamName: string;
+  points: number;
+}
+
+// Replaces that night's team totals (like saveNight does for the blurbs).
+export async function saveTeamNights(season: number, period: number, date: string, rows: TeamNightRow[]) {
+  await ensureTeamTable();
+  await sql`DELETE FROM team_nightly WHERE season = ${season} AND scoring_period = ${period};`;
+  for (const r of rows) {
+    await sql`
+      INSERT INTO team_nightly (season, scoring_period, night_date, team_id, team_name, points)
+      VALUES (${season}, ${period}, ${date}, ${r.teamId}, ${r.teamName}, ${r.points});
+    `;
+  }
+}
+
+export async function hasTeamNights(season: number, date: string): Promise<boolean> {
+  try {
+    await ensureTeamTable();
+    const r = await sql`SELECT 1 FROM team_nightly WHERE season = ${season} AND night_date = ${date} LIMIT 1;`;
+    return r.rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export interface BigTeamNight {
+  teamId: number;
+  teamName: string;
+  points: number;
+  date: string;
+}
+
+// The highest single-night team scores of the season.
+export async function getBiggestTeamNights(season: number, limit = 5): Promise<BigTeamNight[]> {
+  try {
+    await ensureTeamTable();
+    const r = await sql`
+      SELECT team_id, team_name, points, night_date FROM team_nightly
+      WHERE season = ${season}
+      ORDER BY points DESC, night_date ASC
+      LIMIT ${limit};
+    `;
+    return r.rows.map((x) => ({ teamId: Number(x.team_id), teamName: (x.team_name as string) ?? "", points: Number(x.points), date: x.night_date as string }));
+  } catch (err) {
+    console.error("getBiggestTeamNights failed (is Postgres connected?)", err);
+    return [];
+  }
+}
