@@ -300,7 +300,7 @@ export default function BestAvailable({ data }: { data: Data }) {
                     <td className={`px-3 py-2 text-right ${sort === "pts" ? "font-semibold" : ""}`}>{f2(s.pts)}</td>
                     <td className={`px-3 py-2 text-right ${sort === "avg" ? "font-semibold" : ""}`}>{f2(s.avg)}</td>
                     {hasVor && (
-                      <td className={`px-3 py-2 text-right font-display text-base ${sort === "vor" ? "text-center-red" : ""}`}>{s.vor === null ? "–" : signed(s.vor)}</td>
+                      <td className={`px-3 py-2 text-right font-display text-base ${s.vor === null ? "" : s.vor > 0 ? "text-green-700" : s.vor < 0 ? "text-center-red" : ""}`}>{s.vor === null ? "–" : signed(s.vor)}</td>
                     )}
                     <td className="px-2 py-2 text-center">
                       {p.role ? <span className={`px-1.5 py-0.5 text-xs ${p.role.line ? "bg-rink text-ice" : "text-muted"}`}>{p.role.line ?? "–"}</span> : <span className="text-muted">–</span>}
@@ -325,8 +325,7 @@ export default function BestAvailable({ data }: { data: Data }) {
                               .slice(0, 7)
                               .filter((d) => p.games.includes(d.offset))
                               .map((d, k) => (
-                                <span key={d.offset} className={date !== "ANY" && Number(date) === d.offset ? "text-center-red" : ""}>
-                                  {k > 0 ? " " : ""}
+                                <span key={d.offset} className={`rounded px-1 py-px mr-0.5 ${date !== "ANY" && Number(date) === d.offset ? "bg-center-red text-white" : "bg-ice-panel"}`}>
                                   {dayShort(d.label)}
                                 </span>
                               ))}

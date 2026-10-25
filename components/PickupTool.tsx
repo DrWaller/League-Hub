@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import TierBadge from "@/components/TierBadge";
 import PlayerPhoto from "@/components/PlayerPhoto";
+import { TIER_STYLE } from "@/lib/tier-style";
 import type { Pickup, PickupData } from "@/lib/pickups";
 import PlayerPanel from "@/components/PlayerPanel";
 import { dayShort } from "@/lib/nights";
@@ -20,10 +21,22 @@ const mmss = (sec: number) => {
 };
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-ice-panel/70 px-2 py-1 text-center">
+      <div className="font-display text-sm leading-tight">{value}</div>
+      <div className="text-[9px] uppercase tracking-widest text-muted">{label}</div>
+    </div>
+  );
+}
+
 function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen: (p: Pickup) => void }) {
   const nightList = days.filter((d) => p.nights.includes(d.offset));
   return (
-    <div className={`border bg-white p-3 flex gap-3 ${p.hot ? "border-gold" : "border-ice-line"}`}>
+    <div
+      className={`border border-l-4 bg-white p-3 flex gap-3 rounded-sm ${p.hot ? "border-gold" : "border-ice-line"}`}
+      style={{ borderLeftColor: p.player.tier ? TIER_STYLE[p.player.tier].bg : "#CBD6E2" }}
+    >
       <button type="button" onClick={() => onOpen(p)} aria-label={`${p.name} stats`} className="shrink-0 self-start">
         <PlayerPhoto playerId={p.id} name={p.name} size={44} />
       </button>
@@ -56,7 +69,7 @@ function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen
             ) : null}
           </div>
         </div>
-        <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap gap-x-3 gap-y-1">
+        <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>{p.games} {p.games === 1 ? "game" : "games"}</span>
           {nightList.length > 0 ? (
             <span className="inline-flex gap-1.5">
@@ -67,7 +80,7 @@ function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen
                   <span
                     key={d.offset}
                     title={fit ? "Fits an open slot in your lineup" : part ? "Only partly helps: he would bump a weaker starter" : "Plays, but your lineup is already full that night"}
-                    className={fit ? "px-1 bg-green-100 text-green-800 font-bold" : part ? "px-1 bg-gold/20 text-rink font-semibold" : "text-muted/70 line-through decoration-1"}
+                    className={`rounded px-1.5 py-0.5 text-xs ${fit ? "bg-green-600 text-white font-bold" : part ? "bg-gold/30 text-rink font-semibold" : "bg-ice-panel text-muted/70 line-through decoration-1"}`}
                   >
                     {dayShort(d.label)}
                   </span>
@@ -75,11 +88,13 @@ function Card({ p, days, onOpen }: { p: Pickup; days: PickupData["days"]; onOpen
               })}
             </span>
           ) : null}
-          <span>{p.lightGames} on your open-slot days</span>
-          <span>{p.lightDayGames} on light nights</span>
-          <span>{f1(p.est)} exp/gm</span>
-          {p.avgL15 !== null ? <span>L15 {f1(p.avgL15)} avg ({p.gpL15} gp)</span> : null}
-          {p.vorSeason !== null ? <span>season VOR {signed(p.vorSeason)}</span> : null}
+        </div>
+        <div className="mt-2 grid grid-cols-3 sm:grid-cols-5 gap-1.5 font-tabular">
+          <Stat label="Open days" value={String(p.lightGames)} />
+          <Stat label="Light nts" value={String(p.lightDayGames)} />
+          <Stat label="Exp/gm" value={f1(p.est)} />
+          <Stat label={p.avgL15 !== null ? `L15 (${p.gpL15} gp)` : "L15"} value={p.avgL15 !== null ? f1(p.avgL15) : "–"} />
+          <Stat label="Season VOR" value={p.vorSeason !== null ? signed(p.vorSeason) : "–"} />
         </div>
         {p.role ? (
           <>
@@ -187,11 +202,11 @@ export default function PickupTool({ data }: { data: PickupData }) {
           </p>
           <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
             {data.days.map((d) => (
-              <div key={d.offset} className={`shrink-0 w-[84px] border p-2 text-center font-tabular ${"bg-white"} ${d.light ? "border-gold" : "border-ice-line"}`}>
+              <div key={d.offset} className={`shrink-0 w-[84px] border rounded-md p-2 text-center font-tabular ${d.light ? "border-gold bg-gold/10" : "border-ice-line bg-white"}`}>
                 <div className="text-xs text-muted">{d.label}</div>
                 <div className="text-sm">{d.nhlGames} games</div>
                 <div className={`text-xs ${d.open > 0 ? "text-center-red font-semibold" : "text-muted"}`}>{d.open} open</div>
-                {d.light ? <div className="text-[10px] text-gold">light day</div> : null}
+                {d.light ? <div className="text-[10px] font-semibold uppercase tracking-widest text-gold">light day</div> : null}
               </div>
             ))}
           </div>

@@ -15,6 +15,7 @@ const ROLE_STYLE: Record<GoalieRole, string> = {
   backup: "border border-ice-line text-muted",
   early: "border border-ice-line text-muted",
 };
+const ROLE_ACCENT: Record<GoalieRole, string> = { takeover: "#D9A441", starter: "#123A61", timeshare: "#2B6CB5", backup: "#CBD6E2", early: "#CBD6E2" };
 const f2 = (n: number) => n.toFixed(2);
 const pct = (p: number) => `${Math.round(p * 100)}%`;
 
@@ -25,9 +26,18 @@ function Dots({ g }: { g: ZeroGoalie }) {
         <span
           key={i}
           title={`${d.date}${d.b2b ? " (2nd night of a back-to-back)" : ""}: ${d.r === "S" ? "started" : d.r === "R" ? "came in relief" : "did not play"}`}
-          className={`relative w-4 h-4 inline-block ${d.r === "S" ? "bg-green-600" : d.r === "R" ? "bg-gold/60" : "bg-ice-line"} ${d.b2b ? "ring-1 ring-rink/60" : ""}`}
+          className={`relative w-4 h-4 inline-block rounded-sm ${d.r === "S" ? "bg-green-600" : d.r === "R" ? "bg-gold/60" : "bg-ice-line"} ${d.b2b ? "ring-1 ring-rink/60" : ""}`}
         />
       ))}
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-ice-panel/70 px-2 py-1 text-center">
+      <div className="font-display text-sm leading-tight">{value}</div>
+      <div className="text-[9px] uppercase tracking-widest text-muted">{label}</div>
     </div>
   );
 }
@@ -35,7 +45,10 @@ function Dots({ g }: { g: ZeroGoalie }) {
 function Card({ g, onOpen, sort }: { g: ZeroGoalie; onOpen: (g: ZeroGoalie) => void; sort: "starts" | "value" }) {
   const p = g.player;
   return (
-    <div className={`border bg-white p-3 flex gap-3 ${g.role === "takeover" ? "border-gold" : "border-ice-line"}`}>
+    <div
+      className={`border border-l-4 bg-white p-3 flex gap-3 rounded-sm ${g.role === "takeover" ? "border-gold" : "border-ice-line"}`}
+      style={{ borderLeftColor: ROLE_ACCENT[g.role] }}
+    >
       <button type="button" onClick={() => onOpen(g)} aria-label={`${p.name} stats`} className="shrink-0 self-start">
         <PlayerPhoto playerId={p.id} name={p.name} size={44} />
       </button>
@@ -77,10 +90,10 @@ function Card({ g, onOpen, sort }: { g: ZeroGoalie; onOpen: (g: ZeroGoalie) => v
           </div>
         ) : null}
 
-        <div className="mt-2 text-xs text-muted font-tabular flex flex-wrap gap-x-3 gap-y-1">
-          <span>{f2(g.estPerStart)} exp pts/start</span>
-          <span>{f2(g.expStarts)} exp starts</span>
-          <span>{f2(g.expValue)} exp pts</span>
+        <div className="mt-2 grid grid-cols-3 gap-1.5 font-tabular">
+          <Stat label="Pts/start" value={f2(g.estPerStart)} />
+          <Stat label="Exp starts" value={f2(g.expStarts)} />
+          <Stat label="Exp pts" value={f2(g.expValue)} />
         </div>
 
         {g.nights.length > 0 ? (
@@ -89,7 +102,7 @@ function Card({ g, onOpen, sort }: { g: ZeroGoalie; onOpen: (g: ZeroGoalie) => v
               <span
                 key={n.offset}
                 title={`${n.label}: ${pct(n.p)} chance to start${n.b2b ? " (second night of a back-to-back)" : ""}`}
-                className={`px-1 ${n.p >= 0.6 ? "bg-green-100 text-green-800 font-bold" : n.p >= 0.35 ? "bg-gold/20 text-rink font-semibold" : "text-muted/70"}`}
+                className={`rounded px-1.5 py-0.5 ${n.p >= 0.6 ? "bg-green-600 text-white font-bold" : n.p >= 0.35 ? "bg-gold/30 text-rink font-semibold" : "bg-ice-panel text-muted/70"}`}
               >
                 {dayShort(n.label)} {pct(n.p)}
                 {n.b2b ? " B2B" : ""}
