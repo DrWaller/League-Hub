@@ -32,7 +32,7 @@ function Move({ rank, prev }: { rank: number; prev: number | null | undefined })
 }
 
 // playerId -> headshot; logo -> team logo (manager races). share (0-1) draws a bar against the leader.
-type Row = { key: string; name: string; sub: string; value: string; gap: string; rank: number; prev?: number | null; playerId?: number; logo?: string; share?: number };
+type Row = { key: string; name: string; sub: string; value: string; gap: string; rank: number; prev?: number | null; playerId?: number; logo?: string; share?: number; when?: string };
 
 function Face({ r, size }: { r: Row; size: number }) {
   if (r.playerId) return <PlayerPhoto playerId={r.playerId} name={r.name} size={size} />;
@@ -59,7 +59,8 @@ function Card({ title, blurb, rows, note }: { title: string; blurb: string; rows
             </div>
             <div className="min-w-0 flex-1">
               <div className="font-display text-lg leading-tight truncate">{lead.name}</div>
-              <div className="text-xs text-ice/70 truncate">{lead.sub}</div>
+              {lead.when && <span className="inline-block mt-1 rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-semibold">{lead.when}</span>}
+              <div className="text-xs text-ice/70 break-words">{lead.sub}</div>
             </div>
             <div className="text-right shrink-0">
               <div className="font-display text-2xl leading-none">{lead.value}</div>
@@ -75,7 +76,8 @@ function Card({ title, blurb, rows, note }: { title: string; blurb: string; rows
                     <Face r={r} size={32} />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate">{r.name}</div>
-                      <div className="text-xs text-muted truncate">{r.sub}</div>
+                      {r.when && <span className="inline-block rounded-full bg-ice-panel px-2 py-px text-[11px] font-semibold text-rink">{r.when}</span>}
+                      <div className="text-xs text-muted break-words">{r.sub}</div>
                     </div>
                     <span className="text-xs w-8 text-right shrink-0"><Move rank={r.rank} prev={r.prev} /></span>
                     <div className="text-right shrink-0">
@@ -332,7 +334,8 @@ export default async function SeasonAwardsView() {
           rows={bigNights.map((n, i) => ({
             key: `${n.playerId}-${n.date}`,
             name: n.name,
-            sub: `${n.position} · ${n.teamName || name(n.teamId)} · ${prettyDate(n.date)}${n.statLine ? ` · ${n.statLine}` : ""}`,
+            when: prettyDate(n.date),
+            sub: `${n.position} · ${n.teamName || name(n.teamId)}${n.statLine ? ` · ${n.statLine}` : ""}`,
             value: `${pts(n.points)} pts`,
             gap: i === 0 ? "record" : `-${pts(bigNights[0].points - n.points)}`,
             rank: i + 1,
@@ -347,7 +350,8 @@ export default async function SeasonAwardsView() {
           rows={bigWeeks.map((w, i) => ({
             key: `${w.playerId}-${w.week}`,
             name: w.name,
-            sub: `${w.position} · ${name(w.teamId)} · Week ${w.week}`,
+            when: `Week ${w.week}`,
+            sub: `${w.position} · ${name(w.teamId)}`,
             value: `${w.vor >= 0 ? "+" : ""}${pts(w.vor)} VOR`,
             gap: i === 0 ? `${pts(w.points)} pts` : `-${pts(bigWeeks[0].vor - w.vor)}`,
             rank: i + 1,
@@ -362,7 +366,8 @@ export default async function SeasonAwardsView() {
           rows={bigMonths.map((m, i) => ({
             key: `${m.playerId}-${m.periodLabel}`,
             name: m.name,
-            sub: `${m.position} · ${name(m.teamId)} · ${m.periodLabel}${m.complete ? "" : " (in progress)"}`,
+            when: `${m.periodLabel}${m.complete ? "" : " (in progress)"}`,
+            sub: `${m.position} · ${name(m.teamId)}`,
             value: `${m.vor >= 0 ? "+" : ""}${pts(m.vor)} VOR`,
             gap: i === 0 ? `${pts(m.points)} pts` : `-${pts(bigMonths[0].vor - m.vor)}`,
             rank: i + 1,
@@ -377,7 +382,8 @@ export default async function SeasonAwardsView() {
           rows={teamWeeks.map((w, i) => ({
             key: `${w.teamId}-${w.week}`,
             name: name(w.teamId),
-            sub: `Week ${w.week} · ${w.score > w.oppScore ? "beat" : w.score < w.oppScore ? "lost to" : "tied"} ${name(w.oppId)} ${pts(w.oppScore)}`,
+            when: `Week ${w.week}`,
+            sub: `${w.score > w.oppScore ? "beat" : w.score < w.oppScore ? "lost to" : "tied"} ${name(w.oppId)} ${pts(w.oppScore)}`,
             value: pts(w.score),
             gap: i === 0 ? "record" : `-${pts(teamWeeks[0].score - w.score)}`,
             rank: i + 1,
@@ -392,7 +398,8 @@ export default async function SeasonAwardsView() {
           rows={teamMonths.map((m, i) => ({
             key: `${m.teamId}-${m.periodLabel}`,
             name: name(m.teamId),
-            sub: `${m.periodLabel} · ${m.weeks} week${m.weeks === 1 ? "" : "s"}${m.complete ? "" : " (in progress)"}`,
+            when: `${m.periodLabel}${m.complete ? "" : " (in progress)"}`,
+            sub: `${m.weeks} week${m.weeks === 1 ? "" : "s"} counted`,
             value: pts(m.points),
             gap: i === 0 ? "record" : `-${pts(teamMonths[0].points - m.points)}`,
             rank: i + 1,
