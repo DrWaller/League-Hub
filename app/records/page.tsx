@@ -8,6 +8,8 @@ import { buildManagerLuck } from "@/lib/manager-luck";
 import { NIGHT_RECORDS_FROM_SEASON } from "@/lib/records-config";
 import { getAllTimeNights } from "@/lib/nightly-store";
 import { prettyDate } from "@/lib/nightly-blurbs";
+import Cup from "@/components/Cup";
+import PlayerPhoto from "@/components/PlayerPhoto";
 
 export const dynamic = "force-dynamic";
 
@@ -15,57 +17,100 @@ const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const rec = (w: number, l: number, t: number) => `${w}-${l}${t ? `-${t}` : ""}`;
 const range = (s: number[]) => (s.length === 0 ? "" : s[0] === s[s.length - 1] ? `${s[0]}` : `${s[0]}–${s[s.length - 1]}`);
 
-function SeasonTable({ title, rows, showPoints }: { title: string; rows: SeasonRow[]; showPoints?: boolean }) {
+type RItem = { key: string; name: string; sub: string; value: string; note?: string; weight?: number; playerId?: number };
+
+function SectionHead({ title, blurb }: { title: string; blurb?: string }) {
   return (
-    <div>
-      <h3 className="font-display text-lg mb-2">{title}</h3>
-      <table className="w-full text-sm font-tabular border-collapse">
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={`${r.season}-${r.managerId}`} className="border-b border-ice-line/60 align-top">
-              <td className="py-2 pr-2 text-muted">{i + 1}</td>
-              <td className="py-2 pr-2 font-body">
-                {r.managerName}
-                <div className="text-xs text-muted">
-                  {r.season} · {r.teamName}
-                </div>
-              </td>
-              <td className="py-2 text-right whitespace-nowrap">
-                {showPoints ? `${ptsComma(r.pointsFor)} pts` : `${rec(r.wins, r.losses, r.ties)} · ${pct(r.winPct)}`}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="mb-4">
+      <h2 className="font-display text-2xl flex items-center gap-3">
+        <span className="inline-block w-1.5 h-6 bg-center-red rounded-full" />
+        {title}
+      </h2>
+      {blurb && <p className="text-sm text-muted mt-1 max-w-prose">{blurb}</p>}
     </div>
   );
 }
 
-function GameList({ title, rows, kind }: { title: string; rows: GameRecord[]; kind: "score" | "margin" }) {
+// One record list: the record-holder gets a hero panel, the rest are ranked rows (optionally with a share bar).
+function RecordList({ title, tag, items, bars = true }: { title: string; tag?: string; items: RItem[]; bars?: boolean }) {
+  if (items.length === 0) return null;
+  const [top, ...rest] = items;
+  const maxW = Math.max(...items.map((i) => i.weight ?? 0), 0.0001);
   return (
-    <div>
-      <h3 className="font-display text-lg mb-2">{title}</h3>
-      <table className="w-full text-sm font-tabular border-collapse">
-        <tbody>
-          {rows.map((g, i) => (
-            <tr key={i} className="border-b border-ice-line/60 align-top">
-              <td className="py-2 pr-2 text-muted">{i + 1}</td>
-              <td className="py-2 pr-2 font-body">
-                {g.managerName ?? g.teamName}
-                <div className="text-xs text-muted">
-                  {g.season}, week {g.week} · vs {g.oppName}
-                </div>
-              </td>
-              <td className="py-2 text-right whitespace-nowrap">
-                {kind === "score"
-                  ? g.score.toFixed(2)
-                  : `${g.score.toFixed(2)}–${g.oppScore.toFixed(2)}`}
-                {kind === "margin" && <div className="text-xs text-muted">by {g.margin.toFixed(2)}</div>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="border border-ice-line rounded-md overflow-hidden bg-white shadow-[0_1px_0_rgba(18,58,97,0.04)]">
+      <div className="bg-gradient-to-br from-rink to-rink-deep text-ice p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-display text-lg">{title}</h3>
+          {tag && <span className="text-[10px] uppercase tracking-widest rounded-full bg-gold/25 text-gold px-2 py-0.5">{tag}</span>}
+        </div>
+        <div className="flex items-center gap-3">
+          {top.playerId ? (
+            <PlayerPhoto playerId={top.playerId} name={top.name} size={56} />
+          ) : (
+            <span className="w-9 h-9 shrink-0 rounded-full bg-gold text-rink-deep font-display flex items-center justify-center">1</span>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="font-body font-semibold leading-tight truncate">{top.name}</div>
+            <div className="text-xs text-ice/70 leading-snug">{top.sub}</div>
+          </div>
+          <div className="text-right shrink-0 font-tabular">
+            <div className="font-display text-2xl leading-none text-gold">{top.value}</div>
+            {top.note && <div className="text-[11px] text-ice/70 mt-1">{top.note}</div>}
+          </div>
+        </div>
+      </div>
+      <ol className="divide-y divide-ice-line/60 font-tabular">
+        {rest.map((r, i) => (
+          <li key={r.key} className="px-4 py-2.5">
+            <div className="flex items-center gap-3">
+              <span className="w-5 text-center text-xs text-muted shrink-0">{i + 2}</span>
+              <div className="min-w-0 flex-1 font-body">
+                <div className="truncate text-sm font-semibold">{r.name}</div>
+                <div className="text-xs text-muted leading-snug">{r.sub}</div>
+              </div>
+              <div className="text-right shrink-0 text-sm">
+                {r.value}
+                {r.note && <div className="text-[11px] text-muted">{r.note}</div>}
+              </div>
+            </div>
+            {bars && r.weight != null && (
+              <div className="ml-8 mt-1.5 h-1 rounded-full bg-ice-line/60 overflow-hidden">
+                <div className="h-full bg-rink-bright" style={{ width: `${Math.max(4, (r.weight / maxW) * 100)}%` }} />
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+const seasonItems = (rows: SeasonRow[], showPoints?: boolean): RItem[] =>
+  rows.map((r) => ({
+    key: `${r.season}-${r.managerId}`,
+    name: r.managerName,
+    sub: `${r.season} · ${r.teamName}`,
+    value: showPoints ? `${ptsComma(r.pointsFor)} pts` : rec(r.wins, r.losses, r.ties),
+    note: showPoints ? undefined : pct(r.winPct),
+    weight: showPoints ? r.pointsFor : r.winPct,
+  }));
+
+const gameItems = (rows: GameRecord[], kind: "score" | "margin"): RItem[] =>
+  rows.map((g, i) => ({
+    key: `${i}`,
+    name: g.managerName ?? g.teamName,
+    sub: `${g.season}, week ${g.week} · vs ${g.oppName}`,
+    value: kind === "score" ? g.score.toFixed(2) : `${g.score.toFixed(2)}–${g.oppScore.toFixed(2)}`,
+    note: kind === "margin" ? `by ${g.margin.toFixed(2)}` : undefined,
+    weight: kind === "score" ? g.score : g.margin,
+  }));
+
+function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-md bg-white/5 ring-1 ring-ice/15 px-3 py-2.5 min-w-0">
+      <div className="text-[10px] uppercase tracking-widest text-ice/60">{label}</div>
+      <div className="font-display text-xl leading-tight text-gold truncate">{value}</div>
+      {sub && <div className="text-[11px] text-ice/70 truncate">{sub}</div>}
     </div>
   );
 }
@@ -77,14 +122,32 @@ export default async function RecordsPage() {
   const nameOf = new Map(records.careers.map((c) => [c.managerId, c.name]));
   const hasData = records.careers.length > 0;
   const nights = await getAllTimeNights(10);
+  const topTitles = [...records.careers].sort((a, b) => b.titles - a.titles)[0];
+  const bestPct = [...records.careers].filter((c) => c.wins + c.losses + c.ties >= 20).sort((a, b) => b.winPct - a.winPct)[0];
+  const maxPct = Math.max(...records.careers.map((c) => c.winPct), 0.0001);
 
   return (
     <div>
-      <h1 className="font-display text-3xl mb-1">Records</h1>
-      <p className="text-sm text-muted mb-4 max-w-prose">
-        All-time numbers across every finished season{seasonsUsed.length ? ` (${range(seasonsUsed)}, ${seasonsUsed.length} seasons)` : ""}, ESPN
-        and Fantrax together. Regular season only; championships come from League History.
-      </p>
+      <section className="bg-rink text-ice rounded-md overflow-hidden mb-5">
+        <div className="p-5 md:p-8">
+          <p className="font-body text-xs uppercase tracking-widest text-ice/60 mb-1.5">The record book</p>
+          <h1 className="font-display text-[1.9rem] md:text-5xl leading-tight">Records</h1>
+          <p className="text-sm text-ice/75 mt-2 max-w-prose">
+            All-time numbers across every finished season{seasonsUsed.length ? ` (${range(seasonsUsed)}, ${seasonsUsed.length} seasons)` : ""}, ESPN
+            and Fantrax together. Regular season only; championships come from League History.
+          </p>
+          {hasData && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-5 font-tabular">
+              {topTitles && topTitles.titles > 0 && <Tile label="Most titles" value={`${topTitles.name} · ${topTitles.titles}`} sub="all-time" />}
+              {bestPct && <Tile label="Best win %" value={pct(bestPct.winPct)} sub={bestPct.name} />}
+              {records.highScores[0] && (
+                <Tile label="Highest score" value={records.highScores[0].score.toFixed(2)} sub={`${records.highScores[0].managerName ?? records.highScores[0].teamName}, ${records.highScores[0].season}`} />
+              )}
+              {nights.players[0] && <Tile label="Biggest night" value={nights.players[0].points.toFixed(2)} sub={nights.players[0].name} />}
+            </div>
+          )}
+        </div>
+      </section>
 
       {seasonsSkipped.length > 0 && (
         <p className="text-xs text-muted mb-2 max-w-prose">
@@ -113,129 +176,110 @@ export default async function RecordsPage() {
       ) : (
         <div className="space-y-14 mt-8">
           <section>
-            <h2 className="font-display text-2xl mb-4">All-time standings</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm font-tabular border-collapse">
-                <thead>
-                  <tr className="text-left text-muted border-b-2 border-rink">
-                    <th className="py-2 pr-3 font-body font-normal">#</th>
-                    <th className="py-2 pr-3 font-body font-normal">Manager</th>
-                    <th className="hidden sm:table-cell py-2 pr-3 font-body font-normal text-right">Seasons</th>
-                    <th className="py-2 pr-3 font-body font-normal text-right">Record</th>
-                    <th className="py-2 pr-3 font-body font-normal text-right">Win%</th>
-                    <th className="hidden sm:table-cell py-2 pr-3 font-body font-normal text-right">PF</th>
-                    <th className="hidden sm:table-cell py-2 pr-3 font-body font-normal text-right">PA</th>
-                    <th className="py-2 pr-3 font-body font-normal text-right">Titles</th>
-                    <th className="hidden sm:table-cell py-2 pr-3 font-body font-normal text-right">Runner-up</th>
-                    <th className="hidden sm:table-cell py-2 font-body font-normal text-right">1st place</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.careers.map((c, i) => (
-                    <tr key={c.managerId} className="border-b border-ice-line/60">
-                      <td className="py-3 pr-3 text-muted">{i + 1}</td>
-                      <td className="py-3 pr-3 font-body">{c.name}</td>
-                      <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{c.seasons}</td>
-                      <td className="py-3 pr-3 text-right">{rec(c.wins, c.losses, c.ties)}</td>
-                      <td className="py-3 pr-3 text-right">{pct(c.winPct)}</td>
-                      <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{ptsComma(c.pointsFor)}</td>
-                      <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{ptsComma(c.pointsAgainst)}</td>
-                      <td className="py-3 pr-3 text-right font-semibold">{c.titles}</td>
-                      <td className="hidden sm:table-cell py-3 pr-3 text-right text-muted">{c.runnerUps}</td>
-                      <td className="hidden sm:table-cell py-3 text-right text-muted">{c.firstPlace}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <SectionHead title="All-time standings" />
+            <ol className="space-y-2">
+              {records.careers.map((c, i) => (
+                <li key={c.managerId} className={`border rounded-md bg-white px-3.5 py-3 font-tabular ${i === 0 ? "border-gold ring-1 ring-gold/40" : "border-ice-line"}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-xs font-display ${i === 0 ? "bg-gold text-rink-deep" : i < 3 ? "bg-rink text-ice" : "bg-ice-panel text-muted"}`}>{i + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-body font-semibold truncate">{c.name}</div>
+                      <div className="text-xs text-muted">
+                        {c.seasons} season{c.seasons === 1 ? "" : "s"} · {rec(c.wins, c.losses, c.ties)}
+                      </div>
+                    </div>
+                    {c.titles > 0 && (
+                      <span className="flex items-center gap-1 text-gold shrink-0" title={`${c.titles} title${c.titles === 1 ? "" : "s"}`}>
+                        <Cup size={18} />
+                        <span className="font-display text-lg text-rink">{c.titles}</span>
+                      </span>
+                    )}
+                    <div className="text-right shrink-0 w-14">
+                      <div className="font-display text-lg leading-none">{pct(c.winPct)}</div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted mt-0.5">win</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-ice-line/60 overflow-hidden">
+                    <div className="h-full bg-rink-bright" style={{ width: `${(c.winPct / maxPct) * 100}%` }} />
+                  </div>
+                  <div className="hidden sm:flex gap-6 mt-2 text-xs text-muted">
+                    <span>PF {ptsComma(c.pointsFor)}</span>
+                    <span>PA {ptsComma(c.pointsAgainst)}</span>
+                    <span>Runner-up {c.runnerUps}</span>
+                    <span>1st place {c.firstPlace}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </section>
 
           {allPlay.length > 0 && (
             <section>
-              <h2 className="font-display text-2xl mb-1">All-time all-play</h2>
-              <p className="text-sm text-muted mb-4 max-w-prose">Every week, every score against every other team's. The record a perfectly fair schedule would have given.</p>
+              <SectionHead title="All-time all-play" blurb="Every week, every score against every other team's. The record a perfectly fair schedule would have given." />
               <AllPlayTable rows={allPlay} />
             </section>
           )}
 
           <section>
-            <h2 className="font-display text-2xl mb-4">Best and worst seasons</h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              <SeasonTable title="Best records" rows={records.bestSeasons} />
-              <SeasonTable title="Worst records" rows={records.worstSeasons} />
-              <SeasonTable title="Most points" rows={records.highScoringSeasons} showPoints />
+            <SectionHead title="Best and worst seasons" />
+            <div className="grid md:grid-cols-3 gap-4">
+              <RecordList title="Best records" tag="Best" items={seasonItems(records.bestSeasons)} />
+              <RecordList title="Worst records" tag="Worst" items={seasonItems(records.worstSeasons)} bars={false} />
+              <RecordList title="Most points" tag="Scoring" items={seasonItems(records.highScoringSeasons, true)} />
             </div>
           </section>
 
           <section>
-            <h2 className="font-display text-2xl mb-4">Single-game records</h2>
-            <div className="grid md:grid-cols-2 gap-8">
-              <GameList title="Highest scores" rows={records.highScores} kind="score" />
-              <GameList title="Lowest scores" rows={records.lowScores} kind="score" />
-              <GameList title="Biggest blowouts" rows={records.biggestWins} kind="margin" />
-              <GameList title="Closest finishes" rows={records.closestGames} kind="margin" />
+            <SectionHead title="Single-game records" />
+            <div className="grid md:grid-cols-2 gap-4">
+              <RecordList title="Highest scores" tag="High" items={gameItems(records.highScores, "score")} />
+              <RecordList title="Lowest scores" tag="Low" items={gameItems(records.lowScores, "score")} bars={false} />
+              <RecordList title="Biggest blowouts" tag="Margin" items={gameItems(records.biggestWins, "margin")} />
+              <RecordList title="Closest finishes" tag="Nail-biters" items={gameItems(records.closestGames, "margin")} bars={false} />
             </div>
           </section>
 
           {(nights.players.length > 0 || nights.teams.length > 0) && (
             <section>
-              <h2 className="font-display text-2xl mb-1">Single-night records</h2>
-              <p className="text-sm text-muted mb-4 max-w-prose">
-                The biggest single-day scores{nights.seasons.length ? ` across ${range(nights.seasons)}` : ""}, including the current season. Players are any player on any roster; teams count the players in the active lineup that day. Counted from {NIGHT_RECORDS_FROM_SEASON} on, when the league scoring changed.
-              </p>
-              <div className="grid md:grid-cols-2 gap-8">
-                <div>
-                  <h3 className="font-display text-lg mb-2">Biggest player nights</h3>
-                  <table className="w-full text-sm font-tabular border-collapse">
-                    <tbody>
-                      {nights.players.map((n, i) => (
-                        <tr key={`${n.season}-${n.playerId}-${n.date}`} className="border-b border-ice-line/60 align-top">
-                          <td className="py-2 pr-2 text-muted">{i + 1}</td>
-                          <td className="py-2 pr-2 font-body">
-                            {n.name} <span className="text-xs text-muted">{n.position}</span>
-                            <div className="text-xs text-muted">
-                              {prettyDate(n.date)} {n.date.slice(0, 4)} · {n.teamName}{n.statLine ? ` · ${n.statLine}` : ""}
-                            </div>
-                          </td>
-                          <td className="py-2 text-right whitespace-nowrap">{n.points.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div>
-                  <h3 className="font-display text-lg mb-2">Biggest team nights</h3>
-                  <table className="w-full text-sm font-tabular border-collapse">
-                    <tbody>
-                      {nights.teams.map((n, i) => (
-                        <tr key={`${n.season}-${n.teamName}-${n.date}`} className="border-b border-ice-line/60 align-top">
-                          <td className="py-2 pr-2 text-muted">{i + 1}</td>
-                          <td className="py-2 pr-2 font-body">
-                            {n.teamName}
-                            <div className="text-xs text-muted">
-                              {prettyDate(n.date)} {n.date.slice(0, 4)} · {n.season} season
-                            </div>
-                          </td>
-                          <td className="py-2 text-right whitespace-nowrap">{n.points.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <SectionHead
+                title="Single-night records"
+                blurb={`The biggest single-day scores${nights.seasons.length ? ` across ${range(nights.seasons)}` : ""}, including the current season. Players are any player on any roster; teams count the players in the active lineup that day. Counted from ${NIGHT_RECORDS_FROM_SEASON} on, when the league scoring changed.`}
+              />
+              <div className="grid md:grid-cols-2 gap-4">
+                <RecordList
+                  title="Biggest player nights"
+                  tag="Players"
+                  items={nights.players.map((n) => ({
+                    key: `${n.season}-${n.playerId}-${n.date}`,
+                    name: n.name,
+                    sub: `${n.position} · ${prettyDate(n.date)} ${n.date.slice(0, 4)} · ${n.teamName}${n.statLine ? ` · ${n.statLine}` : ""}`,
+                    value: n.points.toFixed(2),
+                    weight: n.points,
+                    playerId: n.playerId,
+                  }))}
+                />
+                <RecordList
+                  title="Biggest team nights"
+                  tag="Teams"
+                  items={nights.teams.map((n) => ({
+                    key: `${n.season}-${n.teamName}-${n.date}`,
+                    name: n.teamName,
+                    sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)} · ${n.season} season`,
+                    value: n.points.toFixed(2),
+                    weight: n.points,
+                  }))}
+                />
               </div>
             </section>
           )}
 
           <section>
-            <h2 className="font-display text-2xl mb-1">Head-to-head</h2>
-            <p className="text-sm text-muted mb-4 max-w-prose">
-              Each row&apos;s record against the manager in that column, regular season only. Green means a winning record.
-            </p>
-            <div className="overflow-x-auto">
+            <SectionHead title="Head-to-head" blurb="Each row's record against the manager in that column, regular season only. Green means a winning record." />
+            <div className="overflow-x-auto border border-ice-line rounded-md bg-white p-2">
               <table className="text-sm font-tabular border-collapse">
                 <thead>
                   <tr>
-                    <th className="sticky left-0 bg-ice py-2 pr-3" />
+                    <th className="sticky left-0 bg-white py-2 pr-3" />
                     {records.h2hOrder.map((id) => (
                       <th key={id} className="py-2 px-2 font-body font-normal text-muted text-center whitespace-nowrap" title={nameOf.get(id)}>
                         {(nameOf.get(id) ?? "").slice(0, 5)}
@@ -246,11 +290,15 @@ export default async function RecordsPage() {
                 <tbody>
                   {records.h2hOrder.map((a) => (
                     <tr key={a} className="border-t border-ice-line/60">
-                      <th className="sticky left-0 bg-ice py-2 pr-3 font-body font-normal text-left whitespace-nowrap">{nameOf.get(a)}</th>
+                      <th className="sticky left-0 bg-white py-2 pr-3 font-body font-normal text-left whitespace-nowrap">{nameOf.get(a)}</th>
                       {records.h2hOrder.map((b) => {
                         const r = records.h2h[a]?.[b];
                         return (
-                          <td key={b} className="py-2 px-2 text-center whitespace-nowrap">
+                          <td
+                            key={b}
+                            className="py-2 px-2 text-center whitespace-nowrap"
+                            style={r && a !== b && r.w !== r.l ? { backgroundColor: r.w > r.l ? "rgba(34,150,90,0.10)" : "rgba(200,40,50,0.08)" } : undefined}
+                          >
                             {a === b ? (
                               <span className="text-ice-line">—</span>
                             ) : r ? (
