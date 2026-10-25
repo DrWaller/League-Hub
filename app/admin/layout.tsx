@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/admin/award-graphics", label: "Award Graphics" },
   { href: "/admin/pickup-sync", label: "Update Pickups" },
   { href: "/admin/big-night-cards", label: "Big Night Cards" },
+  { href: "/admin/history-nights", label: "Past Seasons: Nights" },
   { href: "/admin/player-cards", label: "Player Cards" },
   { href: "/admin/keepers", label: "Keepers" },
   { href: "/admin/managers", label: "Managers" },

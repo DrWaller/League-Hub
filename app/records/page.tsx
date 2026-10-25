@@ -5,6 +5,8 @@ import { GameRecord, SeasonRow } from "@/lib/records";
 import { pts, ptsComma } from "@/lib/format";
 import { AllPlayTable } from "@/components/AllPlayView";
 import { buildManagerLuck } from "@/lib/manager-luck";
+import { getAllTimeNights } from "@/lib/nightly-store";
+import { prettyDate } from "@/lib/nightly-blurbs";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +75,7 @@ export default async function RecordsPage() {
   const allPlay = records.careers.length > 0 ? buildManagerLuck(0, managers, recSeasons).all : [];
   const nameOf = new Map(records.careers.map((c) => [c.managerId, c.name]));
   const hasData = records.careers.length > 0;
+  const nights = await getAllTimeNights(10);
 
   return (
     <div>
@@ -172,6 +175,55 @@ export default async function RecordsPage() {
               <GameList title="Closest finishes" rows={records.closestGames} kind="margin" />
             </div>
           </section>
+
+          {(nights.players.length > 0 || nights.teams.length > 0) && (
+            <section>
+              <h2 className="font-display text-2xl mb-1">Single-night records</h2>
+              <p className="text-sm text-muted mb-4 max-w-prose">
+                The biggest single-day scores{nights.seasons.length ? ` across ${range(nights.seasons)}` : ""}, including the current season. Players are any player on any roster; teams count the players in the active lineup that day.
+              </p>
+              <div className="grid md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="font-display text-lg mb-2">Biggest player nights</h3>
+                  <table className="w-full text-sm font-tabular border-collapse">
+                    <tbody>
+                      {nights.players.map((n, i) => (
+                        <tr key={`${n.season}-${n.playerId}-${n.date}`} className="border-b border-ice-line/60 align-top">
+                          <td className="py-2 pr-2 text-muted">{i + 1}</td>
+                          <td className="py-2 pr-2 font-body">
+                            {n.name} <span className="text-xs text-muted">{n.position}</span>
+                            <div className="text-xs text-muted">
+                              {prettyDate(n.date)} {n.date.slice(0, 4)} · {n.teamName}{n.statLine ? ` · ${n.statLine}` : ""}
+                            </div>
+                          </td>
+                          <td className="py-2 text-right whitespace-nowrap">{n.points.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <h3 className="font-display text-lg mb-2">Biggest team nights</h3>
+                  <table className="w-full text-sm font-tabular border-collapse">
+                    <tbody>
+                      {nights.teams.map((n, i) => (
+                        <tr key={`${n.season}-${n.teamName}-${n.date}`} className="border-b border-ice-line/60 align-top">
+                          <td className="py-2 pr-2 text-muted">{i + 1}</td>
+                          <td className="py-2 pr-2 font-body">
+                            {n.teamName}
+                            <div className="text-xs text-muted">
+                              {prettyDate(n.date)} {n.date.slice(0, 4)} · {n.season} season
+                            </div>
+                          </td>
+                          <td className="py-2 text-right whitespace-nowrap">{n.points.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          )}
 
           <section>
             <h2 className="font-display text-2xl mb-1">Head-to-head</h2>

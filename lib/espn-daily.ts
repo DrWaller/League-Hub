@@ -17,10 +17,10 @@ export function currentSeason(): number {
 }
 
 // Never cached: the nightly job needs ESPN's final numbers, not a stale copy.
-async function espnGet(views: string[], extra?: string) {
+async function espnGet(views: string[], extra?: string, season: number = currentSeason()) {
   if (!ESPN_S2 || !ESPN_SWID) return null;
   const qs = views.map((v) => `view=${v}`).join("&") + (extra ? `&${extra}` : "");
-  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${currentSeason()}/segments/0/leagues/${LEAGUE_ID}?${qs}`;
+  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?${qs}`;
   try {
     const res = await fetch(url, {
       headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` },
@@ -84,14 +84,14 @@ function positionName(id?: number): string {
 // Every rostered player who actually has stats posted for ONE scoring day,
 // benched and IR players included (flagged `active: false`). A player whose
 // team didn't play that day has no stat entry and is simply absent.
-export async function getDailyPlayerLines(sp: number): Promise<{
+export async function getDailyPlayerLines(sp: number, season: number = currentSeason()): Promise<{
   live: boolean;
   players: DailyPlayerLine[];
   teamNames: Record<number, string>;
   diag: { rosterEntries: number; withStats: number };
 }> {
   // ESPN only includes per-day stats when scoringPeriodId is asked for explicitly.
-  const data = await espnGet(["mRoster", "mTeam"], `scoringPeriodId=${sp}`);
+  const data = await espnGet(["mRoster", "mTeam"], `scoringPeriodId=${sp}`, season);
   const diag = { rosterEntries: 0, withStats: 0 };
   if (!data?.teams) return { live: false, players: [], teamNames: {}, diag };
 
@@ -177,4 +177,47 @@ export async function probeDailySeason(season: number, periods: number[]): Promi
     days.push(day);
   }
   return { season, configured: true, days };
+}
+
+// scoring day -> calendar date (Eastern, YYYY-MM-DD) for any season, from the NHL game dates ESPN lists per scoring day.
+// `approx` is true when ESPN gave no dates and the dates are only estimated from October 1 of the season's start year.
+export async function fetchPeriodDates(season: number): Promise<{ dates: Map<number, string>; maxPeriod: number; approx: boolean } | null> {
+  if (!ESPN_S2 || !ESPN_SWID) return null;
+  try {
+    const res = await fetch(`https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}?view=proTeamSchedules_wl`, {
+      headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` },
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const earliest = new Map<number, number>(); // period -> earliest game start (ms)
+    let maxPeriod = 0;
+    for (const t of data?.settings?.proTeams ?? []) {
+      for (const [k, games] of Object.entries(t?.proGamesByScoringPeriod ?? {})) {
+        const sp = Number(k);
+        if (!Number.isFinite(sp) || !Array.isArray(games) || games.length === 0) continue;
+        maxPeriod = Math.max(maxPeriod, sp);
+        for (const g of games as any[]) {
+          const ms = Number(g?.date);
+          if (Number.isFinite(ms) && ms > 0) earliest.set(sp, Math.min(earliest.get(sp) ?? Infinity, ms));
+        }
+      }
+    }
+    if (maxPeriod === 0) return null;
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+    const dates = new Map<number, string>();
+    for (let sp = 1; sp <= maxPeriod; sp++) {
+      const ms = earliest.get(sp);
+      if (ms !== undefined) dates.set(sp, fmt.format(new Date(ms)));
+      else {
+        // a day with no games: step from the day before (or from Oct 1 for the very first day)
+        const prev = dates.get(sp - 1);
+        const base = prev ? new Date(`${prev}T12:00:00Z`) : new Date(Date.UTC(season - 1, 9, 1, 12));
+        dates.set(sp, new Date(base.getTime() + (prev ? 86400000 : 0)).toISOString().slice(0, 10));
+      }
+    }
+    return { dates, maxPeriod, approx: earliest.size === 0 };
+  } catch {
+    return null;
+  }
 }

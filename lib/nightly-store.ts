@@ -275,3 +275,67 @@ export async function getBiggestTeamNights(season: number, limit = 5): Promise<B
     return [];
   }
 }
+
+// ---- Past-season backfill bookkeeping ----
+async function ensureScannedTable() {
+  await sql`
+    CREATE TABLE IF NOT EXISTS nightly_scanned (
+      season INTEGER NOT NULL,
+      scoring_period INTEGER NOT NULL,
+      PRIMARY KEY (season, scoring_period)
+    );
+  `;
+}
+
+// Days already read for a season (including days with no games, so they are never asked for twice).
+export async function getScannedPeriods(season: number): Promise<Set<number>> {
+  await ensureScannedTable();
+  const r = await sql`SELECT scoring_period FROM nightly_scanned WHERE season = ${season};`;
+  return new Set(r.rows.map((x) => Number(x.scoring_period)));
+}
+
+export async function markScanned(season: number, period: number) {
+  await ensureScannedTable();
+  await sql`INSERT INTO nightly_scanned (season, scoring_period) VALUES (${season}, ${period}) ON CONFLICT DO NOTHING;`;
+}
+
+// ---- All-time single-night records (every saved season) ----
+export interface AllTimePlayerNight {
+  season: number;
+  playerId: number;
+  name: string;
+  position: string;
+  teamName: string;
+  points: number;
+  date: string;
+  statLine: string | null;
+}
+export interface AllTimeTeamNight {
+  season: number;
+  teamName: string;
+  points: number;
+  date: string;
+}
+
+export async function getAllTimeNights(limit = 10): Promise<{ players: AllTimePlayerNight[]; teams: AllTimeTeamNight[]; seasons: number[] }> {
+  try {
+    await ensureTable();
+    await ensureTeamTable();
+    const [p, t, s] = await Promise.all([
+      sql`SELECT season, player_id, player_name, position, team_name, points, night_date, stat_line FROM nightly_blurbs ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
+      sql`SELECT season, team_name, points, night_date FROM team_nightly ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
+      sql`SELECT DISTINCT season FROM team_nightly ORDER BY season;`,
+    ]);
+    return {
+      players: p.rows.map((x) => ({
+        season: Number(x.season), playerId: Number(x.player_id), name: x.player_name as string, position: (x.position as string) ?? "?",
+        teamName: (x.team_name as string) ?? "", points: Number(x.points), date: x.night_date as string, statLine: (x.stat_line as string | null) ?? null,
+      })),
+      teams: t.rows.map((x) => ({ season: Number(x.season), teamName: (x.team_name as string) ?? "", points: Number(x.points), date: x.night_date as string })),
+      seasons: s.rows.map((x) => Number(x.season)),
+    };
+  } catch (err) {
+    console.error("getAllTimeNights failed (is Postgres connected?)", err);
+    return { players: [], teams: [], seasons: [] };
+  }
+}

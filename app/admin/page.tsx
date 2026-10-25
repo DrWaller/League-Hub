@@ -28,6 +28,7 @@ export default async function AdminDashboard() {
     { href: "/admin/newsletter-graphics", label: "Newsletter Graphics", desc: "The cover plus the 10 graphics for the weekly newsletter in send order, with one-tap share to the group." },
     { href: "/admin/graphics", label: "Graphics", desc: "Auto-generated shareable images from real weekly stats." },
     { href: "/admin/big-night-cards", label: "Big Night Cards", desc: "A shareable card, and a caption, for every player who had a big night." },
+    { href: "/admin/history-nights", label: "Past Seasons: Nights", desc: "Read every day of each past ESPN season, so the all-time biggest nights cover the whole league history." },
     { href: "/admin/monthly-periods", label: "Monthly Periods", desc: "Define the week ranges Monthly Awards use." },
     { href: "/admin/monthly-awards", label: "Monthly Awards", desc: "Player picks + an automatic Manager of the Month." },
     { href: "/admin/newsletter", label: "Newsletter", desc: "Weekly recap and monthly wrap-up, AI-draftable." },
