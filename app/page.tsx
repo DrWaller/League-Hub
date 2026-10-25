@@ -5,6 +5,8 @@ import { getTeamLogos } from "@/lib/content";
 import TeamLogo from "@/components/TeamLogo";
 import LastNight from "@/components/LastNight";
 import { pts } from "@/lib/format";
+import { getWeekGamesPlayed } from "@/lib/games-played";
+import { projectMatchup } from "@/lib/win-probability";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,11 @@ export default async function HomePage() {
     getMatchups(),
   ]);
   const matchups = all.matchups.filter((m) => m.week === meta.currentWeek);
+  // Win probability for each game (the same model the Matchups page uses; ESPN calls are cached for minutes).
+  // If it can't load, the cards simply show no bar.
+  const gamesPlayed = await getWeekGamesPlayed(meta.currentWeek, meta.season).catch(() => null);
+  const projOf = (m: (typeof matchups)[number]) =>
+    gamesPlayed ? projectMatchup(m.homeScore, m.awayScore, gamesPlayed[m.homeTeamId], gamesPlayed[m.awayTeamId]) : null;
 
   const top3 = teams.slice(0, 3);
   // Marquee matchup: early in the week (little scoring yet) the two best teams in the
@@ -75,6 +82,19 @@ export default async function HomePage() {
             ) : (
               <p className="text-ice/70">No matchups scheduled yet.</p>
             )}
+            {marquee && projOf(marquee) && (
+              <div className="mt-5">
+                <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-ice/60 mb-1.5 font-tabular">
+                  <span>{projOf(marquee)!.homeWinPct}%</span>
+                  <span>Win probability</span>
+                  <span>{projOf(marquee)!.awayWinPct}%</span>
+                </div>
+                <div className="flex h-2 rounded-full overflow-hidden bg-white/10">
+                  <div className="h-full bg-ice" style={{ width: `${projOf(marquee)!.homeWinPct}%` }} />
+                  <div className="h-full flex-1 bg-center-red" />
+                </div>
+              </div>
+            )}
           </div>
           <div className="bg-rink-deep p-5 md:p-10">
             <div className="flex items-baseline justify-between mb-3 md:mb-4">
@@ -122,6 +142,8 @@ export default async function HomePage() {
             {matchups.map((m) => {
               const started = m.isFinal || m.homeScore + m.awayScore > 0;
               const homeWins = m.homeScore > m.awayScore;
+              const proj = projOf(m);
+              const close = started && !m.isFinal && Math.abs(m.homeScore - m.awayScore) <= 3;
               return (
                 <div key={`${m.homeTeamId}-${m.awayTeamId}`} className="border border-ice-line rounded-sm bg-white px-3.5 py-2.5 md:px-4 md:py-3 space-y-1.5 md:space-y-2 font-tabular shadow-[0_1px_0_rgba(18,58,97,0.04)]">
                   {[
@@ -136,6 +158,19 @@ export default async function HomePage() {
                       <span className={`font-display text-xl md:text-lg ${side.lead ? "text-center-red" : ""}`}>{started ? pts(side.score) : "–"}</span>
                     </div>
                   ))}
+                  {proj && (
+                    <div className="pt-1">
+                      <div className="flex h-1.5 rounded-full overflow-hidden bg-ice-line">
+                        <div className="h-full bg-rink-bright" style={{ width: `${proj.homeWinPct}%` }} />
+                        <div className="h-full flex-1 bg-center-red" />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-muted mt-1">
+                        <span>{proj.homeWinPct}%</span>
+                        {close ? <span className="rounded-full bg-gold/25 text-rink font-semibold uppercase tracking-widest px-2 py-px">Close</span> : <span className="uppercase tracking-widest">Win prob</span>}
+                        <span>{proj.awayWinPct}%</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

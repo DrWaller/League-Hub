@@ -14,6 +14,9 @@ import { addedLabel } from "@/lib/roster-moves";
 import { runPickupSyncStep } from "@/lib/pickup-sync";
 import { getPickupLog, type PickupLogEntry } from "@/lib/best-pickup";
 import { getMonsterCounts } from "@/lib/nightly-store";
+import { getTeamLogos } from "@/lib/content";
+import PlayerPhoto from "@/components/PlayerPhoto";
+import TeamLogo from "@/components/TeamLogo";
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
@@ -25,34 +28,68 @@ function Move({ rank, prev }: { rank: number; prev: number | null | undefined })
   return <span className={d > 0 ? "text-green-700" : "text-red-700"}>{d > 0 ? "▲" : "▼"}{Math.abs(d)}</span>;
 }
 
-type Row = { key: string; name: string; sub: string; value: string; gap: string; rank: number; prev?: number | null };
+// playerId -> headshot; logo -> team logo (manager races). share (0-1) draws a bar against the leader.
+type Row = { key: string; name: string; sub: string; value: string; gap: string; rank: number; prev?: number | null; playerId?: number; logo?: string; share?: number };
+
+function Face({ r, size }: { r: Row; size: number }) {
+  if (r.playerId) return <PlayerPhoto playerId={r.playerId} name={r.name} size={size} />;
+  if (r.logo) return <TeamLogo url={r.logo} name={r.name} size={size} />;
+  return null;
+}
 
 function Card({ title, blurb, rows, note }: { title: string; blurb: string; rows: Row[]; note?: string }) {
+  const [lead, ...rest] = rows;
   return (
-    <div className="border border-ice-line bg-white p-4">
-      <h2 className="font-display text-xl">{title}</h2>
-      <p className="text-xs text-muted mb-3">{blurb}</p>
-      {rows.length === 0 ? (
-        <p className="text-sm text-muted">{note ?? "Nothing to show yet."}</p>
+    <div className="border border-ice-line bg-white overflow-hidden">
+      <div className="p-4 pb-3">
+        <h2 className="font-display text-xl">{title}</h2>
+        <p className="text-xs text-muted">{blurb}</p>
+      </div>
+      {!lead ? (
+        <p className="text-sm text-muted px-4 pb-4">{note ?? "Nothing to show yet."}</p>
       ) : (
-        <table className="w-full text-sm">
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.key} className="border-t border-ice-line">
-                <td className="py-1.5 pr-2 w-6 font-display">{r.rank}</td>
-                <td className="py-1.5 pr-2 w-8 text-xs"><Move rank={r.rank} prev={r.prev} /></td>
-                <td className="py-1.5 pr-2">
-                  <div>{r.name}</div>
-                  <div className="text-xs text-muted">{r.sub}</div>
-                </td>
-                <td className="py-1.5 text-right whitespace-nowrap">
-                  <div className="font-bold">{r.value}</div>
-                  <div className="text-xs text-muted">{r.gap}</div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <div className="bg-gradient-to-br from-rink to-rink-deep text-ice px-4 py-3.5 border-l-4 border-gold flex items-center gap-3">
+            <div className="shrink-0 relative">
+              <Face r={lead} size={56} />
+              <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-gold text-rink-deep text-[11px] font-display flex items-center justify-center">1</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-display text-lg leading-tight truncate">{lead.name}</div>
+              <div className="text-xs text-ice/70 truncate">{lead.sub}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="font-display text-2xl leading-none">{lead.value}</div>
+              <div className="text-[11px] text-ice/60 mt-1">{lead.gap}</div>
+            </div>
+          </div>
+          {rest.length > 0 && (
+            <ul className="divide-y divide-ice-line">
+              {rest.map((r) => (
+                <li key={r.key} className="px-4 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-4 font-display text-muted text-center shrink-0">{r.rank}</span>
+                    <Face r={r} size={32} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{r.name}</div>
+                      <div className="text-xs text-muted truncate">{r.sub}</div>
+                    </div>
+                    <span className="text-xs w-8 text-right shrink-0"><Move rank={r.rank} prev={r.prev} /></span>
+                    <div className="text-right shrink-0">
+                      <div className="font-bold text-sm">{r.value}</div>
+                      <div className="text-[11px] text-muted">{r.gap}</div>
+                    </div>
+                  </div>
+                  {r.share !== undefined && (
+                    <div className="mt-1.5 ml-7 h-1 rounded-full bg-ice-panel overflow-hidden">
+                      <div className="h-full rounded-full bg-rink-bright" style={{ width: `${Math.max(3, Math.min(100, r.share * 100))}%` }} />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
   );
@@ -62,7 +99,7 @@ function Card({ title, blurb, rows, note }: { title: string; blurb: string; rows
 // races use the saved lineup efficiency and the standings.
 export default async function SeasonAwardsView() {
   const meta = await getLeagueMeta();
-  const [{ teams }, { matchups }] = await Promise.all([getStandings(), getMatchups()]);
+  const [{ teams }, { matchups }, logos] = await Promise.all([getStandings(), getMatchups(), getTeamLogos()]);
   const name = (id: number) => teams.find((t) => t.id === id)?.name ?? `Team ${id}`;
   const finished = Array.from(new Set(regularSeasonFinals(matchups).map((m) => m.week))).sort((a, b) => a - b);
 
@@ -172,6 +209,8 @@ export default async function SeasonAwardsView() {
       gap: e.rank === 1 ? (r.award.metric === "vor" ? `${pts(e.points)} pts` : "leader") : `-${pts(val(lead) - val(e))}`,
       rank: e.rank,
       prev: r.through > 1 ? e.prevRank : undefined,
+      playerId: e.id,
+      share: val(lead) > 0 ? val(e) / val(lead) : undefined,
     }));
     return <Card key={r.award.key} title={r.award.title} blurb={`${r.award.blurb}${PAST_WINNERS[r.award.key] ? ` Past winners: ${PAST_WINNERS[r.award.key].join(", ")}.` : ""}`} rows={rows} note="No finished weeks saved yet." />;
   });
@@ -195,7 +234,7 @@ export default async function SeasonAwardsView() {
           blurb="Highest season lineup efficiency: points scored vs. the best possible lineup, night by night."
           rows={top5(managers).map((m, i) => ({
             key: String(m.teamId), name: name(m.teamId), sub: `${pts(m.actual)} of ${pts(m.max)}`, value: pct(m.pct),
-            gap: i === 0 ? "leader" : `-${((managers[0].pct - m.pct) * 100).toFixed(1)}%`, rank: i + 1,
+            gap: i === 0 ? "leader" : `-${((managers[0].pct - m.pct) * 100).toFixed(1)}%`, rank: i + 1, logo: logos[m.teamId], share: managers[0].pct > 0 ? m.pct / managers[0].pct : undefined,
           }))}
           note="No finished weeks saved yet."
         />
@@ -204,7 +243,7 @@ export default async function SeasonAwardsView() {
           blurb="Best regular-season record (wins minus losses, then points for)."
           rows={top5(byRecord).map((t, i) => ({
             key: String(t.id), name: t.name, sub: `${pts(t.pointsFor)} PF`, value: `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`,
-            gap: "", rank: i + 1,
+            gap: "", rank: i + 1, logo: logos[t.id],
           }))}
         />
         <Card
@@ -212,7 +251,7 @@ export default async function SeasonAwardsView() {
           blurb="Total regular-season points for."
           rows={top5(byPoints).map((t, i) => ({
             key: String(t.id), name: t.name, sub: `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`, value: pts(t.pointsFor),
-            gap: i === 0 ? "leader" : `-${pts(byPoints[0].pointsFor - t.pointsFor)}`, rank: i + 1,
+            gap: i === 0 ? "leader" : `-${pts(byPoints[0].pointsFor - t.pointsFor)}`, rank: i + 1, logo: logos[t.id], share: byPoints[0].pointsFor > 0 ? t.pointsFor / byPoints[0].pointsFor : undefined,
           }))}
         />
         <Card
@@ -220,7 +259,7 @@ export default async function SeasonAwardsView() {
           blurb={`Actual wins vs. expected wins (every team against every other team, every week). The gap is shown as a share of expected wins (like -16% xWINS). The biggest shortfall wins.`}
           rows={top5(hardLuck).map((r, i) => ({
             key: String(r.teamId), name: name(r.teamId), sub: `${r.actW}-${r.actL}${r.actT ? `-${r.actT}` : ""} actual, ${r.expected.toFixed(1)} expected`,
-            value: `${r.gap >= 0 ? "+" : "−"}${r.expected > 0 ? Math.abs((r.gap / r.expected) * 100).toFixed(0) : "0"}% xWINS`, gap: i === 0 ? "most unlucky" : `${(r.gap - hardLuck[0].gap).toFixed(1)} from the top`, rank: i + 1,
+            value: `${r.gap >= 0 ? "+" : "−"}${r.expected > 0 ? Math.abs((r.gap / r.expected) * 100).toFixed(0) : "0"}% xWINS`, gap: i === 0 ? "most unlucky" : `${(r.gap - hardLuck[0].gap).toFixed(1)} from the top`, rank: i + 1, logo: logos[r.teamId],
           }))}
           note="No finished weeks yet."
         />
@@ -229,7 +268,7 @@ export default async function SeasonAwardsView() {
           blurb={`Most dominant goaltending tandem: each team's two best goalies, by fantasy points. Past winners: ${PAST_WINNERS.jennings.join(", ")}.`}
           rows={tandems.map((t) => ({
             key: String(t.teamId), name: name(t.teamId), sub: t.goalies.map((g) => `${g.name} ${pts(g.points)}`).join(" · "), value: `${pts(t.points)} pts`,
-            gap: t.rank === 1 ? "leader" : `-${pts(tandems[0].points - t.points)}`, rank: t.rank,
+            gap: t.rank === 1 ? "leader" : `-${pts(tandems[0].points - t.points)}`, rank: t.rank, logo: logos[t.teamId], share: tandems[0].points > 0 ? t.points / tandems[0].points : undefined,
           }))}
           note="No finished weeks saved yet."
         />
@@ -238,7 +277,7 @@ export default async function SeasonAwardsView() {
           blurb={`The drafted player who out-produced his draft slot by the most (draft pick minus his finish by VOR among everyone drafted; keepers excluded). Past winners: ${PAST_WINNERS.sleeping.join(", ")}.`}
           rows={sleepers.map((p) => ({
             key: String(p.id), name: p.name, sub: `${p.position} · ${name(p.teamId)} · drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin} spots`,
-            gap: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`, rank: p.rank,
+            gap: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`, rank: p.rank, playerId: p.id,
           }))}
           note="Needs the draft saved and at least one finished week."
         />
@@ -252,6 +291,7 @@ export default async function SeasonAwardsView() {
             value: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`,
             gap: p.rank === 1 ? `${pts(p.pointsCounted)} pts` : `-${pts(pickups[0].vor - p.vor)}`,
             rank: p.rank,
+            playerId: p.playerId,
           }))}
           note="No pickup has started a game yet. Adds are tracked from the draft; games show once the week finishes."
         />
@@ -265,6 +305,8 @@ export default async function SeasonAwardsView() {
             value: `${m.nights} night${m.nights === 1 ? "" : "s"}`,
             gap: i === 0 ? `${pts(m.total)} pts` : `-${monsters[0].nights - m.nights}`,
             rank: i + 1,
+            playerId: m.playerId,
+            share: monsters[0].nights > 0 ? m.nights / monsters[0].nights : undefined,
           }))}
           note="No Monster Nights yet this season."
         />
@@ -273,7 +315,7 @@ export default async function SeasonAwardsView() {
             key={t.key}
             title={t.title}
             blurb={`${t.blurb}${PAST_WINNERS[t.key] ? ` Past winners: ${PAST_WINNERS[t.key].join(", ")}.` : ""}`}
-            rows={t.entries.map((e) => { const age = ageOf(e.name, e.position, meta.season); return { key: String(e.id), name: e.name, sub: `${e.position}${age ? ` · age ~${age}` : ""} · ${e.detail}`, value: e.value, gap: "", rank: e.rank }; })}
+            rows={t.entries.map((e) => { const age = ageOf(e.name, e.position, meta.season); return { key: String(e.id), name: e.name, sub: `${e.position}${age ? ` · age ~${age}` : ""} · ${e.detail}`, value: e.value, gap: "", rank: e.rank, playerId: e.id }; })}
             note="Nothing qualifies yet. Early in the season few players have enough games."
           />
         ))}
