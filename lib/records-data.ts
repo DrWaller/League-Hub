@@ -24,7 +24,11 @@ async function loadCurrentSeasonGames(currentSeason: number): Promise<RecSeason 
       teams: teams.map((t) => ({
         id: t.id,
         name: t.name,
-        managerId: managerSeasons.find((m) => m.season === currentSeason && m.teamId === t.id)?.managerId ?? null,
+        // This season's manager rows may not be entered yet: fall back to whoever held the same ESPN team slot most recently.
+        managerId:
+          managerSeasons.find((m) => m.season === currentSeason && m.teamId === t.id)?.managerId ??
+          managerSeasons.filter((m) => m.season < currentSeason && m.teamId === t.id && m.managerId != null).sort((a, b) => b.season - a.season)[0]?.managerId ??
+          null,
       })),
       matchups: applyRules(matchups, rules),
       champion: null,

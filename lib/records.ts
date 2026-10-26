@@ -63,6 +63,7 @@ export interface GameRecord {
   week: number;
   teamName: string;
   managerName: string | null;
+  managerId: number | null;
   score: number;
   oppName: string;
   oppScore: number;
@@ -165,6 +166,7 @@ export function buildRecords(managers: RecManager[], seasons: RecSeason[], gameO
         week: m.week,
         teamName: mine?.name ?? "Unknown team",
         managerName: nm(mine),
+        managerId: mine?.managerId ?? null,
         score: myScore,
         oppName: theirs?.name ?? "Unknown team",
         oppScore: theirScore,
@@ -209,6 +211,7 @@ export function buildRecords(managers: RecManager[], seasons: RecSeason[], gameO
         week: m.week,
         teamName: mine?.name ?? "Unknown team",
         managerName: nm(mine),
+        managerId: mine?.managerId ?? null,
         score: myScore,
         oppName: theirs?.name ?? "Unknown team",
         oppScore: theirScore,

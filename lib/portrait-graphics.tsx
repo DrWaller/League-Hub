@@ -1057,11 +1057,13 @@ export interface RecordRow {
   name: string; // manager (or team) name
   sub: string; // "2025, week 19 · vs Sam"
   value: string; // "131.40"
-  note?: string; // "by 8.35" / "78.3%"
+  note?: string; // "Won by 12.30" / "78.3%"
+  logo?: string; // the manager's current team logo (data URI); initials tile when missing
+  isNew?: boolean; // set this season: gets a NEW tag
 }
 
-// One Records list as a downloadable card: the record-holder in a hero panel, the rest as ranked rows.
-// tone "bad" (low / worst lists) swaps the gold accent for red.
+// One Records list as a downloadable card: the record-holder in a hero panel, the rest as ranked rows that
+// stretch to fill the card. tone "bad" (low / worst lists) swaps the gold accents for red.
 export async function renderPortraitRecordList(opts: {
   title: string;
   subtitle: string;
@@ -1072,7 +1074,9 @@ export async function renderPortraitRecordList(opts: {
   const bad = opts.tone === "bad";
   const [top, ...rest] = opts.rows.slice(0, 5);
   const medal = ["#D4A82A", "#AAB4BF", "#B8794A"];
-  const rowH = Math.min(176, Math.floor((H - CHROME - 24 - 250) / Math.max(1, rest.length)));
+  const newTag = (display: string, size: number) => (
+    <div style={{ display: "flex", alignItems: "center", flexShrink: 0, height: size + 14, padding: "0 12px", borderRadius: 8, background: OG.gold, fontFamily: display, fontWeight: 700, fontSize: size, letterSpacing: 2, color: OG.rink }}>NEW</div>
+  );
 
   return frame({
     footer: opts.footer,
@@ -1081,14 +1085,20 @@ export async function renderPortraitRecordList(opts: {
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, background: "#FFFFFF", border: CARD_BORDER, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW, overflow: "hidden" }}>
         {top ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 24, height: 250, padding: "0 36px", flexShrink: 0, backgroundImage: bad ? "linear-gradient(135deg, #0B2540 0%, #0B2540 45%, #A8324A 100%)" : "linear-gradient(135deg, #1F5C95 0%, #123A61 100%)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 104, height: 104, borderRadius: 52, flexShrink: 0, background: bad ? "#E5E9EE" : medal[0], fontFamily: display, fontWeight: 700, fontSize: 60, color: OG.rink }}>1</div>
-            <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 8 }}>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 58, lineHeight: 1, color: "#FFFFFF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 480 }}>{top.name}</div>
-              <div style={{ display: "flex", fontSize: 26, color: "#C9D6E6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 480 }}>{top.sub}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 26, height: 290, padding: "0 36px", flexShrink: 0, position: "relative", backgroundImage: bad ? "linear-gradient(135deg, #0B2540 0%, #0B2540 45%, #A8324A 100%)" : "linear-gradient(135deg, #1F5C95 0%, #123A61 100%)" }}>
+            <div style={{ display: "flex", position: "relative", flexShrink: 0 }}>
+              <TeamBadge name={top.name} logo={top.logo} size={150} fontFamily={display} />
+              <div style={{ position: "absolute", left: -14, top: -14, display: "flex", alignItems: "center", justifyContent: "center", width: 52, height: 52, borderRadius: 26, background: bad ? "#E5E9EE" : medal[0], fontFamily: display, fontWeight: 700, fontSize: 32, color: OG.rink, border: "3px solid #FFFFFF" }}>1</div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 6 }}>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: top.value.length > 9 ? 50 : 78, lineHeight: 1, color: bad ? "#FFFFFF" : OG.gold }}>{top.value}</div>
+            <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 56, lineHeight: 1, color: "#FFFFFF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: top.isNew ? 270 : 360 }}>{top.name}</div>
+                {top.isNew ? newTag(display, 22) : null}
+              </div>
+              <div style={{ display: "flex", fontSize: 25, color: "#C9D6E6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 400 }}>{top.sub}</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 8 }}>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: top.value.length > 9 ? 50 : 76, lineHeight: 1, color: bad ? "#FFFFFF" : OG.gold }}>{top.value}</div>
               {top.note ? <div style={{ display: "flex", fontSize: 26, color: "#C9D6E6" }}>{top.note}</div> : null}
             </div>
           </div>
@@ -1097,15 +1107,19 @@ export async function renderPortraitRecordList(opts: {
           const rank = i + 2;
           const m = !bad && rank <= 3 ? medal[rank - 1] : null;
           return (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 18, height: rowH, padding: "0 36px", flexShrink: 0, background: i % 2 === 0 ? "#FFFFFF" : OG.icePanel, borderTop: `1px solid #D5E3F0` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: m ?? "#D5E3F0", fontFamily: display, fontWeight: 700, fontSize: 30, color: m ? "#FFFFFF" : OG.muted }}>{rank}</div>
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 18, flex: 1, padding: "0 36px", background: i % 2 === 0 ? "#FFFFFF" : OG.icePanel, borderTop: "1px solid #D5E3F0" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: 24, flexShrink: 0, background: m ?? "#D5E3F0", fontFamily: display, fontWeight: 700, fontSize: 28, color: m ? "#FFFFFF" : OG.muted }}>{rank}</div>
+              <TeamBadge name={r.name} logo={r.logo} size={76} fontFamily={display} />
               <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 6 }}>
-                <div style={{ display: "flex", fontSize: 38, fontWeight: 700, color: OG.board, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 520 }}>{r.name}</div>
-                <div style={{ display: "flex", fontSize: 24, color: OG.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 520 }}>{r.sub}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ display: "flex", fontSize: 36, fontWeight: 700, color: OG.board, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: r.isNew ? 250 : 330 }}>{r.name}</div>
+                  {r.isNew ? newTag(display, 18) : null}
+                </div>
+                <div style={{ display: "flex", fontSize: 23, color: OG.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 400 }}>{r.sub}</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 4 }}>
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: r.value.length > 9 ? 36 : 52, lineHeight: 1, color: bad ? OG.centerRed : OG.rink }}>{r.value}</div>
-                {r.note ? <div style={{ display: "flex", fontSize: 22, color: OG.muted }}>{r.note}</div> : null}
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: r.value.length > 9 ? 34 : 50, lineHeight: 1, color: bad ? OG.centerRed : OG.rink }}>{r.value}</div>
+                {r.note ? <div style={{ display: "flex", fontSize: 21, color: OG.muted }}>{r.note}</div> : null}
               </div>
             </div>
           );
