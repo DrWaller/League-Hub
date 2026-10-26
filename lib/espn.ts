@@ -187,14 +187,43 @@ export async function getScoringPeriodsForWeek(
       }
     }
   }
+  // The live (current-season) matchup week: ESPN only lists days that already have points, so the days still
+  // to come are missing and have to be filled in, or tools that look ahead (pickup windows, games left)
+  // would only ever see the days already played.
+  const num = (v: unknown) => (v != null && Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : null);
+  const live = season === undefined;
+  const curSp = num(settings?.scoringPeriodId) ?? num(settings?.status?.currentScoringPeriod) ?? num(settings?.status?.latestScoringPeriod);
+  const curWeek = num(settings?.status?.currentMatchupPeriod);
+  const cal = await getWeekCalendar(season ?? Number(SEASON));
+  const saved = cal ? periodsForWeek(cal.lengths, week) : null;
+
   if (days.size > 0) {
-    return { periods: Array.from(days).sort((a, b) => a - b), source: "schedule.pointsByScoringPeriod", scheduleSettingsKeys };
+    const list = Array.from(days).sort((a, b) => a - b);
+    let source = "schedule.pointsByScoringPeriod";
+    if (live && curSp !== null && week === curWeek) {
+      const last = list[list.length - 1];
+      // The saved calendar knows where the week ends; without one, assume 7 days (week 1 can be shorter).
+      const end = saved?.length ? saved[saved.length - 1] : week > 1 ? list[0] + 6 : last;
+      if (end > last && end - last <= 7) {
+        for (let sp = last + 1; sp <= end; sp++) if (sp >= curSp) list.push(sp);
+        source += " + rest of week";
+      }
+    }
+    return { periods: list, source, scheduleSettingsKeys };
   }
 
   // ESPN gave no day breakdown: use the week lengths the commissioner entered at /admin/week-days.
-  const cal = await getWeekCalendar(season ?? Number(SEASON));
-  const saved = cal ? periodsForWeek(cal.lengths, week) : null;
   if (saved) return { periods: saved, source: "saved week calendar", scheduleSettingsKeys };
+
+  // No calendar saved: the current week with no points yet, or the next one, follows straight on from the
+  // week before it (7 days). Only done for those two, where the chain is short and the guess is safe.
+  if (live && curWeek !== null && week > 1 && (week === curWeek || week === curWeek + 1)) {
+    const prev = await getScoringPeriodsForWeek(week - 1).catch(() => null);
+    if (prev && prev.periods.length > 0) {
+      const start = prev.periods[prev.periods.length - 1] + 1;
+      return { periods: Array.from({ length: 7 }, (_, i) => start + i), source: "7 days after the previous week", scheduleSettingsKeys };
+    }
+  }
 
   // Nothing saved. A weekly league (one scoring period per matchup) can safely use [week];
   // a daily one must not, or one night would be reported as a whole week.
