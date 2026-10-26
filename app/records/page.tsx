@@ -23,14 +23,18 @@ const cardUrl = (list: string, from: number | null) => `/api/cards/record-list?l
 type RItem = { key: string; name: string; sub: string; value: string; note?: string; weight?: number; playerId?: number };
 
 function SectionHead({ title, blurb }: { title: string; blurb?: string }) {
+  // The <summary> of a native <details>: click it to collapse / expand the section (works without scripts).
   return (
-    <div className="mb-4">
+    <summary className="mb-4 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
       <h2 className="font-display text-2xl flex items-center gap-3">
         <span className="inline-block w-1.5 h-6 bg-center-red rounded-full" />
-        {title}
+        <span className="flex-1">{title}</span>
+        <svg className="w-5 h-5 shrink-0 text-muted transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M5 8l5 5 5-5" />
+        </svg>
       </h2>
       {blurb && <p className="text-sm text-muted mt-1 max-w-prose">{blurb}</p>}
-    </div>
+    </summary>
   );
 }
 
@@ -222,7 +226,7 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
         </p>
       ) : (
         <div className="space-y-14 mt-8">
-          <section>
+          <details open className="group">
             <SectionHead title="All-time standings" />
             <ol className="space-y-2">
               {records.careers.map((c, i) => (
@@ -258,16 +262,16 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
                 </li>
               ))}
             </ol>
-          </section>
+          </details>
 
           {allPlay.length > 0 && (
-            <section>
+            <details open className="group">
               <SectionHead title="All-time all-play" blurb="Every week, every score against every other team's. The record a perfectly fair schedule would have given." />
               <AllPlayTable rows={allPlay} />
-            </section>
+            </details>
           )}
 
-          <section>
+          <details open className="group">
             <SectionHead title="Best and worst seasons" />
             <EraToggle from={fromYear} current={fromYear != null} />
             <div className="grid md:grid-cols-3 gap-4">
@@ -275,9 +279,9 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
               <RecordList title="Worst records" dl={cardUrl("worst", fromYear)} tag="Worst" tone="bad" items={seasonItems(cut.worstSeasons)} bars={false} />
               <RecordList title="Most points" dl={cardUrl("scoring", fromYear)} tag="Scoring" items={seasonItems(cut.highScoringSeasons, true)} />
             </div>
-          </section>
+          </details>
 
-          <section>
+          <details open className="group">
             <SectionHead title="Single-game records" />
             <EraToggle from={fromYear} current={fromYear != null} />
             <div className="grid md:grid-cols-2 gap-4">
@@ -286,10 +290,10 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
               <RecordList title="Biggest blowouts" dl={cardUrl("blowouts", fromYear)} tag="Margin" items={gameItems(cut.biggestWins, "margin")} />
               <RecordList title="Closest finishes" dl={cardUrl("close", fromYear)} tag="Nail-biters" items={gameItems(cut.closestGames, "margin")} bars={false} />
             </div>
-          </section>
+          </details>
 
           {(nights.players.length > 0 || nights.teams.length > 0) && (
-            <section>
+            <details open className="group">
               <SectionHead
                 title="Single-night records"
                 blurb={`The biggest single-day scores${nights.seasons.length ? ` across ${range(nights.seasons)}` : ""}, including the current season. Players are any player on any roster; teams count the players in the active lineup that day. Counted from ${NIGHT_RECORDS_FROM_SEASON} on, when the league scoring changed.`}
@@ -319,10 +323,10 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
                   }))}
                 />
               </div>
-            </section>
+            </details>
           )}
 
-          <section>
+          <details open className="group">
             <SectionHead title="Head-to-head" blurb="Each row's record against the manager in that column, regular season only. Green means a winning record." />
             <div className="overflow-x-auto border border-ice-line rounded-md bg-white p-2">
               <table className="text-sm font-tabular border-collapse">
@@ -365,7 +369,7 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
                 </tbody>
               </table>
             </div>
-          </section>
+          </details>
         </div>
       )}
     </div>
