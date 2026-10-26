@@ -25,8 +25,11 @@ export async function GET(req: NextRequest) {
     // Lineup awards (need the daily lineups).
     const eff = (lineups?.teams ?? []).filter((t) => t.max > 0).map((t) => ({ ...t, pct: t.actual / t.max, left: t.max - t.actual }));
     if (eff.length >= 2) {
-      const best = [...eff].sort((a, b) => b.pct - a.pct)[0];
-      const worst = [...eff].sort((a, b) => a.pct - b.pct)[0];
+      // Ties on efficiency (e.g. two teams at 100%) go to the team that scored more points that week
+      // (most efficient) or fewer points (least efficient).
+      const EPS = 1e-9;
+      const best = [...eff].sort((a, b) => (Math.abs(b.pct - a.pct) < EPS ? b.actual - a.actual : b.pct - a.pct))[0];
+      const worst = [...eff].sort((a, b) => (Math.abs(a.pct - b.pct) < EPS ? a.actual - b.actual : a.pct - b.pct))[0];
       awards.push({ label: "MOST EFFICIENT LINEUP", teamId: best.teamId, teamName: name(best.teamId), big: `${(best.pct * 100).toFixed(1)}%`, bigUnit: "OF MAX", sub: `${pts(best.actual)} of ${pts(best.max)} max pts`, tone: "good" });
       awards.push({ label: "LEAST EFFICIENT LINEUP", teamId: worst.teamId, teamName: name(worst.teamId), big: `${(worst.pct * 100).toFixed(1)}%`, bigUnit: "OF MAX", sub: `${pts(worst.actual)} of ${pts(worst.max)} max pts`, tone: "bad" });
     }

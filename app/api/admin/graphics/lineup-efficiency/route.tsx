@@ -21,7 +21,11 @@ export async function GET(req: NextRequest) {
     const rows = lineups.teams
       .filter((t) => t.max > 0)
       .map((t) => ({ teamId: t.teamId, name: name(t.teamId), actual: t.actual, max: t.max }))
-      .sort((a, b) => b.actual / b.max - a.actual / a.max);
+      // Efficiency first; ties (e.g. two teams at 100%) go to the team with more points that week.
+      .sort((a, b) => {
+        const d = b.actual / b.max - a.actual / a.max;
+        return Math.abs(d) < 1e-9 ? b.actual - a.actual : d;
+      });
 
     if (req.nextUrl.searchParams.get("caption")) {
       const lines = rows.map((r, i) => `${i + 1}. ${r.name}: ${r.actual.toFixed(2)} of ${r.max.toFixed(2)} (${((r.actual / r.max) * 100).toFixed(1)}%)`);
