@@ -150,14 +150,16 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
 
 export default async function RecordsPage({ searchParams }: { searchParams: { from?: string } }) {
   const meta = await getLeagueMeta();
-  const { records, seasonsUsed, seasonsSkipped, managerCount, managers, recSeasons } = await loadRecords(meta.season);
+  const { records, seasonsUsed, seasonsSkipped, managerCount, managers, recSeasons, currentGames } = await loadRecords(meta.season);
   const allPlay = records.careers.length > 0 ? buildManagerLuck(0, managers, recSeasons).all : [];
   const nameOf = new Map(records.careers.map((c) => [c.managerId, c.name]));
   const hasData = records.careers.length > 0;
   const nights = await getAllTimeNights(10);
   // Optional cutoff for the season and single-game lists (?from=2021). The all-time standings, all-play and head-to-head stay on every season.
   const fromYear = Number(searchParams?.from) || null;
-  const cut = fromYear ? buildRecords(managers, recSeasons.filter((r) => r.season >= fromYear)) : records;
+  const cut = fromYear
+    ? buildRecords(managers, recSeasons.filter((r) => r.season >= fromYear), currentGames && currentGames.season >= fromYear ? [currentGames] : [])
+    : records;
   const topTitles = [...records.careers].sort((a, b) => b.titles - a.titles)[0];
   const bestPct = [...records.careers].filter((c) => c.wins + c.losses + c.ties >= 20).sort((a, b) => b.winPct - a.winPct)[0];
   const maxPct = Math.max(...records.careers.map((c) => c.winPct), 0.0001);

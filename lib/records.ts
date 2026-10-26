@@ -133,7 +133,9 @@ function findEntryTeam(entry: string, teams: RecTeam[], managerName: (t: RecTeam
 const winPct = (w: number, l: number, t: number) => (w + l + t > 0 ? (w + t * 0.5) / (w + l + t) : 0);
 const TOP = 5;
 
-export function buildRecords(managers: RecManager[], seasons: RecSeason[]): Records {
+// `gameOnlySeasons` (e.g. the season in progress) feed ONLY the single-game lists (highest/lowest scores,
+// blowouts, closest finishes) -- not careers, season rows, champions or head-to-head, which stay finished seasons only.
+export function buildRecords(managers: RecManager[], seasons: RecSeason[], gameOnlySeasons: RecSeason[] = []): Records {
   const nameOf = new Map(managers.map((m) => [m.id, m.name]));
   const careers = new Map<number, CareerRow>();
   const career = (id: number) => {
@@ -151,6 +153,26 @@ export function buildRecords(managers: RecManager[], seasons: RecSeason[]): Reco
     (h2h[a] ??= {})[b] ??= { w: 0, l: 0, t: 0 };
     h2h[a][b][key]++;
   };
+
+  for (const s of gameOnlySeasons) {
+    const teamById = new Map(s.teams.map((t) => [t.id, t]));
+    for (const m of regularSeasonFinals(s.matchups)) {
+      const home = teamById.get(m.homeTeamId);
+      const away = teamById.get(m.awayTeamId);
+      const nm = (t?: RecTeam) => (t?.managerId ? nameOf.get(t.managerId) ?? null : null);
+      const rec = (mine: RecTeam | undefined, myScore: number, theirs: RecTeam | undefined, theirScore: number): GameRecord => ({
+        season: s.season,
+        week: m.week,
+        teamName: mine?.name ?? "Unknown team",
+        managerName: nm(mine),
+        score: myScore,
+        oppName: theirs?.name ?? "Unknown team",
+        oppScore: theirScore,
+        margin: myScore - theirScore,
+      });
+      games.push(rec(home, m.homeScore, away, m.awayScore), rec(away, m.awayScore, home, m.homeScore));
+    }
+  }
 
   for (const s of seasons) {
     const finals = regularSeasonFinals(s.matchups);
