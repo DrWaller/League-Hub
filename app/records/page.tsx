@@ -18,6 +18,8 @@ const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const rec = (w: number, l: number, t: number) => `${w}-${l}${t ? `-${t}` : ""}`;
 const range = (s: number[]) => (s.length === 0 ? "" : s[0] === s[s.length - 1] ? `${s[0]}` : `${s[0]}–${s[s.length - 1]}`);
 
+const cardUrl = (list: string, from: number | null) => `/api/cards/record-list?list=${list}${from ? `&from=${from}` : ""}`;
+
 type RItem = { key: string; name: string; sub: string; value: string; note?: string; weight?: number; playerId?: number };
 
 function SectionHead({ title, blurb }: { title: string; blurb?: string }) {
@@ -36,7 +38,7 @@ const MEDAL = ["#d4a82a", "#aab4bf", "#b8794a"]; // gold, silver, bronze
 
 // One record list: the record-holder gets a hero panel, the rest are ranked rows (optionally with a share bar).
 // tone "bad" is for the low/worst lists: a red accent instead of gold.
-function RecordList({ title, tag, items, bars = true, tone = "good" }: { title: string; tag?: string; items: RItem[]; bars?: boolean; tone?: "good" | "bad" }) {
+function RecordList({ title, tag, items, bars = true, tone = "good", dl }: { title: string; tag?: string; items: RItem[]; bars?: boolean; tone?: "good" | "bad"; dl?: string }) {
   if (items.length === 0) return null;
   const [top, ...rest] = items;
   const maxW = Math.max(...items.map((i) => i.weight ?? 0), 0.0001);
@@ -47,9 +49,16 @@ function RecordList({ title, tag, items, bars = true, tone = "good" }: { title: 
         <span className="absolute -right-2 -bottom-5 font-display text-[7rem] leading-none text-white/[0.06] select-none pointer-events-none">1</span>
         <div className="relative flex items-center justify-between mb-3">
           <h3 className="font-display text-lg">{title}</h3>
-          {tag && (
-            <span className={`text-[10px] uppercase tracking-widest rounded-full px-2 py-0.5 ${bad ? "bg-center-red/40 text-white" : "bg-gold/25 text-gold"}`}>{tag}</span>
-          )}
+          <div className="flex items-center gap-2">
+            {dl && (
+              <a href={dl} download={`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="text-[10px] uppercase tracking-widest rounded-full px-2 py-0.5 ring-1 ring-white/30 text-ice/90 hover:bg-white/10">
+                Download
+              </a>
+            )}
+            {tag && (
+              <span className={`text-[10px] uppercase tracking-widest rounded-full px-2 py-0.5 ${bad ? "bg-center-red/40 text-white" : "bg-gold/25 text-gold"}`}>{tag}</span>
+            )}
+          </div>
         </div>
         <div className="relative flex items-center gap-3">
           {top.playerId ? (
@@ -262,9 +271,9 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
             <SectionHead title="Best and worst seasons" />
             <EraToggle from={fromYear} current={fromYear != null} />
             <div className="grid md:grid-cols-3 gap-4">
-              <RecordList title="Best records" tag="Best" items={seasonItems(cut.bestSeasons)} />
-              <RecordList title="Worst records" tag="Worst" tone="bad" items={seasonItems(cut.worstSeasons)} bars={false} />
-              <RecordList title="Most points" tag="Scoring" items={seasonItems(cut.highScoringSeasons, true)} />
+              <RecordList title="Best records" dl={cardUrl("best", fromYear)} tag="Best" items={seasonItems(cut.bestSeasons)} />
+              <RecordList title="Worst records" dl={cardUrl("worst", fromYear)} tag="Worst" tone="bad" items={seasonItems(cut.worstSeasons)} bars={false} />
+              <RecordList title="Most points" dl={cardUrl("scoring", fromYear)} tag="Scoring" items={seasonItems(cut.highScoringSeasons, true)} />
             </div>
           </section>
 
@@ -272,10 +281,10 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
             <SectionHead title="Single-game records" />
             <EraToggle from={fromYear} current={fromYear != null} />
             <div className="grid md:grid-cols-2 gap-4">
-              <RecordList title="Highest scores" tag="High" items={gameItems(cut.highScores, "score")} />
-              <RecordList title="Lowest scores" tag="Low" tone="bad" items={gameItems(cut.lowScores, "score")} bars={false} />
-              <RecordList title="Biggest blowouts" tag="Margin" items={gameItems(cut.biggestWins, "margin")} />
-              <RecordList title="Closest finishes" tag="Nail-biters" items={gameItems(cut.closestGames, "margin")} bars={false} />
+              <RecordList title="Highest scores" dl={cardUrl("high", fromYear)} tag="High" items={gameItems(cut.highScores, "score")} />
+              <RecordList title="Lowest scores" dl={cardUrl("low", fromYear)} tag="Low" tone="bad" items={gameItems(cut.lowScores, "score")} bars={false} />
+              <RecordList title="Biggest blowouts" dl={cardUrl("blowouts", fromYear)} tag="Margin" items={gameItems(cut.biggestWins, "margin")} />
+              <RecordList title="Closest finishes" dl={cardUrl("close", fromYear)} tag="Nail-biters" items={gameItems(cut.closestGames, "margin")} bars={false} />
             </div>
           </section>
 
@@ -287,7 +296,7 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
               />
               <div className="grid md:grid-cols-2 gap-4">
                 <RecordList
-                  title="Biggest player nights"
+                  title="Biggest player nights" dl={cardUrl("night-players", fromYear)}
                   tag="Players"
                   items={nights.players.map((n) => ({
                     key: `${n.season}-${n.playerId}-${n.date}`,
@@ -299,7 +308,7 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
                   }))}
                 />
                 <RecordList
-                  title="Biggest team nights"
+                  title="Biggest team nights" dl={cardUrl("night-teams", fromYear)}
                   tag="Teams"
                   items={nights.teams.map((n) => ({
                     key: `${n.season}-${n.teamName}-${n.date}`,

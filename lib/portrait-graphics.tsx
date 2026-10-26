@@ -1051,3 +1051,67 @@ export async function renderPortraitAwards(opts: {
     ),
   });
 }
+
+// ---------------------------------------------------------------- record lists (Records page)
+export interface RecordRow {
+  name: string; // manager (or team) name
+  sub: string; // "2025, week 19 · vs Sam"
+  value: string; // "131.40"
+  note?: string; // "by 8.35" / "78.3%"
+}
+
+// One Records list as a downloadable card: the record-holder in a hero panel, the rest as ranked rows.
+// tone "bad" (low / worst lists) swaps the gold accent for red.
+export async function renderPortraitRecordList(opts: {
+  title: string;
+  subtitle: string;
+  rows: RecordRow[];
+  tone?: "good" | "bad";
+  footer?: string;
+}) {
+  const bad = opts.tone === "bad";
+  const [top, ...rest] = opts.rows.slice(0, 5);
+  const medal = ["#D4A82A", "#AAB4BF", "#B8794A"];
+  const rowH = Math.min(176, Math.floor((H - CHROME - 24 - 250) / Math.max(1, rest.length)));
+
+  return frame({
+    footer: opts.footer,
+    title: opts.title,
+    subtitle: opts.subtitle,
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, background: "#FFFFFF", border: CARD_BORDER, borderRadius: CARD_RADIUS, boxShadow: CARD_SHADOW, overflow: "hidden" }}>
+        {top ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 24, height: 250, padding: "0 36px", flexShrink: 0, backgroundImage: bad ? "linear-gradient(135deg, #0B2540 0%, #0B2540 45%, #A8324A 100%)" : "linear-gradient(135deg, #1F5C95 0%, #123A61 100%)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 104, height: 104, borderRadius: 52, flexShrink: 0, background: bad ? "#E5E9EE" : medal[0], fontFamily: display, fontWeight: 700, fontSize: 60, color: OG.rink }}>1</div>
+            <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 8 }}>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 58, lineHeight: 1, color: "#FFFFFF", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 480 }}>{top.name}</div>
+              <div style={{ display: "flex", fontSize: 26, color: "#C9D6E6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 480 }}>{top.sub}</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 6 }}>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: top.value.length > 9 ? 50 : 78, lineHeight: 1, color: bad ? "#FFFFFF" : OG.gold }}>{top.value}</div>
+              {top.note ? <div style={{ display: "flex", fontSize: 26, color: "#C9D6E6" }}>{top.note}</div> : null}
+            </div>
+          </div>
+        ) : null}
+        {rest.map((r, i) => {
+          const rank = i + 2;
+          const m = !bad && rank <= 3 ? medal[rank - 1] : null;
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 18, height: rowH, padding: "0 36px", flexShrink: 0, background: i % 2 === 0 ? "#FFFFFF" : OG.icePanel, borderTop: `1px solid #D5E3F0` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: m ?? "#D5E3F0", fontFamily: display, fontWeight: 700, fontSize: 30, color: m ? "#FFFFFF" : OG.muted }}>{rank}</div>
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 6 }}>
+                <div style={{ display: "flex", fontSize: 38, fontWeight: 700, color: OG.board, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 520 }}>{r.name}</div>
+                <div style={{ display: "flex", fontSize: 24, color: OG.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 520 }}>{r.sub}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 4 }}>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: r.value.length > 9 ? 36 : 52, lineHeight: 1, color: bad ? OG.centerRed : OG.rink }}>{r.value}</div>
+                {r.note ? <div style={{ display: "flex", fontSize: 22, color: OG.muted }}>{r.note}</div> : null}
+              </div>
+            </div>
+          );
+        })}
+        {opts.rows.length === 0 && <div style={{ display: "flex", padding: 36, color: OG.muted, fontSize: 28 }}>No records yet.</div>}
+      </div>
+    ),
+  });
+}
