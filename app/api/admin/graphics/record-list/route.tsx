@@ -68,10 +68,12 @@ export async function GET(req: NextRequest) {
       case "scoring": title = "Most Points"; rows = seasonRows(cut.highScoringSeasons, x, true); break;
       case "night-players":
       case "night-teams": {
-        const nights = await getAllTimeNights(5);
-        scope = "Single-night records";
+        const pos = req.nextUrl.searchParams.get("pos");
+        const nights = await getAllTimeNights(5, list === "night-players" ? pos : null);
+        const posName: Record<string, string> = { G: "Goalie", D: "Defense", F: "Forward", C: "Center", LW: "Left Wing", RW: "Right Wing" };
+        scope = list === "night-players" && pos && posName[pos] ? `Single-night records · ${posName[pos]}s` : "Single-night records";
         if (list === "night-players") {
-          title = "Biggest Player Nights";
+          title = pos && posName[pos] ? `Biggest ${posName[pos]} Nights` : "Biggest Player Nights";
           rows = nights.players.map((n) => ({ name: n.name, sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)} · ${n.teamName}`, value: n.points.toFixed(2) }));
         } else {
           title = "Biggest Team Nights";

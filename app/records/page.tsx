@@ -18,7 +18,7 @@ const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const rec = (w: number, l: number, t: number) => `${w}-${l}${t ? `-${t}` : ""}`;
 const range = (s: number[]) => (s.length === 0 ? "" : s[0] === s[s.length - 1] ? `${s[0]}` : `${s[0]}–${s[s.length - 1]}`);
 
-const cardUrl = (list: string, from: number | null) => `/api/cards/record-list?list=${list}${from ? `&from=${from}` : ""}`;
+const cardUrl = (list: string, from: number | null, pos?: string | null) => `/api/cards/record-list?list=${list}${from ? `&from=${from}` : ""}${pos ? `&pos=${pos}` : ""}`;
 
 type RItem = { key: string; name: string; sub: string; value: string; note?: string; weight?: number; playerId?: number };
 
@@ -315,7 +315,7 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <RecordList
-                  title="Biggest player nights" dl={cardUrl("night-players", fromYear)}
+                  title="Biggest player nights" dl={cardUrl("night-players", fromYear, nightPos)}
                   tag="Players"
                   items={nights.players.map((n) => ({
                     key: `${n.season}-${n.playerId}-${n.date}`,
