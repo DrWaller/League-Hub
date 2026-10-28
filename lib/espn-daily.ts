@@ -6,6 +6,7 @@
 // disturb anything that already works; it talks to ESPN the same way
 // lib/espn.ts does (same league, same cookies, same views).
 
+import { fixTeamName } from "./team-names";
 import { MOCK_SEASON } from "@/data/mock-data";
 
 const LEAGUE_ID = process.env.ESPN_LEAGUE_ID || "78683444";
@@ -99,7 +100,7 @@ export async function getDailyPlayerLines(sp: number, season: number = currentSe
   const teamNames: Record<number, string> = {};
 
   for (const t of data.teams) {
-    teamNames[t.id] = t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev || `Team ${t.id}`;
+    teamNames[t.id] = fixTeamName(t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev || `Team ${t.id}`);
     for (const e of t.roster?.entries ?? []) {
       const player = e.playerPoolEntry?.player;
       if (!player) continue;
@@ -152,7 +153,7 @@ export async function probeDailySeason(season: number, periods: number[]): Promi
         const totals = new Map<number, { name: string; points: number }>();
         for (const t of data?.teams ?? []) {
           day.teams++;
-          const name = t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || `Team ${t.id}`;
+          const name = fixTeamName(t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || `Team ${t.id}`);
           for (const e of t.roster?.entries ?? []) {
             day.rosterEntries++;
             const dayStat = (e.playerPoolEntry?.player?.stats ?? []).find((x: any) => x.scoringPeriodId === sp && x.statSourceId === 0);

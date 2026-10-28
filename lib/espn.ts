@@ -6,6 +6,7 @@
 // without notice; if a page suddenly looks wrong after an ESPN update,
 // this is the first file to check.
 
+import { fixTeamName } from "./team-names";
 import { Team, Matchup, Roster, LeagueMeta, WeeklyPlayerStat } from "./types";
 import { getWeekCalendar, periodsForWeek } from "./week-calendar";
 import type { PoolPlayer, Group } from "./radar";
@@ -84,7 +85,7 @@ export async function getStandings(): Promise<{ teams: Team[]; live: boolean }> 
 
   const teams: Team[] = data.teams.map((t: any) => ({
     id: t.id,
-    name: t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev,
+    name: fixTeamName(t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev),
     abbrev: t.abbrev,
     logo: t.logo,
     wins: t.record?.overall?.wins ?? 0,
@@ -516,7 +517,7 @@ export async function getHistoricalSeasonTeams(season: number): Promise<{
     const teams = (data.teams ?? []).map((t: any) => ({
       id: t.id,
       abbrev: t.abbrev,
-      name: t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim(),
+      name: fixTeamName(t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim()),
       ownerIds: t.owners ?? [],
       wins: t.record?.overall?.wins ?? 0,
       losses: t.record?.overall?.losses ?? 0,
@@ -653,7 +654,7 @@ export async function getPastSeasonTeams(season: number): Promise<PastSeasonTeam
   return data.teams.map((t: any) => ({
     id: t.id,
     abbrev: t.abbrev,
-    name: t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev,
+    name: fixTeamName(t.name || `${t.location ?? ""} ${t.nickname ?? ""}`.trim() || t.abbrev),
     wins: t.record?.overall?.wins ?? 0,
     losses: t.record?.overall?.losses ?? 0,
     ties: t.record?.overall?.ties ?? 0,

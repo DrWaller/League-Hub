@@ -9,6 +9,7 @@
 // the admin area should surface an error rather than silently lose an edit.
 
 import { sql, ensureSchema } from "./db";
+import { fixTeamName } from "./team-names";
 import { sortKeepers } from "./keeper-order";
 import { hideEspnDataForSeasons, seasonsPlayedElsewhere } from "./played-elsewhere";
 import { EMPTY_RULES, SeasonRules } from "./season-rules";
@@ -271,7 +272,7 @@ export async function getManagerSeasons(managerId?: number): Promise<ManagerSeas
       managerId: (r.manager_id as number) ?? null,
       teamId: r.team_id as number,
       season: r.season as number,
-      teamName: r.team_name as string,
+      teamName: fixTeamName(r.team_name as string),
       recordNote: (r.record_note as string) ?? null,
       wins: (r.wins as number) ?? null,
       losses: (r.losses as number) ?? null,

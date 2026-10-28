@@ -266,5 +266,29 @@ export async function ensureSchema() {
     console.error("2025 team rename skipped", err);
   }
 
+  // One-time data fix (Oct 2026): "Pastaless Party" is really "Pasta Party". Renames every saved copy of the
+  // name (case-insensitive) and moves its banner colors / logo (keyed by the lower-cased name). Each step is
+  // guarded and does nothing once done, so it is safe to leave in or delete. Future ESPN names are fixed in
+  // lib/team-names.ts.
+  const renameSteps: [string, () => Promise<unknown>][] = [
+    ["manager_team_seasons", () => sql`UPDATE manager_team_seasons SET team_name = 'Pasta Party' WHERE lower(trim(team_name)) = 'pastaless party';`],
+    ["manual_teams", () => sql`UPDATE manual_teams t SET name = 'Pasta Party' WHERE lower(trim(t.name)) = 'pastaless party' AND NOT EXISTS (SELECT 1 FROM manual_teams x WHERE x.season = t.season AND x.name = 'Pasta Party');`],
+    ["nightly_blurbs", () => sql`UPDATE nightly_blurbs SET team_name = 'Pasta Party' WHERE lower(trim(team_name)) = 'pastaless party';`],
+    ["team_nightly", () => sql`UPDATE team_nightly SET team_name = 'Pasta Party' WHERE lower(trim(team_name)) = 'pastaless party';`],
+    ["draft_picks", () => sql`UPDATE draft_picks SET team_name = 'Pasta Party' WHERE lower(trim(team_name)) = 'pastaless party';`],
+    ["season_history champion", () => sql`UPDATE season_history SET champion = 'Pasta Party' WHERE lower(trim(champion)) = 'pastaless party';`],
+    ["season_history runner_up", () => sql`UPDATE season_history SET runner_up = 'Pasta Party' WHERE lower(trim(runner_up)) = 'pastaless party';`],
+    ["season_history third_place", () => sql`UPDATE season_history SET third_place = 'Pasta Party' WHERE lower(trim(third_place)) = 'pastaless party';`],
+    ["award_winners", () => sql`UPDATE award_winners SET winner = 'Pasta Party' WHERE lower(trim(winner)) = 'pastaless party';`],
+    ["team_season_looks", () => sql`UPDATE team_season_looks t SET team_key = 'pasta party' WHERE t.team_key = 'pastaless party' AND NOT EXISTS (SELECT 1 FROM team_season_looks x WHERE x.season = t.season AND x.team_key = 'pasta party');`],
+  ];
+  for (const [label, run] of renameSteps) {
+    try {
+      await run();
+    } catch (err) {
+      console.error(`Pasta Party rename skipped for ${label}`, err);
+    }
+  }
+
   schemaReady = true;
 }
