@@ -318,12 +318,15 @@ export interface AllTimeTeamNight {
   date: string;
 }
 
-export async function getAllTimeNights(limit = 10): Promise<{ players: AllTimePlayerNight[]; teams: AllTimeTeamNight[]; seasons: number[] }> {
+// position narrows the PLAYER list only: "C" | "LW" | "RW" | "D" | "G", or "F" for all forwards. Team nights never change.
+export async function getAllTimeNights(limit = 10, position?: string | null): Promise<{ players: AllTimePlayerNight[]; teams: AllTimeTeamNight[]; seasons: number[] }> {
   try {
     await ensureTable();
     await ensureTeamTable();
+    const pos = position && ["C", "LW", "RW", "D", "G", "F"].includes(position) ? position : null;
+    const fwd = pos === "F";
     const [p, t, s] = await Promise.all([
-      sql`SELECT season, player_id, player_name, position, team_name, points, night_date, stat_line FROM nightly_blurbs WHERE season >= ${NIGHT_RECORDS_FROM_SEASON} ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
+      sql`SELECT season, player_id, player_name, position, team_name, points, night_date, stat_line FROM nightly_blurbs WHERE season >= ${NIGHT_RECORDS_FROM_SEASON} AND (${pos}::text IS NULL OR position = ${pos} OR (${fwd}::boolean AND position IN ('C', 'LW', 'RW'))) ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
       sql`SELECT season, team_name, points, night_date FROM team_nightly WHERE season >= ${NIGHT_RECORDS_FROM_SEASON} ORDER BY points DESC, night_date ASC LIMIT ${limit};`,
       sql`SELECT DISTINCT season FROM team_nightly WHERE season >= ${NIGHT_RECORDS_FROM_SEASON} ORDER BY season;`,
     ]);

@@ -161,13 +161,16 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-export default async function RecordsPage({ searchParams }: { searchParams: { from?: string } }) {
+export default async function RecordsPage({ searchParams }: { searchParams: { from?: string; pos?: string } }) {
   const meta = await getLeagueMeta();
   const { records, seasonsUsed, seasonsSkipped, managerCount, managers, recSeasons, currentGames } = await loadRecords(meta.season);
   const allPlay = records.careers.length > 0 ? buildManagerLuck(0, managers, recSeasons).all : [];
   const nameOf = new Map(records.careers.map((c) => [c.managerId, c.name]));
   const hasData = records.careers.length > 0;
-  const nights = await getAllTimeNights(10);
+  // ?pos=G (or C / LW / RW / D / F) narrows the player single-night list; the Biggest night tile always uses every position.
+  const nightPos = ["C", "LW", "RW", "D", "G", "F"].includes(searchParams?.pos ?? "") ? (searchParams!.pos as string) : null;
+  const nights = await getAllTimeNights(10, nightPos);
+  const tileNights = nightPos ? await getAllTimeNights(1) : nights;
   // Optional cutoff for the season and single-game lists (?from=2021). The all-time standings, all-play and head-to-head stay on every season.
   const fromYear = Number(searchParams?.from) || null;
   const cut = fromYear
@@ -194,7 +197,7 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
               {cut.highScores[0] && (
                 <Tile label="Highest score" value={cut.highScores[0].score.toFixed(2)} sub={`${cut.highScores[0].managerName ?? cut.highScores[0].teamName}, ${cut.highScores[0].season}`} />
               )}
-              {nights.players[0] && <Tile label="Biggest night" value={nights.players[0].points.toFixed(2)} sub={nights.players[0].name} />}
+              {tileNights.players[0] && <Tile label="Biggest night" value={tileNights.players[0].points.toFixed(2)} sub={tileNights.players[0].name} />}
             </div>
           )}
         </div>
@@ -298,6 +301,18 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
                 title="Single-night records"
                 blurb={`The biggest single-day scores${nights.seasons.length ? ` across ${range(nights.seasons)}` : ""}, including the current season. Players are any player on any roster; teams count the players in the active lineup that day. Counted from ${NIGHT_RECORDS_FROM_SEASON} on, when the league scoring changed.`}
               />
+              <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-ice-panel p-1 font-body mb-4">
+                {[["", "All"], ["F", "Forwards"], ["C", "C"], ["LW", "LW"], ["RW", "RW"], ["D", "D"], ["G", "G"]].map(([k, label]) => (
+                  <Link
+                    key={label}
+                    href={`/records?${[fromYear ? `from=${fromYear}` : "", k ? `pos=${k}` : ""].filter(Boolean).join("&")}`}
+                    scroll={false}
+                    className={`px-3 py-1 text-xs rounded-full transition ${(nightPos ?? "") === k ? "bg-rink text-ice shadow-sm" : "text-muted hover:text-rink"}`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <RecordList
                   title="Biggest player nights" dl={cardUrl("night-players", fromYear)}
