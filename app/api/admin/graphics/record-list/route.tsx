@@ -20,6 +20,7 @@ const seasonRows = (rows: SeasonRow[], x: Ctx, showPoints?: boolean): RecordRow[
   rows.map((r) => ({
     logo: x.logoOf(r.managerId),
     isNew: r.season === x.current,
+    tie: showPoints ? String(r.pointsFor) : String(r.winPct),
     name: r.managerName,
     sub: `${r.season} · ${r.teamName}`,
     value: showPoints ? `${ptsComma(r.pointsFor)} pts` : rec(r.wins, r.losses, r.ties),
@@ -30,6 +31,7 @@ const gameRows = (rows: GameRecord[], kind: "score" | "margin", x: Ctx): RecordR
   rows.map((g) => ({
     logo: x.logoOf(g.managerId),
     isNew: g.season === x.current,
+    tie: kind === "score" ? String(g.score) : String(g.margin),
     name: g.managerName ?? g.teamName,
     sub: `${g.season}, week ${g.week} · vs ${g.oppName}`,
     value: kind === "score" ? g.score.toFixed(2) : `${g.score.toFixed(2)}-${g.oppScore.toFixed(2)}`,
@@ -74,10 +76,10 @@ export async function GET(req: NextRequest) {
         scope = list === "night-players" && pos && posName[pos] ? `Single-night records · ${posName[pos]}s` : "Single-night records";
         if (list === "night-players") {
           title = pos && posName[pos] ? `Biggest ${posName[pos]} Nights` : "Biggest Player Nights";
-          rows = nights.players.map((n) => ({ name: n.name, sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)} · ${n.teamName}`, value: n.points.toFixed(2) }));
+          rows = nights.players.map((n) => ({ tie: String(n.points), name: n.name, sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)} · ${n.teamName}`, value: n.points.toFixed(2) }));
         } else {
           title = "Biggest Team Nights";
-          rows = nights.teams.map((n) => ({ name: n.teamName, sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)}`, value: n.points.toFixed(2) }));
+          rows = nights.teams.map((n) => ({ tie: String(n.points), name: n.teamName, sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)}`, value: n.points.toFixed(2) }));
         }
         break;
       }

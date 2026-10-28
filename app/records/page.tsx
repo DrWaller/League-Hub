@@ -46,6 +46,11 @@ function RecordList({ title, tag, items, bars = true, tone = "good", dl }: { tit
   if (items.length === 0) return null;
   const [top, ...rest] = items;
   const maxW = Math.max(...items.map((i) => i.weight ?? 0), 0.0001);
+  // Ties share a rank ("T2", then the next distinct value is 5th): same weight (or same value when there is none).
+  const tieKey = (r: RItem) => String(r.weight ?? r.value);
+  const rankOf = items.map((r) => items.findIndex((x) => tieKey(x) === tieKey(r)) + 1);
+  const isTied = items.map((r) => items.filter((x) => tieKey(x) === tieKey(r)).length > 1);
+  const label = (idx: number) => `${isTied[idx] ? "T" : ""}${rankOf[idx]}`;
   const bad = tone === "bad";
   return (
     <div className={`rounded-md overflow-hidden bg-white shadow-sm border ${bad ? "border-center-red/30" : "border-ice-line"}`}>
@@ -68,7 +73,7 @@ function RecordList({ title, tag, items, bars = true, tone = "good", dl }: { tit
           {top.playerId ? (
             <PlayerPhoto playerId={top.playerId} name={top.name} size={60} />
           ) : (
-            <span className="w-10 h-10 shrink-0 rounded-full font-display text-lg flex items-center justify-center text-rink-deep" style={{ background: bad ? "#e5e9ee" : MEDAL[0] }}>1</span>
+            <span className="w-10 h-10 shrink-0 rounded-full font-display text-lg flex items-center justify-center text-rink-deep" style={{ background: bad ? "#e5e9ee" : MEDAL[0] }}>{label(0)}</span>
           )}
           <div className="min-w-0 flex-1">
             <div className="font-body font-semibold leading-tight truncate">{top.name}</div>
@@ -82,16 +87,16 @@ function RecordList({ title, tag, items, bars = true, tone = "good", dl }: { tit
       </div>
       <ol className="font-tabular">
         {rest.map((r, i) => {
-          const rank = i + 2;
+          const rank = rankOf[i + 1];
           const medal = !bad && rank <= 3 ? MEDAL[rank - 1] : null;
           return (
             <li key={r.key} className={`px-4 py-2.5 border-t border-ice-line/60 ${i % 2 === 0 ? "bg-white" : "bg-ice/40"}`}>
               <div className="flex items-center gap-3">
                 <span
-                  className={`w-6 h-6 shrink-0 rounded-full text-[11px] flex items-center justify-center font-display ${medal ? "text-white" : "bg-ice-panel text-muted"}`}
+                  className={`min-w-6 h-6 px-1 shrink-0 rounded-full text-[11px] flex items-center justify-center font-display ${medal ? "text-white" : "bg-ice-panel text-muted"}`}
                   style={medal ? { background: medal } : undefined}
                 >
-                  {rank}
+                  {label(i + 1)}
                 </span>
                 {r.playerId && <PlayerPhoto playerId={r.playerId} name={r.name} size={30} />}
                 <div className="min-w-0 flex-1 font-body">

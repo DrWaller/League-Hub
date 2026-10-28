@@ -1060,6 +1060,7 @@ export interface RecordRow {
   note?: string; // "Won by 12.30" / "78.3%"
   logo?: string; // the manager's current team logo (data URI); initials tile when missing
   isNew?: boolean; // set this season: gets a NEW tag
+  tie?: string; // rows with the same tie key share a rank ("T2")
 }
 
 // One Records list as a downloadable card: the record-holder in a hero panel, the rest as ranked rows that
@@ -1073,8 +1074,13 @@ export async function renderPortraitRecordList(opts: {
   footer?: string;
 }) {
   const bad = opts.tone === "bad";
-  const [top, ...rest] = opts.rows.slice(0, 5);
+  const shown = opts.rows.slice(0, 5);
+  const [top, ...rest] = shown;
   const medal = ["#D4A82A", "#AAB4BF", "#B8794A"];
+  // Ties share a rank: 1, T2, T2, T2, 5.
+  const tk = (r: RecordRow) => r.tie ?? r.value;
+  const rankOf = shown.map((r) => shown.findIndex((x) => tk(x) === tk(r)) + 1);
+  const label = (idx: number) => `${shown.filter((x) => tk(x) === tk(shown[idx])).length > 1 ? "T" : ""}${rankOf[idx]}`;
   const SUB = "#33404D"; // secondary text on white rows
   // "2025, week 19 · vs Sam" -> two short lines instead of one long truncated one
   const lines = (sub: string) => sub.split(" \u00b7 ").slice(0, 2);
@@ -1094,7 +1100,7 @@ export async function renderPortraitRecordList(opts: {
           <div style={{ display: "flex", alignItems: "center", gap: 26, height: 300, padding: "0 36px", flexShrink: 0, backgroundImage: bad ? "linear-gradient(135deg, #0B2540 0%, #0B2540 45%, #A8324A 100%)" : "linear-gradient(135deg, #1F5C95 0%, #123A61 100%)" }}>
             <div style={{ display: "flex", position: "relative", flexShrink: 0 }}>
               <TeamBadge name={top.name} logo={top.logo} size={160} fontFamily={display} />
-              <div style={{ position: "absolute", left: -16, top: -16, display: "flex", alignItems: "center", justifyContent: "center", width: 58, height: 58, borderRadius: 29, background: bad ? "#E5E9EE" : medal[0], fontFamily: display, fontWeight: 700, fontSize: 36, color: OG.rink, border: "3px solid #FFFFFF" }}>1</div>
+              <div style={{ position: "absolute", left: -16, top: -16, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 58, height: 58, padding: "0 6px", borderRadius: 29, background: bad ? "#E5E9EE" : medal[0], fontFamily: display, fontWeight: 700, fontSize: label(0).length > 1 ? 28 : 36, color: OG.rink, border: "3px solid #FFFFFF" }}>{label(0)}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1112,11 +1118,11 @@ export async function renderPortraitRecordList(opts: {
           </div>
         ) : null}
         {rest.map((r, i) => {
-          const rank = i + 2;
+          const rank = rankOf[i + 1];
           const m = !bad && rank <= 3 ? medal[rank - 1] : null;
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 18, flex: 1, padding: "0 36px", background: i % 2 === 0 ? "#FFFFFF" : OG.icePanel, borderTop: "1px solid #C5D6E6" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, borderRadius: 28, flexShrink: 0, background: m ?? "#C5D6E6", fontFamily: display, fontWeight: 700, fontSize: 32, color: m ? "#FFFFFF" : OG.rink }}>{rank}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minWidth: 56, height: 56, padding: "0 8px", borderRadius: 28, flexShrink: 0, background: m ?? "#C5D6E6", fontFamily: display, fontWeight: 700, fontSize: label(i + 1).length > 1 ? 26 : 32, color: m ? "#FFFFFF" : OG.rink }}>{label(i + 1)}</div>
               <TeamBadge name={r.name} logo={r.logo} size={84} fontFamily={display} />
               <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 4 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
