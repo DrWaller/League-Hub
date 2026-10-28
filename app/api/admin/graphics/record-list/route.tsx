@@ -6,6 +6,7 @@ import { getAllTimeNights } from "@/lib/nightly-store";
 import { prettyDate } from "@/lib/nightly-blurbs";
 import { ptsComma } from "@/lib/format";
 import { loadLogoData } from "@/lib/og-team-logo";
+import { checkHeadshots } from "@/lib/headshots";
 import { renderPortraitRecordList, type RecordRow } from "@/lib/portrait-graphics";
 
 export const runtime = "nodejs";
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
         scope = list === "night-players" && pos && posName[pos] ? `Single-night records · ${posName[pos]}s` : "Single-night records";
         if (list === "night-players") {
           title = pos && posName[pos] ? `Biggest ${posName[pos]} Nights` : "Biggest Player Nights";
-          rows = nights.players.map((n) => ({ tie: String(n.points), name: n.name, sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)} · ${n.teamName}`, value: n.points.toFixed(2) }));
+          rows = nights.players.map((n) => ({ tie: String(n.points), playerId: n.playerId, name: n.name, sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)} · ${n.teamName}${n.statLine ? ` · ${n.statLine}` : ""}`, value: n.points.toFixed(2) }));
         } else {
           title = "Biggest Team Nights";
           rows = nights.teams.map((n) => ({ tie: String(n.points), name: n.teamName, sub: `${prettyDate(n.date)} ${n.date.slice(0, 4)}`, value: n.points.toFixed(2) }));
@@ -87,7 +88,8 @@ export async function GET(req: NextRequest) {
         return new Response("Unknown list", { status: 400 });
     }
 
-    return await renderPortraitRecordList({ title, subtitle: list.startsWith("night") ? scope : `${scope} · regular season`, rows, tone, footer: `${meta.name.toUpperCase()} · RECORD BOOK` });
+    const headshots = await checkHeadshots(rows.flatMap((r) => (r.playerId != null ? [r.playerId] : [])).slice(0, 5)).catch(() => new Set<number>());
+    return await renderPortraitRecordList({ headshots, title, subtitle: list.startsWith("night") ? scope : `${scope} · regular season`, rows, tone, footer: `${meta.name.toUpperCase()} · RECORD BOOK` });
   } catch (err) {
     console.error("Record list graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

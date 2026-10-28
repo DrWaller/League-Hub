@@ -1061,6 +1061,7 @@ export interface RecordRow {
   logo?: string; // the manager's current team logo (data URI); initials tile when missing
   isNew?: boolean; // set this season: gets a NEW tag
   tie?: string; // rows with the same tie key share a rank ("T2")
+  playerId?: number; // ESPN player id: shows his headshot instead of a team logo
 }
 
 // One Records list as a downloadable card: the record-holder in a hero panel, the rest as ranked rows that
@@ -1072,8 +1073,15 @@ export async function renderPortraitRecordList(opts: {
   rows: RecordRow[];
   tone?: "good" | "bad";
   footer?: string;
+  headshots?: Set<number>; // player ids confirmed to have a headshot (see lib/headshots.ts)
 }) {
   const bad = opts.tone === "bad";
+  const photo = (r: RecordRow, size: number, display: string, fs: number) =>
+    r.playerId != null && opts.headshots?.has(r.playerId) ? (
+      <PlayerAvatar name={r.name} src={headshotUrl(r.playerId)} hasHeadshot size={size} fontFamily={display} fontSize={fs} border={`4px solid ${OG.gold}`} />
+    ) : (
+      <TeamBadge name={r.name} logo={r.logo} size={size} fontFamily={display} />
+    );
   const shown = opts.rows.slice(0, 5);
   const [top, ...rest] = shown;
   const medal = ["#D4A82A", "#AAB4BF", "#B8794A"];
@@ -1083,7 +1091,7 @@ export async function renderPortraitRecordList(opts: {
   const label = (idx: number) => `${shown.filter((x) => tk(x) === tk(shown[idx])).length > 1 ? "T" : ""}${rankOf[idx]}`;
   const SUB = "#33404D"; // secondary text on white rows
   // "2025, week 19 · vs Sam" -> two short lines instead of one long truncated one
-  const lines = (sub: string) => sub.split(" \u00b7 ").slice(0, 2);
+  const lines = (sub: string) => sub.split(" \u00b7 ").slice(0, 3);
   const noteColor = (n: string | undefined, onDark: boolean) =>
     !n ? SUB : /^Won/.test(n) ? (onDark ? "#7DDBA3" : GREEN) : /^Lost/.test(n) ? (onDark ? "#FF9AAB" : OG.centerRed) : onDark ? "#E3EDF7" : SUB;
   const newTag = (display: string, size: number) => (
@@ -1099,7 +1107,7 @@ export async function renderPortraitRecordList(opts: {
         {top ? (
           <div style={{ display: "flex", alignItems: "center", gap: 26, height: 300, padding: "0 36px", flexShrink: 0, backgroundImage: bad ? "linear-gradient(135deg, #0B2540 0%, #0B2540 45%, #A8324A 100%)" : "linear-gradient(135deg, #1F5C95 0%, #123A61 100%)" }}>
             <div style={{ display: "flex", position: "relative", flexShrink: 0 }}>
-              <TeamBadge name={top.name} logo={top.logo} size={160} fontFamily={display} />
+              {photo(top, 160, display, 56)}
               <div style={{ position: "absolute", left: -16, top: -16, display: "flex", alignItems: "center", justifyContent: "center", minWidth: 58, height: 58, padding: "0 6px", borderRadius: 29, background: bad ? "#E5E9EE" : medal[0], fontFamily: display, fontWeight: 700, fontSize: label(0).length > 1 ? 28 : 36, color: OG.rink, border: "3px solid #FFFFFF" }}>{label(0)}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 8 }}>
@@ -1123,7 +1131,7 @@ export async function renderPortraitRecordList(opts: {
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 18, flex: 1, padding: "0 36px", background: i % 2 === 0 ? "#FFFFFF" : OG.icePanel, borderTop: "1px solid #C5D6E6" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minWidth: 56, height: 56, padding: "0 8px", borderRadius: 28, flexShrink: 0, background: m ?? "#C5D6E6", fontFamily: display, fontWeight: 700, fontSize: label(i + 1).length > 1 ? 26 : 32, color: m ? "#FFFFFF" : OG.rink }}>{label(i + 1)}</div>
-              <TeamBadge name={r.name} logo={r.logo} size={84} fontFamily={display} />
+              {photo(r, 84, display, 30)}
               <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 4 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ display: "flex", fontSize: 42, fontWeight: 700, color: OG.board, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: r.isNew ? 330 : 440 }}>{r.name}</div>
