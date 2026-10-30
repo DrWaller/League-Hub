@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import PlayerPhoto from "@/components/PlayerPhoto";
 import TierBadge from "@/components/TierBadge";
 import type { CompareData, ComparePlayer, DirectoryEntry } from "@/lib/compare";
 import type { StatCat, Window } from "@/lib/best-available";
@@ -298,7 +297,6 @@ export default function ComparePlayers({
                 {players.map((p) => (
                   <th key={p.id} className="px-2 py-3 align-top font-normal text-center">
                     <div className="flex flex-col items-center gap-1">
-                      <PlayerPhoto playerId={p.id} name={p.name} size={56} />
                       <div className="font-display leading-tight">{p.name}</div>
                       <TierBadge tier={p.tier} />
                       <div className="text-[11px] text-muted">
