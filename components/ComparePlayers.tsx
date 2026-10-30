@@ -54,6 +54,7 @@ export default function ComparePlayers({
   selected,
   max,
   loadFailed,
+  error,
 }: {
   directory: DirectoryEntry[];
   data: CompareData | null;
@@ -61,6 +62,7 @@ export default function ComparePlayers({
   selected: number[];
   max: number;
   loadFailed: boolean;
+  error?: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -279,7 +281,12 @@ export default function ComparePlayers({
       </div>
 
       {selected.length === 0 && <p className="text-muted">Pick two to four players to see them side by side.</p>}
-      {loadFailed && <p className="text-muted">Couldn&apos;t load those players from ESPN right now.</p>}
+      {loadFailed && (
+        <div className="text-muted">
+          <p>Couldn&apos;t load those players from ESPN right now.</p>
+          {error ? <p className="text-xs mt-1 break-words">{error}</p> : null}
+        </div>
+      )}
       {data && selected.length === 1 && <p className="text-muted mb-3 text-sm">Add at least one more player to compare.</p>}
 
       {data && players.length > 0 && (

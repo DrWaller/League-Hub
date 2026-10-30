@@ -81,7 +81,7 @@ export async function getCompareDirectory(): Promise<DirectoryEntry[]> {
 }
 
 // Players by id, with the stat windows. One ESPN call for all of them.
-async function fetchPlayers(season: number, ids: number[]): Promise<any[]> {
+async function fetchPlayers(season: number, ids: number[], notes: string[]): Promise<any[]> {
   const stat = (Object.values(WINDOW_PREFIX) as string[]).map((p) => `${p}${season}`);
   const shape = (withStats: boolean) => ({
     players: {
@@ -96,11 +96,15 @@ async function fetchPlayers(season: number, ids: number[]): Promise<any[]> {
         headers: { ...cookies(), "x-fantasy-filter": JSON.stringify(shape(withStats)) },
         next: { revalidate: 300 },
       });
-      if (!res.ok) continue;
+      if (!res.ok) {
+        notes.push(`ESPN ${res.status} (stats ${withStats ? "on" : "off"}): ${(await res.text()).slice(0, 120)}`);
+        continue;
+      }
       const data = await res.json();
       if (Array.isArray(data?.players) && data.players.length > 0) return data.players;
+      notes.push(`ESPN returned no players (stats ${withStats ? "on" : "off"}; keys: ${Object.keys(data ?? {}).join(",")})`);
     } catch (err) {
-      console.error("Compare fetch error", err);
+      notes.push(`fetch error (stats ${withStats ? "on" : "off"}): ${String(err).slice(0, 120)}`);
     }
   }
   return [];
@@ -111,16 +115,20 @@ export async function getCompare(ids: number[]): Promise<CompareData | null> {
   if (want.length === 0 || !process.env.ESPN_S2 || !process.env.ESPN_SWID) return null;
   const meta = await getLeagueMeta();
   const season = meta.season;
+  const notes: string[] = [];
 
   const [raw, pro, status, rates, items, dir] = await Promise.all([
-    fetchPlayers(season, want),
+    fetchPlayers(season, want, notes),
     fetchProTeams(season),
     getCurrentScoringPeriod(),
     getReplacementRates(season, meta.currentWeek).catch(() => null),
     getScoringItems().catch(() => []),
     getCompareDirectory(),
   ]);
-  if (raw.length === 0) return null;
+  if (raw.length === 0) {
+    console.error("Compare: no players loaded", notes);
+    throw new Error(notes.join(" | ") || "no players returned");
+  }
 
   const current = status.current;
   const todayET = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
