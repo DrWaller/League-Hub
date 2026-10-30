@@ -33,7 +33,7 @@ export default async function ComparePage({ searchParams }: { searchParams: { p?
     if (lines) await syncLines(lines).catch(() => 0);
     const changes = await recentChanges(3).catch(() => []);
     const usage = await getNhlUsage(data.season, lines, changes).catch(() => null);
-    if (usage) for (const p of data.players) if (p.position !== "G") roles[p.id] = usage.lookup(p.name, p.team);
+    if (usage) for (const p of data.players) if (p.position !== "G") roles[p.id] = usage.lookup(p.name, p.team, p.position);
   }
 
   return (

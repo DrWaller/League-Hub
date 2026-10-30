@@ -74,7 +74,7 @@ function percentile(value: number, all: number[]): number {
 }
 
 export interface UsageIndex {
-  lookup(name: string, espnTeam?: string): Usage | null;
+  lookup(name: string, espnTeam?: string, position?: string): Usage | null;
 }
 
 export async function getNhlUsage(season: number, lines: LineIndex | null = null, changes: LineChange[] = []): Promise<UsageIndex | null> {
@@ -164,28 +164,36 @@ export async function getNhlUsage(season: number, lines: LineIndex | null = null
     byName.set(n, [...(byName.get(n) ?? []), r]);
     byInitial.set(ik, [...(byInitial.get(ik) ?? []), r]);
   }
-  const pick = (rows: Row[] | undefined, team?: string) => {
+  // Namesakes on one team (the two Elias Petterssons in Vancouver) are told apart by position: defence vs forward.
+  const pick = (rows: Row[] | undefined, team?: string, position?: string) => {
     if (!rows || rows.length === 0) return null;
     if (rows.length === 1) return rows[0];
     const t = team ? ESPN_TO_NHL[team] ?? team : null;
-    return t ? rows.find((r) => r.team === t) ?? null : null;
+    let pool = t ? rows.filter((r) => r.team === t) : rows;
+    if (pool.length > 1 && position) {
+      const side = pool.filter((r) => isD(r.pos) === (position === "D"));
+      if (side.length > 0) pool = side;
+    }
+    if (pool.length === 0) return null;
+    if (pool.length === 1) return pool[0];
+    return t ? pool[0] : null;
   };
   const changeOf = new Map<string, LineChange>();
   for (const c of changes) if (!changeOf.has(`${c.team}|${c.player}`)) changeOf.set(`${c.team}|${c.player}`, c); // newest first
   const LINE_SCORE: Record<string, number> = { L1: 100, L2: 70, L3: 40, L4: 15, D1: 100, D2: 55, D3: 20 };
 
   return {
-    lookup(name: string, espnTeam?: string) {
+    lookup(name: string, espnTeam?: string, position?: string) {
       const n = norm(name);
       const parts2 = n.split(" ");
-      const row = pick(byName.get(n), espnTeam) ?? pick(byInitial.get(`${parts2[0]?.[0] ?? ""} ${parts2.slice(1).join(" ")}`), espnTeam);
+      const row = pick(byName.get(n), espnTeam, position) ?? pick(byInitial.get(`${parts2[0]?.[0] ?? ""} ${parts2.slice(1).join(" ")}`), espnTeam, position);
       if (!row) return null;
       const base = usage.get(row.id);
       const pt = parts.get(row.id);
       if (!base || !pt) return base ?? null;
       // Real lines win when that team's page was read; a player who isn't listed isn't in the lineup.
       if (!lines || !lines.teamsOk.includes(row.team)) return base;
-      const real = lines.lookup(name, row.team);
+      const real = lines.lookup(name, row.team, position);
       const line = real?.line ?? null;
       const pp = real?.pp ?? null;
       const score = Math.round(0.4 * pt.toiPct + 0.25 * pt.ppPct + 0.2 * (line ? LINE_SCORE[line] : 10) + 0.15 * (pp === "PP1" ? 100 : pp === "PP2" ? 50 : 0));

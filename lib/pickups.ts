@@ -228,7 +228,7 @@ export async function getPickups(teamId: number | null, windowKey: PickupWindow,
     .filter((a) => a.injury === null || a.injury === "day to day")
     .map((a) => {
       const s = a.w.season;
-      const role = a.position === "G" ? null : usage?.lookup(a.name, a.team) ?? null;
+      const role = a.position === "G" ? null : usage?.lookup(a.name, a.team, a.position) ?? null;
       const est = estimate(a.position, s?.gp ?? 0, s?.avg ?? 0, prior(a.position, a.proj)) * (roleOn && role ? role.mult : 1);
       return { a, est, v: dayValue(a.position, est), role };
     });

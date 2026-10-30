@@ -33,7 +33,7 @@ export interface LineIndex {
   teamsOk: string[];
   teamsFailed: string[];
   updatedAt: string | null;
-  lookup(name: string, espnTeam?: string): LinePlayer | null;
+  lookup(name: string, espnTeam?: string, position?: string): LinePlayer | null;
 }
 
 export const norm = (s: string) =>
@@ -153,8 +153,21 @@ export async function getLines(): Promise<LineIndex | null> {
   const players = ok.flatMap((x) => x.r!.players);
   const updated = ok.map((x) => x.r!.updatedAt).filter((x): x is string => !!x).sort().pop() ?? null;
 
-  const byKey = new Map<string, LinePlayer>(players.map((p) => [`${p.team}|${norm(p.name)}`, p] as const));
-  const byInit = new Map<string, LinePlayer>(players.map((p) => [`${p.team}|${initialKey(norm(p.name))}`, p] as const));
+  // Two players can share a name on one team (the two Elias Petterssons in Vancouver), so keep every match.
+  const group = (key: (p: LinePlayer) => string) => {
+    const m = new Map<string, LinePlayer[]>();
+    for (const p of players) m.set(key(p), [...(m.get(key(p)) ?? []), p]);
+    return m;
+  };
+  const byKey = group((p) => `${p.team}|${norm(p.name)}`);
+  const byInit = group((p) => `${p.team}|${initialKey(norm(p.name))}`);
+  // With a position hint ("D" or a forward position) take the namesake on the right side of the lineup; otherwise the last one listed.
+  const choose = (list: LinePlayer[] | undefined, position?: string): LinePlayer | null => {
+    if (!list || list.length === 0) return null;
+    if (list.length === 1 || !position) return list[list.length - 1];
+    const wantD = position === "D";
+    return list.find((x) => (x.line?.startsWith("D") ?? false) === wantD) ?? list[list.length - 1];
+  };
   const byName = new Map<string, LinePlayer[]>();
   for (const p of players) byName.set(norm(p.name), [...(byName.get(norm(p.name)) ?? []), p]);
 
@@ -163,11 +176,11 @@ export async function getLines(): Promise<LineIndex | null> {
     teamsOk: ok.map((x) => x.t),
     teamsFailed: results.filter((x) => !x.r).map((x) => x.t),
     updatedAt: updated,
-    lookup(name: string, espnTeam?: string) {
+    lookup(name: string, espnTeam?: string, position?: string) {
       const n = norm(name);
       if (espnTeam) {
         const t = ESPN_TO_NHL[espnTeam] ?? espnTeam;
-        return byKey.get(`${t}|${n}`) ?? byInit.get(`${t}|${initialKey(n)}`) ?? null;
+        return choose(byKey.get(`${t}|${n}`) ?? byInit.get(`${t}|${initialKey(n)}`), position);
       }
       const list = byName.get(n);
       return list && list.length === 1 ? list[0] : null;
