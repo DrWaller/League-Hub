@@ -87,7 +87,6 @@ async function fetchPlayers(season: number, ids: number[], notes: string[]): Pro
     players: {
       filterIds: { value: ids },
       ...(withStats ? { filterStatsForTopScoringPeriodIds: { value: 5, additionalValue: stat } } : {}),
-      limit: ids.length,
     },
   });
   for (const withStats of [true, false]) {
