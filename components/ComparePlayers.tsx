@@ -27,6 +27,18 @@ const GROUPS: { id: GroupId; label: string }[] = [
   { id: "stats", label: "Scoring stats" },
 ];
 
+// How far a shooting % sits from a player's own history, scaled by how many shots it rests on.
+type Tone = "hot2" | "hot1" | "ok" | "cold1" | "cold2" | "small";
+const TONE_LABEL: Record<Tone, string> = { hot2: "unsustainable", hot1: "running hot", ok: "sustainable", cold1: "running cold", cold2: "due to rise", small: "small sample" };
+const TONE_CLASS: Record<Tone, string> = {
+  hot2: "bg-red-200 text-red-900 font-semibold",
+  hot1: "bg-orange-100 text-orange-900 font-semibold",
+  ok: "bg-green-100 text-green-900 font-semibold",
+  cold1: "bg-sky-100 text-sky-900 font-semibold",
+  cold2: "bg-sky-200 text-sky-900 font-semibold",
+  small: "bg-gray-100 text-gray-500",
+};
+
 const TIER_RANK: Record<Tier, number> = { Replacement: 0, Depth: 1, Good: 2, Elite: 3, Superstar: 4 };
 const f2 = (n: number) => n.toFixed(2);
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
@@ -46,7 +58,7 @@ interface Row {
   label: string;
   num?: (p: ComparePlayer) => number | null | undefined;
   higher?: boolean; // default true
-  tone?: (p: ComparePlayer) => "hot" | "cold" | null; // for rows judged against a baseline instead of the other players
+  tone?: (p: ComparePlayer) => Tone | null; // for rows judged against a baseline instead of the other players
   show: (p: ComparePlayer) => React.ReactNode;
 }
 
@@ -249,8 +261,27 @@ export default function ComparePlayers({
       const base = pctOf(shooting[p.id]?.[which]);
       return now === null || base === null ? null : now - base;
     };
-    const toneOf = (d: number | null): "hot" | "cold" | null => (d === null ? null : d >= 1 ? "hot" : d <= -1 ? "cold" : null); // a point or more off his usual
-    const showDiff = (d: number | null) => (d === null ? "–" : `${d >= 0 ? "+" : ""}${d.toFixed(1)}`);
+    // z-score of his shooting % against his own history, given the shots behind it (normal approximation to a binomial).
+    // 2+ standard deviations above = unsustainable, 1+ = running hot; mirror image below. Under 10 shots proves nothing.
+    const shootTone = (p: ComparePlayer, which: "y3" | "career"): Tone | null => {
+      const now = pctNow(p);
+      const base = pctOf(shooting[p.id]?.[which]);
+      if (now === null || base === null) return null;
+      const shots = p.w[period]?.st["29"] ?? 0;
+      const q = base / 100;
+      if (q <= 0 || q >= 1) return null;
+      if (shots < 10) return "small";
+      const z = (now - base) / 100 / Math.sqrt((q * (1 - q)) / shots);
+      return z >= 2 ? "hot2" : z >= 1 ? "hot1" : z <= -2 ? "cold2" : z <= -1 ? "cold1" : "ok";
+    };
+    const showDiff = (d: number | null, t: Tone | null) =>
+      d === null ? "–" : (
+        <span>
+          {d >= 0 ? "+" : ""}
+          {d.toFixed(1)}
+          {t ? <span className="block text-[10px] font-normal">{TONE_LABEL[t]}</span> : null}
+        </span>
+      );
     sections.push({
       id: "shooting",
       title: `Shooting % (${PERIODS.find((x) => x.id === period)?.label})`,
@@ -258,8 +289,8 @@ export default function ComparePlayers({
         { key: "sp", label: "Shooting %", num: pctNow, show: (p) => showPct(pctNow(p), p.w[period]?.st["29"]) },
         { key: "s3", label: "3-yr shooting %", num: (p) => pctOf(shooting[p.id]?.y3), show: (p) => showPct(pctOf(shooting[p.id]?.y3), shooting[p.id]?.y3?.shots) },
         { key: "sc", label: "Career shooting %", num: (p) => pctOf(shooting[p.id]?.career), show: (p) => showPct(pctOf(shooting[p.id]?.career), shooting[p.id]?.career?.shots) },
-        { key: "d3", label: "vs 3-yr (pts)", tone: (p) => toneOf(diff(p, "y3")), show: (p) => showDiff(diff(p, "y3")) },
-        { key: "dc", label: "vs career (pts)", tone: (p) => toneOf(diff(p, "career")), show: (p) => showDiff(diff(p, "career")) },
+        { key: "d3", label: "vs 3-yr (pts)", tone: (p) => shootTone(p, "y3"), show: (p) => showDiff(diff(p, "y3"), shootTone(p, "y3")) },
+        { key: "dc", label: "vs career (pts)", tone: (p) => shootTone(p, "career"), show: (p) => showDiff(diff(p, "career"), shootTone(p, "career")) },
       ],
     });
     const skaterCats = data.cats.filter((c) => !c.goalie);
@@ -411,19 +442,18 @@ export default function ComparePlayers({
       {data && mixed && on.stats && <p className="text-xs text-muted mt-2">Skater and goalie stats are listed separately; a dash means the stat doesn&apos;t apply to that player.</p>}
       {data && on.shooting && (
         <p className="text-xs text-muted mt-2">
-          Shooting % is goals divided by shots on goal. 3-yr is the three completed seasons before this one and career is every earlier season, so each compares this season with a player&apos;s own history (NHL stats). &quot;vs&quot; is the difference in percentage points.
+          Shooting % is goals divided by shots on goal. 3-yr is the three completed seasons before this one and career is every earlier season, so each compares this season with a player&apos;s own history (NHL stats). &quot;vs&quot; is the difference in percentage points, colored by how unlikely that gap is over the shots taken.
         </p>
       )}
-      {data && <p className="text-xs text-muted mt-2">Green = best of the group on that row, red = weakest. Orange / blue on the &quot;vs&quot; shooting rows = a point or more above / below his own history. VOR is points above a replacement-level player at the same position over the same games.</p>}
+      {data && <p className="text-xs text-muted mt-2">Green = best of the group on that row, red = weakest. On the &quot;vs&quot; shooting rows: red = unsustainable (far above his own history for the shots taken), orange = running hot, green = sustainable, light blue = running cold, dark blue = due to rise, grey = under 10 shots. VOR is points above a replacement-level player at the same position over the same games.</p>}
     </div>
   );
 }
 
-// Green = best of the group on the row, red = weakest; orange / blue = running above / below his own history.
+// Green = best of the group on the row, red = weakest. The shooting "vs" rows use their own scale (TONE_CLASS).
 function cellClass(r: Row, p: ComparePlayer, best: Set<number>, worst: Set<number>): string {
   const t = r.tone?.(p);
-  if (t === "hot") return "bg-orange-100 text-orange-900 font-semibold";
-  if (t === "cold") return "bg-sky-100 text-sky-900 font-semibold";
+  if (t) return TONE_CLASS[t];
   if (best.has(p.id)) return "bg-green-100 text-green-900 font-semibold";
   if (worst.has(p.id)) return "bg-red-100 text-red-900";
   return "";
