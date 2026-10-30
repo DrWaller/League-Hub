@@ -46,6 +46,7 @@ interface Row {
   label: string;
   num?: (p: ComparePlayer) => number | null | undefined;
   higher?: boolean; // default true
+  tone?: (p: ComparePlayer) => "hot" | "cold" | null; // for rows judged against a baseline instead of the other players
   show: (p: ComparePlayer) => React.ReactNode;
 }
 
@@ -248,6 +249,7 @@ export default function ComparePlayers({
       const base = pctOf(shooting[p.id]?.[which]);
       return now === null || base === null ? null : now - base;
     };
+    const toneOf = (d: number | null): "hot" | "cold" | null => (d === null ? null : d >= 1 ? "hot" : d <= -1 ? "cold" : null); // a point or more off his usual
     const showDiff = (d: number | null) => (d === null ? "–" : `${d >= 0 ? "+" : ""}${d.toFixed(1)}`);
     sections.push({
       id: "shooting",
@@ -256,8 +258,8 @@ export default function ComparePlayers({
         { key: "sp", label: "Shooting %", num: pctNow, show: (p) => showPct(pctNow(p), p.w[period]?.st["29"]) },
         { key: "s3", label: "3-yr shooting %", num: (p) => pctOf(shooting[p.id]?.y3), show: (p) => showPct(pctOf(shooting[p.id]?.y3), shooting[p.id]?.y3?.shots) },
         { key: "sc", label: "Career shooting %", num: (p) => pctOf(shooting[p.id]?.career), show: (p) => showPct(pctOf(shooting[p.id]?.career), shooting[p.id]?.career?.shots) },
-        { key: "d3", label: "vs 3-yr (pts)", show: (p) => showDiff(diff(p, "y3")) },
-        { key: "dc", label: "vs career (pts)", show: (p) => showDiff(diff(p, "career")) },
+        { key: "d3", label: "vs 3-yr (pts)", tone: (p) => toneOf(diff(p, "y3")), show: (p) => showDiff(diff(p, "y3")) },
+        { key: "dc", label: "vs career (pts)", tone: (p) => toneOf(diff(p, "career")), show: (p) => showDiff(diff(p, "career")) },
       ],
     });
     const skaterCats = data.cats.filter((c) => !c.goalie);
@@ -275,16 +277,22 @@ export default function ComparePlayers({
     sections.push({ id: "stats", title: `Scoring stats (${PERIODS.find((x) => x.id === period)?.label})`, rows: statRows });
   }
 
-  const best = (row: Row): Set<number> => {
-    const out = new Set<number>();
-    if (!row.num) return out;
+  // Best and weakest players on a row (nobody is marked when everyone ties or fewer than two have a value).
+  const rank = (row: Row): { best: Set<number>; worst: Set<number> } => {
+    const best = new Set<number>();
+    const worst = new Set<number>();
+    if (!row.num) return { best, worst };
     const vals = players.map((p) => [p.id, row.num!(p)] as const).filter((x): x is readonly [number, number] => typeof x[1] === "number" && Number.isFinite(x[1]));
-    if (vals.length < 2) return out;
+    if (vals.length < 2) return { best, worst };
     const hi = row.higher !== false;
-    const target = hi ? Math.max(...vals.map((v) => v[1])) : Math.min(...vals.map((v) => v[1]));
-    if (vals.every((v) => v[1] === target)) return out;
-    for (const [id, v] of vals) if (v === target) out.add(id);
-    return out;
+    const top = hi ? Math.max(...vals.map((v) => v[1])) : Math.min(...vals.map((v) => v[1]));
+    const bottom = hi ? Math.min(...vals.map((v) => v[1])) : Math.max(...vals.map((v) => v[1]));
+    if (top === bottom) return { best, worst };
+    for (const [id, v] of vals) {
+      if (v === top) best.add(id);
+      else if (v === bottom) worst.add(id);
+    }
+    return { best, worst };
   };
 
   return (
@@ -394,7 +402,7 @@ export default function ComparePlayers({
               {sections
                 .filter((s) => on[s.id] && s.rows.length > 0)
                 .map((s) => (
-                  <SectionRows key={s.id} title={s.title} rows={s.rows} players={players} cols={players.length + 1} best={best} />
+                  <SectionRows key={s.id} title={s.title} rows={s.rows} players={players} cols={players.length + 1} rank={rank} />
                 ))}
             </tbody>
           </table>
@@ -406,12 +414,22 @@ export default function ComparePlayers({
           Shooting % is goals divided by shots on goal. 3-yr is the three completed seasons before this one and career is every earlier season, so each compares this season with a player&apos;s own history (NHL stats). &quot;vs&quot; is the difference in percentage points.
         </p>
       )}
-      {data && <p className="text-xs text-muted mt-2">Highlighted = best of the group on that row. VOR is points above a replacement-level player at the same position over the same games.</p>}
+      {data && <p className="text-xs text-muted mt-2">Green = best of the group on that row, red = weakest. Orange / blue on the &quot;vs&quot; shooting rows = a point or more above / below his own history. VOR is points above a replacement-level player at the same position over the same games.</p>}
     </div>
   );
 }
 
-function SectionRows({ title, rows, players, cols, best }: { title: string; rows: Row[]; players: ComparePlayer[]; cols: number; best: (r: Row) => Set<number> }) {
+// Green = best of the group on the row, red = weakest; orange / blue = running above / below his own history.
+function cellClass(r: Row, p: ComparePlayer, best: Set<number>, worst: Set<number>): string {
+  const t = r.tone?.(p);
+  if (t === "hot") return "bg-orange-100 text-orange-900 font-semibold";
+  if (t === "cold") return "bg-sky-100 text-sky-900 font-semibold";
+  if (best.has(p.id)) return "bg-green-100 text-green-900 font-semibold";
+  if (worst.has(p.id)) return "bg-red-100 text-red-900";
+  return "";
+}
+
+function SectionRows({ title, rows, players, cols, rank }: { title: string; rows: Row[]; players: ComparePlayer[]; cols: number; rank: (r: Row) => { best: Set<number>; worst: Set<number> } }) {
   return (
     <>
       <tr className="bg-ice-panel">
@@ -420,12 +438,12 @@ function SectionRows({ title, rows, players, cols, best }: { title: string; rows
         </td>
       </tr>
       {rows.map((r) => {
-        const b = best(r);
+        const { best, worst } = rank(r);
         return (
           <tr key={r.key} className="border-b border-ice-line last:border-0">
             <td className="sticky left-0 bg-white px-2 py-1.5 text-xs text-muted whitespace-nowrap">{r.label}</td>
             {players.map((p) => (
-              <td key={p.id} className={`px-2 py-1.5 text-center ${b.has(p.id) ? "bg-gold/25 font-semibold" : ""}`}>
+              <td key={p.id} className={`px-2 py-1.5 text-center ${cellClass(r, p, best, worst)}`}>
                 {r.show(p)}
               </td>
             ))}
