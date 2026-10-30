@@ -26,6 +26,7 @@ const NAV: Entry[] = [
     items: [
       { href: "/best-available", label: "Best Available" },
       { href: "/pickups", label: "Pickup Targets" },
+      { href: "/compare", label: "Compare Players" },
       { href: "/zero-g", label: "Zero G" },
       { href: "/team-makeup", label: "Team Makeup" },
       { href: "/tier-lists", label: "Tier Lists" },

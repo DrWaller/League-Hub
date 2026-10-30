@@ -18,8 +18,8 @@ const LEAGUE_ID = process.env.ESPN_LEAGUE_ID || "78683444";
 const ESPN_S2 = process.env.ESPN_S2;
 const ESPN_SWID = process.env.ESPN_SWID;
 
-const POS_BY_ID: Record<number, Pos> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
-const DAYS_AHEAD = 21;
+export const POS_BY_ID: Record<number, Pos> = { 1: "C", 2: "LW", 3: "RW", 4: "D", 5: "G" };
+export const DAYS_AHEAD = 21;
 
 // ESPN's NHL team ids, used only when ESPN's schedule response doesn't carry abbreviations.
 export const NHL_ABBREV: Record<number, string> = {
@@ -29,7 +29,7 @@ export const NHL_ABBREV: Record<number, string> = {
 };
 
 export type Window = "season" | "l7" | "l15" | "l30";
-const WINDOW_PREFIX: Record<Window, string> = { season: "00", l7: "01", l15: "02", l30: "03" };
+export const WINDOW_PREFIX: Record<Window, string> = { season: "00", l7: "01", l15: "02", l30: "03" };
 
 export interface WindowStat {
   pts: number;
@@ -49,8 +49,8 @@ export interface StatCat {
 }
 
 // Column order: scoring, then physical, then the rest; goalies after.
-const ORDER = ["13", "14", "37", "38", "18", "19", "39", "20", "21", "29", "31", "32", "22", "28", "15", "17", "35", "36", "33", "23", "24", "27", "0", "1", "2", "6", "3", "4", "11", "10", "7", "9", "8"];
-const rank = (id: string) => (ORDER.indexOf(id) === -1 ? 999 : ORDER.indexOf(id));
+export const ORDER = ["13", "14", "37", "38", "18", "19", "39", "20", "21", "29", "31", "32", "22", "28", "15", "17", "35", "36", "33", "23", "24", "27", "0", "1", "2", "6", "3", "4", "11", "10", "7", "9", "8"];
+export const rank = (id: string) => (ORDER.indexOf(id) === -1 ? 999 : ORDER.indexOf(id));
 
 export interface AvailablePlayer {
   tier?: Tier | null; // league tier (added by the page from lib/tier-index)
@@ -77,8 +77,8 @@ export interface BestAvailable {
   cats: StatCat[]; // the league's scoring stats
 }
 
-const cookies = () => ({ Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` });
-const base = (season: number) => `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}`;
+export const cookies = () => ({ Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}` });
+export const base = (season: number) => `https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}`;
 
 async function fetchFreeAgents(season: number): Promise<any[] | null> {
   const ids = (Object.values(WINDOW_PREFIX) as string[]).map((p) => `${p}${season}`);
@@ -111,7 +111,7 @@ async function fetchFreeAgents(season: number): Promise<any[] | null> {
 }
 
 // NHL team id -> abbreviation and the scoring days it plays (game-level endpoint, not league-level).
-async function fetchProTeams(season: number): Promise<Map<number, { abbrev: string; days: Set<number> }> | null> {
+export async function fetchProTeams(season: number): Promise<Map<number, { abbrev: string; days: Set<number> }> | null> {
   try {
     const res = await fetch(`https://lm-api-reads.fantasy.espn.com/apis/v3/games/fhl/seasons/${season}?view=proTeamSchedules_wl`, {
       headers: cookies(),
@@ -134,7 +134,7 @@ async function fetchProTeams(season: number): Promise<Map<number, { abbrev: stri
   }
 }
 
-function windowStat(stats: any[], prefix: string, season: number, pos: Pos, rates: Record<Pos, number> | null, catIds: string[]): WindowStat | null {
+export function windowStat(stats: any[], prefix: string, season: number, pos: Pos, rates: Record<Pos, number> | null, catIds: string[]): WindowStat | null {
   const x = stats.find((s) => s.statSourceId === 0 && String(s.id) === `${prefix}${season}`);
   if (!x) return null;
   const pts = Number(x.appliedTotal);

@@ -343,6 +343,9 @@ export default function PlayerCardsBrowser({ graphicsBase, playersBase, fresh }:
           <button onClick={() => setPicked(null)} className="text-rink hover:underline">
             Clear
           </button>
+          <a href={`/compare?p=${picked.id}`} className="text-rink hover:underline">
+            Compare
+          </a>
         </div>
       )}
 

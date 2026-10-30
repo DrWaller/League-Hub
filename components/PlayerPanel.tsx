@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import TierBadge from "@/components/TierBadge";
 import PlayerPhoto from "@/components/PlayerPhoto";
@@ -53,6 +54,9 @@ export default function PlayerPanel({ p, data, period, onClose }: { p: Available
               </div>
             ) : null}
           </div>
+          <Link href={`/compare?p=${p.id}`} className="text-xs text-rink hover:underline whitespace-nowrap pt-1.5">
+            Compare
+          </Link>
           <button type="button" onClick={onClose} className="text-2xl leading-none px-2 text-muted hover:text-rink" aria-label="Close">
             ×
           </button>
