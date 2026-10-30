@@ -7,6 +7,7 @@ import TierBadge from "@/components/TierBadge";
 import type { CompareData, ComparePlayer, DirectoryEntry } from "@/lib/compare";
 import type { StatCat, Window } from "@/lib/best-available";
 import type { Tier } from "@/lib/tier-style";
+import type { ShootingBaseline } from "@/lib/shooting";
 
 const PERIODS: { id: Window; label: string }[] = [
   { id: "season", label: "Season" },
@@ -15,13 +16,14 @@ const PERIODS: { id: Window; label: string }[] = [
   { id: "l30", label: "L30" },
 ];
 
-type GroupId = "value" | "tier" | "role" | "form" | "counting" | "stats";
+type GroupId = "value" | "tier" | "role" | "form" | "counting" | "shooting" | "stats";
 const GROUPS: { id: GroupId; label: string }[] = [
   { id: "value", label: "Value" },
   { id: "tier", label: "Tier & rank" },
   { id: "role", label: "Role & schedule" },
   { id: "form", label: "Recent form" },
   { id: "counting", label: "Box score" },
+  { id: "shooting", label: "Shooting %" },
   { id: "stats", label: "Scoring stats" },
 ];
 
@@ -51,6 +53,7 @@ export default function ComparePlayers({
   directory,
   data,
   roles,
+  shooting,
   selected,
   max,
   loadFailed,
@@ -59,6 +62,7 @@ export default function ComparePlayers({
   directory: DirectoryEntry[];
   data: CompareData | null;
   roles: Record<number, any>;
+  shooting: Record<number, ShootingBaseline>;
   selected: number[];
   max: number;
   loadFailed: boolean;
@@ -67,7 +71,7 @@ export default function ComparePlayers({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
-  const [on, setOn] = useState<Record<GroupId, boolean>>({ value: true, tier: true, role: true, form: true, counting: true, stats: false });
+  const [on, setOn] = useState<Record<GroupId, boolean>>({ value: true, tier: true, role: true, form: true, counting: true, shooting: true, stats: false });
   const [period, setPeriod] = useState<Window>("season");
 
   const go = (ids: number[]) => start(() => router.replace(ids.length ? `/compare?p=${ids.join(",")}` : "/compare", { scroll: false }));
@@ -225,6 +229,37 @@ export default function ComparePlayers({
         ]),
       ],
     });
+    // Shooting %: goals / shots for the chosen period, against his three prior seasons and his career before this season.
+    const pctNow = (p: ComparePlayer): number | null => {
+      const x = p.w[period];
+      if (p.position === "G" || !x) return null;
+      const shots = x.st["29"] ?? 0;
+      return shots > 0 ? ((x.st["13"] ?? 0) / shots) * 100 : null;
+    };
+    const pctOf = (l: { goals: number; shots: number } | null | undefined): number | null => (l && l.shots > 0 ? (l.goals / l.shots) * 100 : null);
+    const showPct = (v: number | null, shots?: number) =>
+      v === null ? "–" : (
+        <span>
+          {v.toFixed(1)}%{shots ? <span className="block text-[10px] text-muted font-normal">{shots} SOG</span> : null}
+        </span>
+      );
+    const diff = (p: ComparePlayer, which: "y3" | "career"): number | null => {
+      const now = pctNow(p);
+      const base = pctOf(shooting[p.id]?.[which]);
+      return now === null || base === null ? null : now - base;
+    };
+    const showDiff = (d: number | null) => (d === null ? "–" : `${d >= 0 ? "+" : ""}${d.toFixed(1)}`);
+    sections.push({
+      id: "shooting",
+      title: `Shooting % (${PERIODS.find((x) => x.id === period)?.label})`,
+      rows: [
+        { key: "sp", label: "Shooting %", num: pctNow, show: (p) => showPct(pctNow(p), p.w[period]?.st["29"]) },
+        { key: "s3", label: "3-yr shooting %", num: (p) => pctOf(shooting[p.id]?.y3), show: (p) => showPct(pctOf(shooting[p.id]?.y3), shooting[p.id]?.y3?.shots) },
+        { key: "sc", label: "Career shooting %", num: (p) => pctOf(shooting[p.id]?.career), show: (p) => showPct(pctOf(shooting[p.id]?.career), shooting[p.id]?.career?.shots) },
+        { key: "d3", label: "vs 3-yr (pts)", show: (p) => showDiff(diff(p, "y3")) },
+        { key: "dc", label: "vs career (pts)", show: (p) => showDiff(diff(p, "career")) },
+      ],
+    });
     const skaterCats = data.cats.filter((c) => !c.goalie);
     const goalieCats = data.cats.filter((c) => c.goalie);
     const statRow = (c: StatCat): Row => ({
@@ -312,7 +347,7 @@ export default function ComparePlayers({
             {g.label}
           </button>
         ))}
-        {(on.stats || on.counting) && (
+        {(on.stats || on.counting || on.shooting) && (
           <span className="inline-flex border border-ice-line ml-1">
             {PERIODS.map((x) => (
               <button key={x.id} type="button" onClick={() => setPeriod(x.id)} className={`px-2 py-1 text-xs border-r border-ice-line last:border-r-0 ${period === x.id ? "bg-gold text-rink font-semibold" : "bg-white hover:bg-ice-panel"}`}>
@@ -366,6 +401,11 @@ export default function ComparePlayers({
         </div>
       )}
       {data && mixed && on.stats && <p className="text-xs text-muted mt-2">Skater and goalie stats are listed separately; a dash means the stat doesn&apos;t apply to that player.</p>}
+      {data && on.shooting && (
+        <p className="text-xs text-muted mt-2">
+          Shooting % is goals divided by shots on goal. 3-yr is the three completed seasons before this one and career is every earlier season, so each compares this season with a player&apos;s own history (NHL stats). &quot;vs&quot; is the difference in percentage points.
+        </p>
+      )}
       {data && <p className="text-xs text-muted mt-2">Highlighted = best of the group on that row. VOR is points above a replacement-level player at the same position over the same games.</p>}
     </div>
   );

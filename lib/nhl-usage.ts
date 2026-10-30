@@ -16,6 +16,7 @@ const RECENT_DAYS = 14;
 const ESPN_TO_NHL = TEAM_MAP;
 
 export interface Usage {
+  nhlId: number; // the NHL's player id
   toiSeason: number; // seconds per game
   toiRecent: number | null; // seconds per game over the last two weeks
   toi: number; // blended, what the score uses
@@ -139,6 +140,7 @@ export async function getNhlUsage(season: number, lines: LineIndex | null = null
     const score = Math.round(0.45 * toiPct + 0.3 * ppPct + 0.25 * (line ? LINE_PTS[line] : 20));
     parts.set(p.r.id, { toiPct, ppPct, team: p.r.team });
     usage.set(p.r.id, {
+      nhlId: p.r.id,
       toiSeason: p.r.toi,
       toiRecent: p.toiRecent,
       toi: p.toi,
