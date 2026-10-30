@@ -149,7 +149,8 @@ export async function getCompare(ids: number[]): Promise<CompareData | null> {
     cats.push({ id, label: m?.label ?? `Stat ${id}`, goalie: Boolean(m?.goalie), rate: Boolean(m?.rate), higherIsBetter: it.points > 0 });
   }
   cats.sort((a, b) => rank(a.id) - rank(b.id));
-  const catIds = cats.map((c) => c.id);
+  // The box-score counts (G, A, SOG, HIT, BLK) are wanted whether or not the league scores them.
+  const catIds = Array.from(new Set([...cats.map((c) => c.id), "13", "14", "29", "31", "32"]));
 
   // Position rank among every rated player at the same exact position.
   const byId = new Map(dir.map((p) => [p.id, p] as const));

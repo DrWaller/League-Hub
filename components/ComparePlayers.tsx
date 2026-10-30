@@ -15,12 +15,13 @@ const PERIODS: { id: Window; label: string }[] = [
   { id: "l30", label: "L30" },
 ];
 
-type GroupId = "value" | "tier" | "role" | "form" | "stats";
+type GroupId = "value" | "tier" | "role" | "form" | "counting" | "stats";
 const GROUPS: { id: GroupId; label: string }[] = [
   { id: "value", label: "Value" },
   { id: "tier", label: "Tier & rank" },
   { id: "role", label: "Role & schedule" },
   { id: "form", label: "Recent form" },
+  { id: "counting", label: "Box score" },
   { id: "stats", label: "Scoring stats" },
 ];
 
@@ -66,7 +67,7 @@ export default function ComparePlayers({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
-  const [on, setOn] = useState<Record<GroupId, boolean>>({ value: true, tier: true, role: true, form: true, stats: false });
+  const [on, setOn] = useState<Record<GroupId, boolean>>({ value: true, tier: true, role: true, form: true, counting: true, stats: false });
   const [period, setPeriod] = useState<Window>("season");
 
   const go = (ids: number[]) => start(() => router.replace(ids.length ? `/compare?p=${ids.join(",")}` : "/compare", { scroll: false }));
@@ -181,6 +182,49 @@ export default function ComparePlayers({
         },
       ],
     });
+    // Box score: totals and per-game rates for the chosen period (skaters only).
+    const COUNT = [
+      { id: "13", label: "Goals" },
+      { id: "14", label: "Assists" },
+      { id: "pts", label: "Points (G+A)" },
+      { id: "29", label: "Shots" },
+      { id: "31", label: "Hits" },
+      { id: "32", label: "Blocks" },
+    ];
+    const total = (p: ComparePlayer, id: string): number | null => {
+      const x = p.w[period];
+      if (p.position === "G" || !x) return null;
+      return id === "pts" ? (x.st["13"] ?? 0) + (x.st["14"] ?? 0) : x.st[id] ?? 0;
+    };
+    sections.push({
+      id: "counting",
+      title: `Box score (${PERIODS.find((x) => x.id === period)?.label})`,
+      rows: [
+        {
+          key: "cgp",
+          label: "Games played",
+          num: (p) => (p.position === "G" ? null : p.w[period]?.gp),
+          show: (p) => (p.position === "G" || !p.w[period] ? "–" : p.w[period]!.gp),
+        },
+        ...COUNT.flatMap((c): Row[] => [
+          { key: `ct${c.id}`, label: `${c.label}, total`, num: (p) => total(p, c.id), show: (p) => total(p, c.id) ?? "–" },
+          {
+            key: `cg${c.id}`,
+            label: `${c.label} / game`,
+            num: (p) => {
+              const v = total(p, c.id);
+              const gp = p.w[period]?.gp;
+              return v === null || !gp ? null : v / gp;
+            },
+            show: (p) => {
+              const v = total(p, c.id);
+              const gp = p.w[period]?.gp;
+              return v === null || !gp ? "–" : f2(v / gp);
+            },
+          },
+        ]),
+      ],
+    });
     const skaterCats = data.cats.filter((c) => !c.goalie);
     const goalieCats = data.cats.filter((c) => c.goalie);
     const statRow = (c: StatCat): Row => ({
@@ -268,7 +312,7 @@ export default function ComparePlayers({
             {g.label}
           </button>
         ))}
-        {on.stats && (
+        {(on.stats || on.counting) && (
           <span className="inline-flex border border-ice-line ml-1">
             {PERIODS.map((x) => (
               <button key={x.id} type="button" onClick={() => setPeriod(x.id)} className={`px-2 py-1 text-xs border-r border-ice-line last:border-r-0 ${period === x.id ? "bg-gold text-rink font-semibold" : "bg-white hover:bg-ice-panel"}`}>
