@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
   // Then save the weekly / monthly awards for anything that has just become final (Vercel Hobby only allows two
   // cron jobs, so this rides along on the daily run). Best effort: a problem here never affects the blurbs above.
-  const awards = await runAutoAwards({ skipMonthlyIf: () => Date.now() - started > 35000 }).catch((e) => ({
+  const awards = await runAutoAwards({ outOfTime: () => Date.now() - started > 35000 }).catch((e) => ({
     ok: false,
     error: e instanceof Error ? e.message : String(e),
   }));

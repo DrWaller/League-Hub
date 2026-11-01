@@ -197,8 +197,14 @@ async function runMonthly(season: number, finished: Set<number>, limit: number) 
 
 // ---------- entry point ----------
 
-export async function runAutoAwards(opts: { weeklyLimit?: number; monthlyLimit?: number; skipMonthlyIf?: () => boolean } = {}) {
-  const { weeklyLimit = 1, monthlyLimit = 1, skipMonthlyIf } = opts;
+// Order of work: the newest finished week, then the newest finished month, then -- only if there is still time --
+// up to `backfillLimit` older weeks that never got awards. The week that just ended and the month that just closed
+// are therefore never delayed by old gaps.
+export async function runAutoAwards(
+  opts: { weeklyLimit?: number; monthlyLimit?: number; backfillLimit?: number; outOfTime?: () => boolean } = {}
+) {
+  const { weeklyLimit = 1, monthlyLimit = 1, backfillLimit = 2, outOfTime } = opts;
+  const skipMonthlyIf = outOfTime;
   await ensureSchema();
   const meta = await getLeagueMeta();
   if (!meta.liveDataConnected) return { ok: false, skipped: "ESPN isn't connected." };
@@ -219,6 +225,14 @@ export async function runAutoAwards(opts: { weeklyLimit?: number; monthlyLimit?:
       out.monthly = await runMonthly(meta.season, finished, monthlyLimit);
     } catch (e) {
       out.monthly = { error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+  // Backfill older weeks (the ones just saved above are skipped, so this continues down the list).
+  if (backfillLimit > 0 && !outOfTime?.()) {
+    try {
+      out.backfill = await runWeekly(meta.season, finished, backfillLimit);
+    } catch (e) {
+      out.backfill = { error: e instanceof Error ? e.message : String(e) };
     }
   }
   return out;
