@@ -386,12 +386,14 @@ export async function renderPortraitPlayerList(opts: {
   headshots: Set<number>;
 }) {
   const logos = opts.logos ?? {};
+  // 4+ players (top-5 award races): same card, smaller type and avatars so five fit the canvas.
+  const compact = opts.players.length > 3;
   return frame({
     footer: opts.footer,
     title: opts.title,
     subtitle: opts.subtitle,
     body: ({ display }) => (
-      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: 22 }}>
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: compact ? 14 : 22 }}>
         {opts.players.map((p, i) => {
           const first = i === 0;
           // "1ST STAR" -> caption "STAR"; "1ST" (top 3 lists) -> no caption
@@ -400,41 +402,41 @@ export async function renderPortraitPlayerList(opts: {
             <div
               key={p.id}
               style={{
-                display: "flex", position: "relative", overflow: "hidden", flex: first ? 1.2 : 1, alignItems: "center", gap: 20, padding: "0 32px",
+                display: "flex", position: "relative", overflow: "hidden", flex: first ? 1.2 : 1, alignItems: "center", gap: 20, padding: compact ? "0 26px" : "0 32px",
                 background: first ? "#F1F8FF" : "#FFFFFF",
                 border: first ? `4px solid ${OG.gold}` : CARD_BORDER,
                 borderRadius: CARD_RADIUS,
                 boxShadow: CARD_SHADOW,
               }}
             >
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 96, flexShrink: 0 }}>
-                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: first ? 150 : 116, lineHeight: 1, color: medalText(opts.colors[i]) }}>{i + 1}</div>
-                {caption ? <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 3, color: medalText(opts.colors[i]) }}>{caption}</div> : null}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: compact ? 70 : 96, flexShrink: 0 }}>
+                <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: compact ? (first ? 96 : 76) : first ? 150 : 116, lineHeight: 1, color: medalText(opts.colors[i]) }}>{i + 1}</div>
+                {caption && !compact ? <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 22, letterSpacing: 3, color: medalText(opts.colors[i]) }}>{caption}</div> : null}
               </div>
               <PlayerAvatar
                 name={p.name}
                 src={headshotUrl(p.id)}
                 hasHeadshot={opts.headshots.has(p.id)}
-                size={first ? AVATAR_LIST_FIRST : AVATAR_LIST}
+                size={compact ? (first ? 150 : 116) : first ? AVATAR_LIST_FIRST : AVATAR_LIST}
                 fontFamily={display}
-                fontSize={first ? 86 : 72}
+                fontSize={compact ? 48 : first ? 86 : 72}
                 border={`${AVATAR_BORDER}px solid ${opts.colors[i]}`}
               />
               {/* Everything in this column must fit the card: the 2nd/3rd cards are the shortest, so they get smaller type and the team name and tier pill share one row. */}
-              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: first ? 6 : 4, minWidth: 0 }}>
-                <div style={{ display: "flex", fontFamily: display, fontSize: first ? 52 : 42, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: first ? 500 : 560, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, gap: compact ? 2 : first ? 6 : 4, minWidth: 0 }}>
+                <div style={{ display: "flex", fontFamily: display, fontSize: compact ? (first ? 40 : 34) : first ? 52 : 42, fontWeight: 700, color: OG.board, lineHeight: 1.1, maxWidth: compact ? 640 : first ? 500 : 560, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.name}</div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: PTS_GAP }}>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: first ? 72 : 54, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
-                  <div style={{ display: "flex", fontFamily: display, fontSize: first ? 26 : 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: first ? 6 : 4 }}>{heroLabel(p)}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: compact ? (first ? 54 : 44) : first ? 72 : 54, fontWeight: 700, lineHeight: 1, color: OG.centerRed }}>{heroNum(p)}</div>
+                  <div style={{ display: "flex", fontFamily: display, fontSize: compact ? 20 : first ? 26 : 24, fontWeight: 700, letterSpacing: 2, color: OG.muted, marginBottom: first ? 6 : 4 }}>{heroLabel(p)}</div>
                 </div>
-                <SecondaryLine p={p} display={display} size={first ? 30 : 26} />
-                {p.statLine ? <div style={{ display: "flex", fontSize: first ? 27 : 25, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{p.statLine}</div> : null}
+                <SecondaryLine p={p} display={display} size={compact ? 20 : first ? 30 : 26} />
+                {p.statLine && !compact ? <div style={{ display: "flex", fontSize: first ? 27 : 25, fontWeight: 600, letterSpacing: 1, color: OG.rink }}>{p.statLine}</div> : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
                   <div style={{ display: "flex", minWidth: 0, overflow: "hidden" }}>
-                    <TeamLine name={p.teamName} logo={logos[p.teamId]} size={first ? LOGO_SIZE : 36} fontSize={first ? 24 : 22} align="flex-start" />
+                    <TeamLine name={p.teamName} logo={logos[p.teamId]} size={compact ? 30 : first ? LOGO_SIZE : 36} fontSize={compact ? 20 : first ? 24 : 22} align="flex-start" />
                   </div>
                   <div style={{ display: "flex", flexShrink: 0 }}>
-                    <TierPill tier={p.tier} size={first ? 22 : 20} align="flex-start" />
+                    <TierPill tier={p.tier} size={compact ? 18 : first ? 22 : 20} align="flex-start" />
                   </div>
                 </div>
               </div>

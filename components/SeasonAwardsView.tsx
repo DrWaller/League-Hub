@@ -40,12 +40,19 @@ function Face({ r, size }: { r: Row; size: number }) {
   return null;
 }
 
-function Card({ title, blurb, rows, note }: { title: string; blurb: string; rows: Row[]; note?: string }) {
+function Card({ title, blurb, rows, note, dl }: { title: string; blurb: string; rows: Row[]; note?: string; dl?: string }) {
   const [lead, ...rest] = rows;
   return (
     <div className="border border-ice-line bg-white overflow-hidden">
       <div className="p-4 pb-3">
-        <h2 className="font-display text-xl">{title}</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-xl">{title}</h2>
+          {dl && lead && (
+            <a href={dl} download={`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-ice-line px-2.5 py-1 text-rink hover:bg-ice-panel">
+              Download
+            </a>
+          )}
+        </div>
         <p className="text-xs text-muted">{blurb}</p>
       </div>
       {!lead ? (
@@ -231,7 +238,7 @@ export default async function SeasonAwardsView() {
       playerId: e.id,
       share: val(lead) > 0 ? val(e) / val(lead) : undefined,
     }));
-    return <Card key={r.award.key} title={r.award.title} blurb={`${r.award.blurb}${PAST_WINNERS[r.award.key] ? ` Past winners: ${PAST_WINNERS[r.award.key].join(", ")}.` : ""}`} rows={rows} note="No finished weeks saved yet." />;
+    return <Card key={r.award.key} title={r.award.title} blurb={`${r.award.blurb}${PAST_WINNERS[r.award.key] ? ` Past winners: ${PAST_WINNERS[r.award.key].join(", ")}.` : ""}`} rows={rows} note="No finished weeks saved yet." dl={`/api/cards/award-watch?award=${r.award.key}&top=5`} />;
   });
 
   const through = races[0]?.through ?? 0;

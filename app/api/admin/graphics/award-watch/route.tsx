@@ -12,7 +12,7 @@ import { captionResponse } from "@/lib/captions";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// "Norris Watch" etc.: the top 3 of a season-long player award race, through the last finished week
+// "Norris Watch" etc.: the top 3 (or ?top=5) of a season-long player award race, through the last finished week
 // (or ?week=N). ?award= is one of hart, norris, vezina, forward, artross.
 export async function GET(req: NextRequest) {
   try {
@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
     const meta = await getLeagueMeta();
     await syncSeasonVor(meta.season, meta.currentWeek).catch(() => null);
     const week = Number(req.nextUrl.searchParams.get("week")) || undefined;
-    const race = (await getPlayerRaces(meta.season, week, 3)).find((r) => r.award.key === award.key);
+    const top = Number(req.nextUrl.searchParams.get("top")) === 5 ? 5 : 3; // ?top=5 for the five-deep version
+    const race = (await getPlayerRaces(meta.season, week, top)).find((r) => r.award.key === award.key);
     if (!race || race.entries.length === 0) return new Response("No finished weeks saved yet, so there's no race to show.", { status: 400 });
 
     const { teams } = await getStandings();
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
     const [logos, tierIdx, headshots] = await Promise.all([loadLogoData(false), graphicTiers(false), checkHeadshots(race.entries.map((e) => e.id))]);
     return await renderPortraitPlayerList({
       footer: seasonFooter(meta.name, meta.season),
-      title: award.watch,
+      title: top === 5 ? award.title : award.watch,
       subtitle: `Season to date - through week ${through}`,
       players: race.entries.map((e) => ({
         id: e.id,
@@ -48,8 +49,8 @@ export async function GET(req: NextRequest) {
         vor: award.metric === "vor" ? e.vor : undefined,
         tier: tierIdx[e.id] ?? null,
       })),
-      labels: ["1ST", "2ND", "3RD"],
-      colors: [OG.gold, OG.silver, OG.bronze],
+      labels: ["1ST", "2ND", "3RD", "4TH", "5TH"].slice(0, top),
+      colors: [OG.gold, OG.silver, OG.bronze, OG.rink, OG.rink].slice(0, top),
       emptyMessage: "No finished weeks yet.",
       logos,
       headshots,
