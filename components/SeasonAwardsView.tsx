@@ -65,12 +65,12 @@ function Card({ title, blurb, rows, note, dl }: { title: string; blurb: string; 
               <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-gold text-rink-deep text-[11px] font-display flex items-center justify-center">1</span>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="font-display text-lg leading-tight truncate">{lead.name}</div>
+              <div className="font-display text-lg leading-tight break-words">{lead.name}</div>
               {lead.when && <span className="inline-block mt-1 rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-semibold">{lead.when}</span>}
               <div className="text-xs text-ice/70 break-words">{lead.sub}</div>
             </div>
             <div className="text-right shrink-0">
-              <div className="font-display text-2xl leading-none">{lead.value}</div>
+              <div className="font-display text-xl sm:text-2xl leading-none">{lead.value}</div>
               <div className="text-[11px] text-ice/60 mt-1">{lead.gap}</div>
             </div>
           </div>
@@ -82,7 +82,7 @@ function Card({ title, blurb, rows, note, dl }: { title: string; blurb: string; 
                     <span className="w-4 font-display text-muted text-center shrink-0">{r.rank}</span>
                     <Face r={r} size={32} />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{r.name}</div>
+                      <div className="text-sm font-medium break-words">{r.name}</div>
                       {r.when && <span className="inline-block rounded-full bg-ice-panel px-2 py-px text-[11px] font-semibold text-rink">{r.when}</span>}
                       <div className="text-xs text-muted break-words">{r.sub}</div>
                     </div>
