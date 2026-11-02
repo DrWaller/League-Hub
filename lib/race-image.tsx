@@ -47,6 +47,9 @@ export async function renderPortraitRace(opts: {
           // One line per name: shrink long names to fit the space between the avatar and the big number.
           const nameRoom = 984 - 56 - 70 - 22 - size - 22 - 22 - 215;
           const nameSize = Math.max(26, Math.min(first ? 46 : 38, Math.floor(nameRoom / (Math.max(1, r.name.length) * 0.5))));
+          // The detail line is one line too: shrink long ones (e.g. "RW - Team - drafted #125, now #146") to fit instead of clipping.
+          const subBase = first ? 25 : 22;
+          const subSize = Math.max(16, Math.min(subBase, Math.floor((nameRoom + 90) / (Math.max(1, r.sub.length) * 0.5))));
           const accent = MEDAL[i] ?? OG.iceLine;
           const accentText = MEDAL_TEXT[i] ?? OG.muted;
           return (
@@ -76,7 +79,7 @@ export async function renderPortraitRace(opts: {
               ) : null}
               <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 1, minWidth: 0, gap: 6 }}>
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: nameSize, lineHeight: 1.1, color: OG.board, whiteSpace: "nowrap", overflow: "hidden" }}>{r.name}</div>
-                <div style={{ display: "flex", fontSize: first ? 25 : 22, lineHeight: 1.2, color: OG.muted, overflow: "hidden", maxHeight: 68 }}>{r.sub}</div>
+                <div style={{ display: "flex", fontSize: subSize, lineHeight: 1.2, color: OG.muted, whiteSpace: "nowrap", overflow: "hidden" }}>{r.sub}</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, gap: 4 }}>
                 <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: first ? 64 : 48, lineHeight: 1, color: OG.rink }}>{r.value}</div>
