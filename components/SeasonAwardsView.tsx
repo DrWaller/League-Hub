@@ -24,11 +24,11 @@ import TeamLogo from "@/components/TeamLogo";
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
 function Move({ rank, prev }: { rank: number; prev: number | null | undefined }) {
-  if (prev === undefined) return <span className="text-muted">-</span>;
-  if (prev === null) return <span className="text-green-700">NEW</span>;
+  if (prev === undefined) return <span className="text-[#9FB3C8]">-</span>;
+  if (prev === null) return <span className="text-green-400">NEW</span>;
   const d = prev - rank;
-  if (d === 0) return <span className="text-muted">-</span>;
-  return <span className={d > 0 ? "text-green-700" : "text-red-700"}>{d > 0 ? "▲" : "▼"}{Math.abs(d)}</span>;
+  if (d === 0) return <span className="text-[#9FB3C8]">-</span>;
+  return <span className={d > 0 ? "text-green-400" : "text-red-400"}>{d > 0 ? "▲" : "▼"}{Math.abs(d)}</span>;
 }
 
 // playerId -> headshot; logo -> team logo (manager races). share (0-1) draws a bar against the leader.
@@ -40,68 +40,65 @@ function Face({ r, size }: { r: Row; size: number }) {
   return null;
 }
 
+// Same navy "scoreboard" look as the downloadable graphics: gold leader row, ranked rows below, gap to the leader in red.
+const RANK_COLOR = ["text-[#F2C46D]", "text-[#C3CEDA]", "text-[#E3A57A]", "text-[#8FB4DA]", "text-[#8FB4DA]"];
+
 function Card({ title, blurb, rows, note, dl }: { title: string; blurb: string; rows: Row[]; note?: string; dl?: string }) {
   const [lead, ...rest] = rows;
   return (
-    <div className="border border-ice-line bg-white overflow-hidden">
-      <div className="p-4 pb-3">
+    <div className="rounded-lg overflow-hidden bg-[#0A1624] text-white border border-[#2A4E75]">
+      <div className="bg-[#0F2B47] border-b-4 border-center-red px-4 py-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-xl">{title}</h2>
+          <h2 className="font-display text-xl uppercase tracking-wide">{title}</h2>
           {dl && lead && (
-            <a href={dl} download={`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-ice-line px-2.5 py-1 text-rink hover:bg-ice-panel">
+            <a href={dl} download={`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-gold/70 px-2.5 py-1 text-gold hover:bg-white/10">
               Download
             </a>
           )}
         </div>
-        <p className="text-xs text-muted">{blurb}</p>
+        <p className="text-xs text-[#9FB3C8] mt-1">{blurb}</p>
       </div>
       {!lead ? (
-        <p className="text-sm text-muted px-4 pb-4">{note ?? "Nothing to show yet."}</p>
+        <p className="text-sm text-[#9FB3C8] px-4 py-4">{note ?? "Nothing to show yet."}</p>
       ) : (
-        <>
-          <div className="bg-gradient-to-br from-rink to-rink-deep text-ice px-4 py-3.5 border-l-4 border-gold flex items-center gap-3">
-            <div className="shrink-0 relative">
-              <Face r={lead} size={56} />
-              <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-gold text-rink-deep text-[11px] font-display flex items-center justify-center">1</span>
-            </div>
+        <div className="p-2 space-y-2">
+          <div className="rounded-lg border-2 border-[#F2C46D] bg-gradient-to-r from-[#7A5712] via-[#3B3216] to-[#14304F] px-3 py-3 flex items-center gap-3">
+            <span className="w-6 text-center font-display text-4xl leading-none text-[#F2C46D] shrink-0">1</span>
+            <div className="shrink-0"><Face r={lead} size={56} /></div>
             <div className="min-w-0 flex-1">
               <div className="font-display text-lg leading-tight break-words">{lead.name}</div>
               {lead.when && <span className="inline-block mt-1 rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-semibold">{lead.when}</span>}
-              <div className="text-xs text-ice/70 break-words">{lead.sub}</div>
+              <div className="text-xs text-[#E6ECF3] break-words">{lead.sub}</div>
             </div>
             <div className="text-right shrink-0">
-              <div className="font-display text-xl sm:text-2xl leading-none">{lead.value}</div>
-              <div className="text-[11px] text-ice/60 mt-1">{lead.gap}</div>
+              <div className="font-display text-2xl leading-none text-[#F2C46D]">{lead.value}</div>
+              <div className="text-[11px] text-[#E6ECF3] mt-1">{lead.gap}</div>
             </div>
           </div>
-          {rest.length > 0 && (
-            <ul className="divide-y divide-ice-line">
-              {rest.map((r) => (
-                <li key={r.key} className="px-4 py-2.5">
-                  <div className="flex items-center gap-3">
-                    <span className="w-4 font-display text-muted text-center shrink-0">{r.rank}</span>
-                    <Face r={r} size={32} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium break-words">{r.name}</div>
-                      {r.when && <span className="inline-block rounded-full bg-ice-panel px-2 py-px text-[11px] font-semibold text-rink">{r.when}</span>}
-                      <div className="text-xs text-muted break-words">{r.sub}</div>
-                    </div>
-                    <span className="text-xs w-8 text-right shrink-0"><Move rank={r.rank} prev={r.prev} /></span>
-                    <div className="text-right shrink-0">
-                      <div className="font-bold text-sm">{r.value}</div>
-                      <div className="text-[11px] text-muted">{r.gap}</div>
-                    </div>
-                  </div>
-                  {r.share !== undefined && (
-                    <div className="mt-1.5 ml-7 h-1 rounded-full bg-ice-panel overflow-hidden">
-                      <div className="h-full rounded-full bg-rink-bright" style={{ width: `${Math.max(3, Math.min(100, r.share * 100))}%` }} />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+          {rest.map((r, i) => (
+            <div key={r.key} className="rounded-lg border border-[#2A4E75] bg-[#173454] px-3 py-2.5">
+              <div className="flex items-center gap-3">
+                <span className={`w-6 text-center font-display text-2xl leading-none shrink-0 ${RANK_COLOR[i + 1] ?? RANK_COLOR[4]}`}>{r.rank}</span>
+                <div className="shrink-0"><Face r={r} size={40} /></div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-base leading-tight break-words">{r.name}</div>
+                  {r.when && <span className="inline-block rounded-full bg-white/15 px-2 py-px text-[11px] font-semibold">{r.when}</span>}
+                  <div className="text-xs text-[#B8C7D6] break-words">{r.sub}</div>
+                </div>
+                <span className="text-xs w-8 text-right shrink-0"><Move rank={r.rank} prev={r.prev} /></span>
+                <div className="text-right shrink-0">
+                  <div className="font-display text-xl leading-none">{r.value}</div>
+                  <div className="text-[12px] font-semibold text-[#FF8FA0] mt-1">{r.gap}</div>
+                </div>
+              </div>
+              {r.share !== undefined && (
+                <div className="mt-2 ml-9 h-1 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full rounded-full bg-[#5B86B3]" style={{ width: `${Math.max(3, Math.min(100, r.share * 100))}%` }} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
