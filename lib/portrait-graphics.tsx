@@ -94,6 +94,7 @@ export async function frame(opts: {
   footer?: string;
   bold?: boolean; // kept for compatibility; every portrait graphic now uses this one style
   flush?: boolean; // body runs edge to edge (no side/top padding): Player Spotlight
+  dark?: boolean; // navy scoreboard look (award race graphics)
   plain?: boolean; // no rink markings behind the content (Player Radar draws its own chart)
   headerContent?: (f: { display: string; body: string }) => ReactNode; // replaces the title/subtitle/week badge (player cards put the player here)
   body: (f: { display: string; body: string }) => ReactNode;
@@ -110,7 +111,7 @@ export async function frame(opts: {
   const titleHasWeek = /week\s+\d+/i.test(headTitle);
   const showBadge = week != null && !titleHasWeek;
   // Shrink long titles so they stay on one line (the badge takes ~210px when shown).
-  const headerStyle: CSSProperties = { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 64px", background: OG.rink, borderBottom: `6px solid ${OG.centerRed}` };
+  const headerStyle: CSSProperties = { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 64px", background: opts.dark ? "#0F2B47" : OG.rink, borderBottom: `6px solid ${OG.centerRed}` };
   const titleRoom = 952 - (showBadge ? 190 : 0);
   const titleSize = Math.max(52, Math.min(showBadge ? 76 : 84, Math.floor(titleRoom / (headTitle.length * 0.52))));
   // A plain "Week N" subtitle just repeats the badge: show the week's dates there
@@ -121,7 +122,7 @@ export async function frame(opts: {
 
   return new ImageResponse(
     (
-      <div style={{ width: W, height: H, display: "flex", flexDirection: "column", position: "relative", backgroundImage: "linear-gradient(180deg, #F8FCFF 0%, #E3EFF9 55%, #D3E5F4 100%)", fontFamily: body }}>
+      <div style={{ width: W, height: H, display: "flex", flexDirection: "column", position: "relative", ...(opts.dark ? { background: "#0A1624" } : { backgroundImage: "linear-gradient(180deg, #F8FCFF 0%, #E3EFF9 55%, #D3E5F4 100%)" }), fontFamily: body }}>
         {/* faint rink markings behind the content: faceoff circle, center dot, center line */}
         {opts.plain ? null : <div style={{ position: "absolute", left: 130, top: 470, width: 820, height: 820, borderRadius: 410, border: `8px solid ${RINK_LINE}`, display: "flex" }} />}
         {opts.plain ? null : <div style={{ position: "absolute", left: 0, top: 876, width: 1080, height: 8, background: RINK_LINE, display: "flex" }} />}
@@ -152,7 +153,7 @@ export async function frame(opts: {
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: opts.flush ? 0 : "24px 48px 16px 48px" }}>
           {opts.body({ display, body })}
         </div>
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", alignSelf: "stretch", flexShrink: 0, height: FOOTER_H, fontFamily: display, fontSize: 26, letterSpacing: 2, color: OG.muted }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", alignSelf: "stretch", flexShrink: 0, height: FOOTER_H, fontFamily: display, fontSize: 26, letterSpacing: 2, color: opts.dark ? "#9FB3C8" : OG.muted }}>
           {opts.footer ?? ""}
         </div>
       </div>

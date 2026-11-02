@@ -7,6 +7,7 @@ import { loadLogoData } from "@/lib/og-team-logo";
 import { graphicTiers } from "@/lib/og-tier";
 import { OG } from "@/lib/og-theme";
 import { renderPortraitPlayerList, seasonFooter } from "@/lib/portrait-graphics";
+import { renderRaceScoreboard } from "@/lib/race-scoreboard-image";
 import { captionResponse } from "@/lib/captions";
 
 export const runtime = "nodejs";
@@ -36,9 +37,29 @@ export async function GET(req: NextRequest) {
     }
 
     const [logos, tierIdx, headshots] = await Promise.all([loadLogoData(false), graphicTiers(false), checkHeadshots(race.entries.map((e) => e.id))]);
+    // The top-5 version (the Download buttons on Award Races) uses the scoreboard layout; ?top=3 keeps the old Watch card.
+    if (top === 5) {
+      return await renderRaceScoreboard({
+        footer: seasonFooter(meta.name, meta.season),
+        title: award.title,
+        subtitle: `Season to date - through week ${through}`,
+        players: race.entries.map((e) => ({
+          id: e.id,
+          name: e.name,
+          pos: e.position,
+          teamId: e.teamId,
+          teamName: teamName(e.teamId),
+          points: e.points,
+          vor: award.metric === "vor" ? e.vor : undefined,
+          tier: tierIdx[e.id] ?? null,
+        })),
+        logos,
+        headshots,
+      });
+    }
     return await renderPortraitPlayerList({
       footer: seasonFooter(meta.name, meta.season),
-      title: top === 5 ? award.title : award.watch,
+      title: award.watch,
       subtitle: `Season to date - through week ${through}`,
       players: race.entries.map((e) => ({
         id: e.id,
