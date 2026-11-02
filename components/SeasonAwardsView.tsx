@@ -257,6 +257,7 @@ export default async function SeasonAwardsView() {
         {playerCards}
         <Card
           title="Most Efficient Lineups"
+          dl="/api/cards/lineup-season?"
           blurb="Highest season lineup efficiency: points scored vs. the best possible lineup, night by night."
           rows={top5(managers).map((m, i) => ({
             key: String(m.teamId), name: name(m.teamId), sub: `${pts(m.actual)} of ${pts(m.max)}`, value: pct(m.pct),
@@ -266,6 +267,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Presidents' Trophy"
+          dl="/api/cards/award-race?race=presidents"
           blurb="Best regular-season record (wins minus losses, then points for)."
           rows={top5(byRecord).map((t, i) => ({
             key: String(t.id), name: t.name, sub: `${pts(t.pointsFor)} PF`, value: `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`,
@@ -274,6 +276,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Most Points Scored"
+          dl="/api/cards/award-race?race=points"
           blurb="Total regular-season points for."
           rows={top5(byPoints).map((t, i) => ({
             key: String(t.id), name: t.name, sub: `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`, value: pts(t.pointsFor),
@@ -282,6 +285,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Hard Luck Manager"
+          dl="/api/cards/award-race?race=hardluck"
           blurb={`Actual wins vs. expected wins (every team against every other team, every week). The gap is shown as a share of expected wins (like -16% xWINS). The biggest shortfall wins.`}
           rows={top5(hardLuck).map((r, i) => ({
             key: String(r.teamId), name: name(r.teamId), sub: `${r.actW}-${r.actL}${r.actT ? `-${r.actT}` : ""} actual, ${r.expected.toFixed(1)} expected`,
@@ -291,6 +295,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="William M. Jennings"
+          dl="/api/cards/award-race?race=jennings"
           blurb={`Most dominant goaltending tandem: each team's two best goalies, by fantasy points. Past winners: ${PAST_WINNERS.jennings.join(", ")}.`}
           rows={tandems.map((t) => ({
             key: String(t.teamId), name: name(t.teamId), sub: t.goalies.map((g) => `${g.name} ${pts(g.points)}`).join(" · "), value: `${pts(t.points)} pts`,
@@ -300,6 +305,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Sleeping Beauty"
+          dl="/api/cards/award-race?race=sleeping"
           blurb={`The drafted player who out-produced his draft slot by the most (draft pick minus his finish by VOR among everyone drafted; keepers excluded). Past winners: ${PAST_WINNERS.sleeping.join(", ")}.`}
           rows={sleepers.map((p) => ({
             key: String(p.id), name: p.name, sub: `${p.position} · ${name(p.teamId)} · drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin} spots`,
@@ -309,6 +315,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Best Pickup"
+          dl="/api/cards/award-race?race=pickup"
           blurb="Best free-agent or waiver add of the season, tracked day by day from the add until the team drops him. Only games he started count (benched games don't), scored as VOR. Draft picks and trades never count."
           rows={pickups.map((p) => ({
             key: `${p.teamId}-${p.playerId}`,
@@ -323,6 +330,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Fantasy Monster"
+          dl="/api/cards/award-race?race=monster"
           blurb="Most Monster Nights this season (7+ fantasy points for a forward or goalie, 6+ for a defenseman). Any player counts, rostered or not; ties go to the bigger best night."
           rows={monsters.map((m, i) => ({
             key: String(m.playerId),
@@ -338,6 +346,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Biggest Night"
+          dl="/api/cards/award-race?race=night"
           blurb="The biggest single-night fantasy score of the season, any player, rostered or not."
           rows={bigNights.map((n, i) => ({
             key: `${n.playerId}-${n.date}`,
@@ -354,6 +363,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Biggest Week"
+          dl="/api/cards/award-race?race=week"
           blurb="The biggest single-week VOR of the season (points above a replacement player, so it counts the games he played)."
           rows={bigWeeks.map((w, i) => ({
             key: `${w.playerId}-${w.week}`,
@@ -370,6 +380,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Biggest Month"
+          dl="/api/cards/award-race?race=month"
           blurb="The biggest monthly VOR of the season (his weekly VOR added up across a Monthly Period)."
           rows={bigMonths.map((m, i) => ({
             key: `${m.playerId}-${m.periodLabel}`,
@@ -386,6 +397,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Manager's Biggest Night"
+          dl="/api/cards/award-race?race=mgrnight"
           blurb="The most points a team scored in a single night (the players in its active lineup that day)."
           rows={teamNights.map((n, i) => ({
             key: `${n.teamId}-${n.date}`,
@@ -402,6 +414,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Manager's Biggest Week"
+          dl="/api/cards/award-race?race=mgrweek"
           blurb="The highest single-week score by a team this season (regular-season games only)."
           rows={teamWeeks.map((w, i) => ({
             key: `${w.teamId}-${w.week}`,
@@ -418,6 +431,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Manager's Biggest Month"
+          dl="/api/cards/award-race?race=mgrmonth"
           blurb="The most points a team scored across one Monthly Period (weeks finished so far; unfinished months are marked)."
           rows={teamMonths.map((m, i) => ({
             key: `${m.teamId}-${m.periodLabel}`,
@@ -436,6 +450,7 @@ export default async function SeasonAwardsView() {
           <Card
             key={t.key}
             title={t.title}
+            dl={`/api/cards/award-race?race=${t.key}`}
             blurb={`${t.blurb}${PAST_WINNERS[t.key] ? ` Past winners: ${PAST_WINNERS[t.key].join(", ")}.` : ""}`}
             rows={t.entries.map((e) => { const age = ageOf(e.name, e.position, meta.season); return { key: String(e.id), name: e.name, sub: `${e.position}${age ? ` · age ~${age}` : ""} · ${e.detail}`, value: e.value, gap: "", rank: e.rank, playerId: e.id }; })}
             note="Nothing qualifies yet. Early in the season few players have enough games."
