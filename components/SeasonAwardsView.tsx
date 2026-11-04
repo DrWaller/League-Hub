@@ -46,20 +46,101 @@ const RANK_COLOR = ["text-[#F2C46D]", "text-[#C3CEDA]", "text-[#E3A57A]", "text-
 // "+36.07 VOR" -> ["+36.07", "VOR"]: the number is big, the unit sits small under it, which leaves the name room on a phone.
 const splitValue = (v: string): [string, string] => { const i = v.indexOf(" "); return i > 0 ? [v.slice(0, i), v.slice(i + 1)] : [v, ""]; };
 
-function Card({ title, blurb, rows, note, dl }: { title: string; blurb: string; rows: Row[]; note?: string; dl?: string }) {
+// One short line for each award (what it is, at a glance). The longer definition sits behind "How it's decided".
+const TAGLINES: Record<string, string> = {
+  "Hart Trophy": "Most valuable player, any position",
+  "Norris Trophy": "Best defenseman",
+  "Vezina Trophy": "Best goalie",
+  "Forward of the Year": "Best forward",
+  "Art Ross Trophy": "Most fantasy points among skaters",
+  "Most Efficient Lineups": "Closest to the best possible lineup",
+  "Presidents' Trophy": "Best regular-season record",
+  "Most Points Scored": "Most regular-season points for",
+  "Hard Luck Manager": "Biggest gap between actual and expected wins",
+  "William M. Jennings": "Best goaltending tandem",
+  "Sleeping Beauty": "Out-produced his draft slot the most",
+  "Best Pickup": "Best free-agent or waiver add",
+  "Fantasy Monster": "Most Monster Nights",
+  "Biggest Night": "Biggest single-night score",
+  "Biggest Week": "Biggest single-week VOR",
+  "Biggest Month": "Biggest monthly VOR",
+  "Manager's Biggest Night": "Most points by a team in one night",
+  "Manager's Biggest Week": "Highest single-week team score",
+  "Manager's Biggest Month": "Most points by a team in a month",
+  "Breakout Player": "Biggest first-time jump into the Good tier or better",
+  "Bounce Back Player": "Biggest rebound after a down year",
+  "Most Improved Player": "Biggest gain on last season",
+  "Calder Trophy": "Best rookie",
+};
+
+// Rules as short bullets. Most come from splitting the existing definition into sentences; Breakout's is long enough to be written out.
+const RULE_OVERRIDES: Record<string, { lead: string; text: string }[]> = {
+  "Breakout Player": [
+    { lead: "The jump.", text: "Reaches the Good tier or better (by points per game) for the first time. Within 0.05 of Good counts." },
+    { lead: "First time.", text: "Not Good in any of the last three seasons. Forwards and defence have separate cutoffs." },
+    { lead: "Who's eligible.", text: "Skaters in the Depth tier or better. No earlier season means Calder. Goalies go to the Vezina and Jennings." },
+    { lead: "Built to last.", text: "A breakout should stay elite, so age and earlier seasons are shown on each row." },
+  ],
+};
+const ruleBullets = (title: string, blurb: string): { lead?: string; text: string }[] =>
+  RULE_OVERRIDES[title] ?? blurb.split(/(?<=[.!?])\s+(?=[A-Z(])/).filter(Boolean).map((text) => ({ text }));
+
+function Chevron() {
+  return (
+    <svg className="transition-transform group-open:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9FB3C8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+  );
+}
+
+const SUMMARY = "flex cursor-pointer list-none items-center justify-between py-2.5 text-xs font-semibold uppercase tracking-widest text-[#9FB3C8] [&::-webkit-details-marker]:hidden";
+
+// winners: "2026: Nathan MacKinnon", newest first.
+function Card({ title, blurb, winners, rows, note, dl }: { title: string; blurb: string; winners?: string[]; rows: Row[]; note?: string; dl?: string }) {
   const [lead, ...rest] = rows;
+  const champ = winners?.[0]?.match(/^(\d{4}):\s*(.*)$/);
+  const bullets = ruleBullets(title, blurb);
   return (
     <div className="rounded-lg overflow-hidden bg-[#0A1624] text-white border border-[#2A4E75]">
-      <div className="bg-[#0F2B47] border-b-4 border-center-red px-4 py-3">
+      <div className="bg-[#0F2B47] border-b-4 border-center-red px-4 pt-3.5 pb-1.5">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-xl uppercase tracking-wide">{title}</h2>
+          <h2 className="font-display text-2xl uppercase tracking-wide">{title}</h2>
           {dl && lead && (
-            <a href={dl} download={`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-gold/70 px-2.5 py-1 text-gold hover:bg-white/10">
+            <a href={dl} download={`${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-gold/70 px-3 py-1.5 text-gold hover:bg-white/10">
               Download
             </a>
           )}
         </div>
-        <p className="text-xs text-[#9FB3C8] mt-1">{blurb}</p>
+        {TAGLINES[title] && <p className="mt-1 text-[15px] text-[#CBD6E2]">{TAGLINES[title]}</p>}
+        {champ && (
+          <div className="mt-2.5 inline-flex max-w-full items-center gap-2 rounded-full border border-gold/50 bg-gold/15 py-1 pl-2.5 pr-3 text-[13px] text-[#F2C46D]">
+            <svg className="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F2C46D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3" /></svg>
+            <span className="shrink-0 text-[11px] font-bold tracking-[0.12em]">LAST WINNER</span>
+            <span className="min-w-0 font-semibold">{champ[2]} · {champ[1]}</span>
+          </div>
+        )}
+        <div className="mt-2.5">
+          {winners && winners.length > 0 && (
+            <details className="group border-t border-white/10">
+              <summary className={SUMMARY}>Past winners <Chevron /></summary>
+              <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 pb-3 text-sm min-[420px]:grid-cols-2">
+                {winners.map((w) => {
+                  const m = w.match(/^(\d{4}):\s*(.*)$/);
+                  return <div key={w}><span className="font-display font-semibold text-[#F2C46D]">{m ? m[1] : ""}</span>{m ? "\u00a0 " : ""}{m ? m[2] : w}</div>;
+                })}
+              </div>
+            </details>
+          )}
+          <details className="group border-t border-white/10">
+            <summary className={SUMMARY}>How it&apos;s decided <Chevron /></summary>
+            <ul className="space-y-2.5 pb-3.5 text-sm leading-snug text-[#CBD6E2]">
+              {bullets.map((b, i) => (
+                <li key={i} className="flex gap-2.5">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#F2C46D]" />
+                  <span>{b.lead && <b className="text-white">{b.lead} </b>}{b.text}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
       </div>
       {!lead ? (
         <p className="text-sm text-[#9FB3C8] px-4 py-4">{note ?? "Nothing to show yet."}</p>
@@ -242,7 +323,7 @@ export default async function SeasonAwardsView() {
       playerId: e.id,
       share: val(lead) > 0 ? val(e) / val(lead) : undefined,
     }));
-    return <Card key={r.award.key} title={r.award.title} blurb={`${r.award.blurb}${PAST_WINNERS[r.award.key] ? ` Past winners: ${PAST_WINNERS[r.award.key].join(", ")}.` : ""}`} rows={rows} note="No finished weeks saved yet." dl={`/api/cards/award-watch?award=${r.award.key}&top=5`} />;
+    return <Card key={r.award.key} title={r.award.title} blurb={r.award.blurb} winners={PAST_WINNERS[r.award.key]} rows={rows} note="No finished weeks saved yet." dl={`/api/cards/award-watch?award=${r.award.key}&top=5`} />;
   });
 
   const through = races[0]?.through ?? 0;
@@ -300,7 +381,7 @@ export default async function SeasonAwardsView() {
         <Card
           title="William M. Jennings"
           dl="/api/cards/award-race?race=jennings"
-          blurb={`Most dominant goaltending tandem: each team's two best goalies, by fantasy points. Past winners: ${PAST_WINNERS.jennings.join(", ")}.`}
+          blurb="Most dominant goaltending tandem: each team's two best goalies, by fantasy points." winners={PAST_WINNERS.jennings}
           rows={tandems.map((t) => ({
             key: String(t.teamId), name: name(t.teamId), sub: t.goalies.map((g) => `${g.name} ${pts(g.points)}`).join(" · "), value: `${pts(t.points)} pts`,
             gap: t.rank === 1 ? "leader" : `-${pts(tandems[0].points - t.points)}`, rank: t.rank, logo: logos[t.teamId], share: tandems[0].points > 0 ? t.points / tandems[0].points : undefined,
@@ -310,7 +391,7 @@ export default async function SeasonAwardsView() {
         <Card
           title="Sleeping Beauty"
           dl="/api/cards/award-race?race=sleeping"
-          blurb={`The drafted player who out-produced his draft slot by the most (draft pick minus his finish by VOR among everyone drafted; keepers excluded). Past winners: ${PAST_WINNERS.sleeping.join(", ")}.`}
+          blurb="The drafted player who out-produced his draft slot by the most (draft pick minus his finish by VOR among everyone drafted; keepers excluded)." winners={PAST_WINNERS.sleeping}
           rows={sleepers.map((p) => ({
             key: String(p.id), name: p.name, sub: `${p.position} · ${name(p.teamId)} · drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin} spots`,
             gap: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`, rank: p.rank, playerId: p.id,
@@ -455,7 +536,7 @@ export default async function SeasonAwardsView() {
             key={t.key}
             title={t.title}
             dl={`/api/cards/award-race?race=${t.key}`}
-            blurb={`${t.blurb}${PAST_WINNERS[t.key] ? ` Past winners: ${PAST_WINNERS[t.key].join(", ")}.` : ""}`}
+            blurb={t.blurb} winners={PAST_WINNERS[t.key]}
             rows={t.entries.map((e) => { const age = ageOf(e.name, e.position, meta.season); return { key: String(e.id), name: e.name, sub: `${e.position}${age ? ` · age ~${age}` : ""} · ${e.detail}`, value: e.value, gap: "", rank: e.rank, playerId: e.id }; })}
             note="Nothing qualifies yet. Early in the season few players have enough games."
           />
