@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
           teamRow(r.teamId, i + 1, {
             sub: `${r.actW}-${r.actL}${r.actT ? `-${r.actT}` : ""} actual, ${r.expected.toFixed(1)} expected`,
             value: `${r.gap >= 0 ? "+" : "-"}${r.expected > 0 ? Math.abs((r.gap / r.expected) * 100).toFixed(0) : "0"}%`,
-            gap: i === 0 ? "most unlucky" : `${(r.gap - list[0].gap).toFixed(1)} wins back`,
+            gap: i === 0 ? "leader" : `-${(r.gap - list[0].gap).toFixed(1)}`,
           })
         );
       }
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       tagline = "Biggest draft-pick out-performer";
       empty = "Needs the draft saved and at least one finished week.";
       const sleepers = await getSleepingBeauty(meta.season);
-      rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin}`, gap: "spots up" }));
+      rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin}`, gap: "" }));
     } else if (race === "monster") {
       title = "Fantasy Monster";
       tagline = "Most Monster Nights this season";
@@ -197,7 +197,12 @@ export async function GET(req: NextRequest) {
 
     const playerIds = rows.flatMap((r) => (r.playerId != null ? [r.playerId] : []));
     const [logos, headshots] = await Promise.all([rows.some((r) => r.teamId != null) ? loadLogoData(false) : Promise.resolve({}), playerIds.length ? checkHeadshots(playerIds) : Promise.resolve(new Set<number>())]);
+    const VALUE_LABEL: Record<string, string> = {
+      presidents: "RECORD", points: "PTS", hardluck: "XWINS", jennings: "PTS", sleeping: "SPOTS UP", monster: "NIGHTS", night: "PTS", week: "VOR", month: "VOR",
+      mgrnight: "PTS", mgrweek: "PTS", mgrmonth: "PTS", pickup: "VOR", breakout: "PTS/GM", bounce: "PTS/GM", improved: "PTS/GM", calder: "PTS",
+    };
     return await renderPortraitRace({
+      valueLabel: VALUE_LABEL[race],
       title,
       subtitle: lastWeek > 0 ? `${tagline} - through week ${lastWeek}` : tagline,
       footer: seasonFooter(meta.name, meta.season),

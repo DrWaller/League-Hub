@@ -3,7 +3,8 @@ import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
 import { regularSeasonFinals } from "@/lib/luck";
 import { syncSeasonLineups, getStoredLineups, summarizeSeason } from "@/lib/lineup-store";
 import { loadLogoData } from "@/lib/og-team-logo";
-import { renderPortraitLineupEfficiency, seasonFooter } from "@/lib/portrait-graphics";
+import { seasonFooter } from "@/lib/portrait-graphics";
+import { renderPortraitRace } from "@/lib/race-image";
 import { captionResponse } from "@/lib/captions";
 
 export const runtime = "nodejs";
@@ -32,13 +33,24 @@ export async function GET(req: NextRequest) {
       return captionResponse(["LINEUP EFFICIENCY RACE", `Season lineup efficiency through week ${through}`, "", ...lines, "", "#FantasyHockey"].join("\n"));
     }
     const logos = await loadLogoData(false);
-    return await renderPortraitLineupEfficiency({
-      week: through,
-      title: "Efficiency Race",
+    // Same navy scoreboard as the other award races: top 5 by season efficiency.
+    const top = out.slice(0, 5);
+    const pctOf = (r: (typeof out)[number]) => (r.max > 0 ? (r.actual / r.max) * 100 : 0);
+    return await renderPortraitRace({
+      title: "Most Efficient Lineups",
       subtitle: complete ? `Season lineup efficiency - through week ${through}` : `Through week ${through} - ${sync.waiting + sync.failed.length} week(s) still loading, refresh`,
-      rows: out,
-      logos,
       footer: seasonFooter(meta.name, meta.season),
+      valueLabel: "EFFICIENCY",
+      logos,
+      rows: top.map((r, i) => ({
+        rank: i + 1,
+        name: r.name,
+        teamId: r.teamId,
+        teamName: r.name,
+        sub: `${r.actual.toFixed(2)} of ${r.max.toFixed(2)}`,
+        value: `${pctOf(r).toFixed(1)}%`,
+        gap: i === 0 ? "leader" : `-${(pctOf(top[0]) - pctOf(r)).toFixed(1)}%`,
+      })),
     });
   } catch (err) {
     console.error("Season lineup graphic failed", err);
