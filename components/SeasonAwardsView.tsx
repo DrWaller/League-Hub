@@ -43,6 +43,9 @@ function Face({ r, size }: { r: Row; size: number }) {
 // Same navy "scoreboard" look as the downloadable graphics: gold leader row, ranked rows below, gap to the leader in red.
 const RANK_COLOR = ["text-[#F2C46D]", "text-[#C3CEDA]", "text-[#E3A57A]", "text-[#8FB4DA]", "text-[#8FB4DA]"];
 
+// "+36.07 VOR" -> ["+36.07", "VOR"]: the number is big, the unit sits small under it, which leaves the name room on a phone.
+const splitValue = (v: string): [string, string] => { const i = v.indexOf(" "); return i > 0 ? [v.slice(0, i), v.slice(i + 1)] : [v, ""]; };
+
 function Card({ title, blurb, rows, note, dl }: { title: string; blurb: string; rows: Row[]; note?: string; dl?: string }) {
   const [lead, ...rest] = rows;
   return (
@@ -63,36 +66,40 @@ function Card({ title, blurb, rows, note, dl }: { title: string; blurb: string; 
       ) : (
         <div className="p-2 space-y-2">
           <div className="rounded-lg border-2 border-[#F2C46D] bg-gradient-to-r from-[#7A5712] via-[#3B3216] to-[#14304F] px-3 py-3 flex items-center gap-3">
-            <span className="w-6 text-center font-display text-4xl leading-none text-[#F2C46D] shrink-0">1</span>
-            <div className="shrink-0"><Face r={lead} size={56} /></div>
+            <span className="w-5 text-center font-display text-4xl leading-none text-[#F2C46D] shrink-0">1</span>
+            <div className="shrink-0"><Face r={lead} size={52} /></div>
             <div className="min-w-0 flex-1">
-              <div className="font-display text-lg leading-tight break-words">{lead.name}</div>
+              <div className="font-display text-base sm:text-lg leading-tight">{lead.name}</div>
               {lead.when && <span className="inline-block mt-1 rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-semibold">{lead.when}</span>}
-              <div className="text-xs text-[#E6ECF3] break-words">{lead.sub}</div>
+              <div className="text-xs text-[#E6ECF3]">{lead.sub}</div>
             </div>
             <div className="text-right shrink-0">
-              <div className="font-display text-2xl leading-none text-[#F2C46D]">{lead.value}</div>
-              <div className="text-[11px] text-[#E6ECF3] mt-1">{lead.gap}</div>
+              <div className="font-display text-2xl leading-none text-[#F2C46D]">{splitValue(lead.value)[0]}</div>
+              <div className="text-[10px] uppercase tracking-widest text-[#E6ECF3] mt-1">{splitValue(lead.value)[1]}</div>
+              <div className="text-[11px] text-[#E6ECF3]">{lead.gap}</div>
             </div>
           </div>
           {rest.map((r, i) => (
             <div key={r.key} className="rounded-lg border border-[#2A4E75] bg-[#173454] px-3 py-2.5">
               <div className="flex items-center gap-3">
-                <span className={`w-6 text-center font-display text-2xl leading-none shrink-0 ${RANK_COLOR[i + 1] ?? RANK_COLOR[4]}`}>{r.rank}</span>
+                <div className="w-5 shrink-0 text-center">
+                  <div className={`font-display text-2xl leading-none ${RANK_COLOR[i + 1] ?? RANK_COLOR[4]}`}>{r.rank}</div>
+                  <div className="text-[10px] mt-0.5"><Move rank={r.rank} prev={r.prev} /></div>
+                </div>
                 <div className="shrink-0"><Face r={r} size={40} /></div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-display text-base leading-tight break-words">{r.name}</div>
+                  <div className="font-display text-base leading-tight">{r.name}</div>
                   {r.when && <span className="inline-block rounded-full bg-white/15 px-2 py-px text-[11px] font-semibold">{r.when}</span>}
-                  <div className="text-xs text-[#B8C7D6] break-words">{r.sub}</div>
+                  <div className="text-xs text-[#B8C7D6]">{r.sub}</div>
                 </div>
-                <span className="text-xs w-8 text-right shrink-0"><Move rank={r.rank} prev={r.prev} /></span>
                 <div className="text-right shrink-0">
-                  <div className="font-display text-xl leading-none">{r.value}</div>
-                  <div className="text-[12px] font-semibold text-[#FF8FA0] mt-1">{r.gap}</div>
+                  <div className="font-display text-xl leading-none">{splitValue(r.value)[0]}</div>
+                  <div className="text-[10px] uppercase tracking-widest text-[#9FB3C8] mt-1">{splitValue(r.value)[1]}</div>
+                  <div className="text-[12px] font-semibold text-[#FF8FA0]">{r.gap}</div>
                 </div>
               </div>
               {r.share !== undefined && (
-                <div className="mt-2 ml-9 h-1 rounded-full bg-white/10 overflow-hidden">
+                <div className="mt-2 ml-8 h-1 rounded-full bg-white/10 overflow-hidden">
                   <div className="h-full rounded-full bg-[#5B86B3]" style={{ width: `${Math.max(3, Math.min(100, r.share * 100))}%` }} />
                 </div>
               )}
