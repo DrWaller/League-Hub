@@ -1,9 +1,11 @@
 // Server-side only. Every past season's award winners in one place. Player awards come from the winners recorded in
 // lib/season-awards.ts, overridden by anything saved on the admin "Past Winners" page; manager awards (champion,
-// Presidents' Trophy, Most Points, Hard Luck) are worked out from each season's results unless a winner was saved.
+// Presidents' Trophy, Most Points, Hard Luck) are worked out from each season's results unless a winner was saved. The
+// number-driven player awards (Hart, Art Ross, Norris, Vezina, Forward) fall back to the automatic winner from the stats.
 
 import { sql } from "./db";
 import { PAST_WINNERS } from "./season-awards";
+import { loadAutoWinners } from "./auto-winners";
 import { getSeasonBundle } from "./season-data";
 import { getSeasonHistory, getManagers } from "./content";
 import { getHistorySeasons } from "./seasons";
@@ -107,16 +109,17 @@ async function computeManagerAwards(season: number, managerName: (id: number | n
 }
 
 export async function loadHallOfFame(currentSeason: number): Promise<SeasonWinners[]> {
-  const [available, curated, managers, saved] = await Promise.all([
+  const [available, curated, managers, saved, auto] = await Promise.all([
     getHistorySeasons(currentSeason),
     getSeasonHistory(),
     getManagers(),
     loadSavedWinners(),
+    loadAutoWinners().catch(() => new Map<string, { name: string; detail: string }>()),
   ]);
   const defaults = recorded();
   const managerName = (id: number | null) => (id == null ? null : managers.find((m) => m.id === id)?.name ?? null);
   const seasons = new Set<number>(available.filter((s) => s < currentSeason));
-  for (const k of [...defaults.keys(), ...saved.keys()]) {
+  for (const k of [...defaults.keys(), ...saved.keys(), ...auto.keys()]) {
     const s = Number(k.split("|")[0]);
     if (s < currentSeason) seasons.add(s);
   }
@@ -128,7 +131,11 @@ export async function loadHallOfFame(currentSeason: number): Promise<SeasonWinne
       for (const def of AWARD_DEFS) {
         const k = `${season}|${def.key}`;
         const value = saved.has(k) ? saved.get(k)! : defaults.get(k);
-        if (value === undefined) continue;
+        if (value === undefined) {
+          const a = auto.get(k);
+          if (a && !winners[def.key]) winners[def.key] = { name: a.name, note: a.detail, computed: true };
+          continue;
+        }
         if (value === "") delete winners[def.key]; // saved blank: hide
         else winners[def.key] = { name: value };
       }
@@ -162,6 +169,15 @@ export async function getWinnersForSeason(season: number): Promise<Record<string
     const k = `${season}|${def.key}`;
     const v = saved.has(k) ? saved.get(k)! : defaults.get(k);
     if (v) out[def.key] = v;
+  }
+  return out;
+}
+
+// Every season's winners as "2026: Name" lists per award, newest first (what the Season Awards cards show).
+export function winnersByAward(seasons: SeasonWinners[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const s of [...seasons].sort((a, b) => b.season - a.season)) {
+    for (const [award, w] of Object.entries(s.winners)) (out[award] ??= []).push(`${s.season}: ${w.name}`);
   }
   return out;
 }

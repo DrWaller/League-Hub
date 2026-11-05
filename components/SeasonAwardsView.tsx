@@ -4,7 +4,8 @@ import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncSeasonVor } from "@/lib/vor-store";
 import { syncLiveVor } from "@/lib/vor-live";
 import { syncSeasonLineups, getStoredLineups, summarizeSeason } from "@/lib/lineup-store";
-import { getPlayerRaces, buildTandems, getSleepingBeauty, PAST_WINNERS } from "@/lib/season-awards";
+import { getPlayerRaces, buildTandems, getSleepingBeauty, PAST_WINNERS as RECORDED_WINNERS } from "@/lib/season-awards";
+import { loadHallOfFame, winnersByAward } from "@/lib/hall-of-fame";
 import { getAllStored } from "@/lib/vor-store";
 import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
 import { fetchLineupSlots } from "@/lib/vor";
@@ -230,6 +231,14 @@ export default async function SeasonAwardsView() {
     notes.push(`Free-agent adds: ${e instanceof Error ? e.message : String(e)}`);
   }
 
+  // Past winners: recorded or saved by hand first, then the automatic ones (worked out from each season's stats and results).
+  let PAST_WINNERS: Record<string, string[]> = RECORDED_WINNERS;
+  try {
+    PAST_WINNERS = { ...RECORDED_WINNERS, ...winnersByAward(await loadHallOfFame(meta.season)) };
+  } catch {
+    /* keep the recorded list */
+  }
+
   let races: Awaited<ReturnType<typeof getPlayerRaces>> = [];
   try {
     races = await getPlayerRaces(meta.season);
@@ -352,6 +361,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Presidents' Trophy"
+          winners={PAST_WINNERS.presidents}
           dl="/api/cards/award-race?race=presidents"
           blurb="Best regular-season record (wins minus losses, then points for)."
           rows={top5(byRecord).map((t, i) => ({
@@ -361,6 +371,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Most Points Scored"
+          winners={PAST_WINNERS.points}
           dl="/api/cards/award-race?race=points"
           blurb="Total regular-season points for."
           rows={top5(byPoints).map((t, i) => ({
@@ -370,6 +381,7 @@ export default async function SeasonAwardsView() {
         />
         <Card
           title="Hard Luck Manager"
+          winners={PAST_WINNERS.hardluck}
           dl="/api/cards/award-race?race=hardluck"
           blurb={`Actual wins vs. expected wins (every team against every other team, every week). The gap is shown as a share of expected wins (like -16% xWINS). The biggest shortfall wins.`}
           rows={top5(hardLuck).map((r, i) => ({
