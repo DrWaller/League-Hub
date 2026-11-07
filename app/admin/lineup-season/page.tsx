@@ -2,6 +2,7 @@ import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
 import { regularSeasonFinals } from "@/lib/luck";
 import { syncSeasonLineups, getStoredLineups, summarizeSeason } from "@/lib/lineup-store";
 import { pts } from "@/lib/format";
+import { summarizeOptimalRecords } from "@/lib/optimal-play";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,8 @@ export default async function LineupSeasonPage() {
   }
   const { teams: table, weeks } = summarizeSeason(rows);
   const pending = sync ? sync.waiting + sync.failed.length : 0;
+  const optimal = summarizeOptimalRecords(regularSeasonFinals(matchups), rows);
+  const rec = (r: { w: number; l: number; t: number }) => `${r.w}-${r.l}${r.t ? `-${r.t}` : ""}`;
   const th = "py-2 pr-4 font-normal text-right whitespace-nowrap";
   const td = "py-2 pr-4 text-right whitespace-nowrap";
 
@@ -80,6 +83,39 @@ export default async function LineupSeasonPage() {
                     <td className={td}>{t.missDays}</td>
                     <td className={td}>{t.best ? `${pct(t.best.pct)} (wk ${t.best.week})` : "-"}</td>
                     <td className={td}>{t.worst ? `${pct(t.worst.pct)} (wk ${t.worst.week})` : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h2 className="font-display text-xl mb-1">Wins left on the bench</h2>
+          <p className="text-muted text-sm mb-3 max-w-prose">
+            Each finished matchup replayed as if both managers had set a perfect lineup every night. &ldquo;Wins lost&rdquo; are real
+            wins that would not be wins under perfect play; &ldquo;Losses saved&rdquo; are real losses or ties that would be wins.
+            Sorted by perfect-play record. {optimal.games} matchup{optimal.games === 1 ? "" : "s"} counted.
+          </p>
+          <div className="overflow-x-auto mb-8">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-ice-line text-muted">
+                  <th className="py-2 pr-4 font-normal text-left">Team</th>
+                  <th className={th}>Real record</th>
+                  <th className={th}>Perfect-play record</th>
+                  <th className={th}>Wins lost</th>
+                  <th className={th}>Losses saved</th>
+                  <th className={th}>Results flipped</th>
+                </tr>
+              </thead>
+              <tbody>
+                {optimal.teams.map((t) => (
+                  <tr key={t.teamId} className="border-b border-ice-line">
+                    <td className="py-2 pr-4 whitespace-nowrap">{name(t.teamId)}</td>
+                    <td className={td}>{rec(t.actual)}</td>
+                    <td className={`${td} font-bold`}>{rec(t.optimal)}</td>
+                    <td className={td}>{t.winsLost}</td>
+                    <td className={td}>{t.lossesSaved}</td>
+                    <td className={td}>{t.flipped}</td>
                   </tr>
                 ))}
               </tbody>
