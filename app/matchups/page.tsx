@@ -61,8 +61,8 @@ export default async function MatchupsPage({
 
   // Best-possible-lineup totals, only for current-season weeks that have finished games.
   const optimalByTeam =
-    isCurrentSeason && matchups.some((m) => m.isFinal)
-      ? await getOptimalForWeek(season, week).catch(() => new Map<number, number>())
+    isCurrentSeason && week <= meta.currentWeek && matchups.length > 0
+      ? await getOptimalForWeek(season, week, matchups.every((m) => m.isFinal)).catch(() => new Map<number, number>())
       : new Map<number, number>();
 
   const contentFor = (homeId: number, awayId: number) =>
@@ -167,17 +167,17 @@ export default async function MatchupsPage({
                 />
               )}
               {(() => {
-                const opt = m.isFinal ? optimalMatchup(m, optimalByTeam) : null;
+                const opt = optimalMatchup(m, optimalByTeam);
                 if (!opt) return null;
                 const homeName = home?.name ?? String(m.homeTeamId);
                 const awayName = away?.name ?? String(m.awayTeamId);
                 const verdict =
-                  opt.optimal === "tie" ? "Dead even" : `${opt.optimal === "home" ? homeName : awayName} wins`;
+                  opt.optimal === "tie" ? "Dead even" : `${opt.optimal === "home" ? homeName : awayName} ${m.isFinal ? "wins" : "leads"}`;
                 return (
                   <div className="mt-3 border-t border-ice-line pt-3 text-xs font-tabular">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted uppercase tracking-wide">Both play perfect lineups</span>
-                      {opt.flipped && <span className="px-1.5 py-0.5 bg-rink text-ice font-semibold">FLIPPED</span>}
+                      <span className="text-muted uppercase tracking-wide">Both play perfect lineups{!m.isFinal && " (so far)"}</span>
+                      {opt.flipped && <span className="px-1.5 py-0.5 bg-rink text-ice font-semibold">{m.isFinal ? "FLIPPED" : "WOULD FLIP"}</span>}
                     </div>
                     <div className="flex items-center justify-between mt-1">
                       <span className={opt.optimal === "home" ? "font-semibold" : "text-muted"}>{homeName}</span>
@@ -187,7 +187,7 @@ export default async function MatchupsPage({
                       <span className={opt.optimal === "away" ? "font-semibold" : "text-muted"}>{awayName}</span>
                       <span className={opt.optimal === "away" ? "font-semibold" : "text-muted"}>{pts(opt.awayMax)}</span>
                     </div>
-                    <div className="text-muted mt-1">{opt.flipped ? `${verdict} instead of the real result` : `${verdict}, same as the real result`}</div>
+                    <div className="text-muted mt-1">{opt.flipped ? `${verdict} instead of the ${m.isFinal ? "real result" : "current score"}` : `${verdict}, same as the ${m.isFinal ? "real result" : "current score"}`}</div>
                   </div>
                 );
               })()}

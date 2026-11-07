@@ -3,6 +3,7 @@
 // compares the outcome with what really happened.
 
 import { syncSeasonLineups, getStoredLineups, type StoredLineupWeek } from "@/lib/lineup-store";
+import { getWeekLineups } from "@/lib/lineup-efficiency";
 import type { Matchup } from "@/lib/types";
 
 export type Outcome = "home" | "away" | "tie";
@@ -25,7 +26,12 @@ export interface OptimalMatchup {
 }
 
 // Best-lineup totals for one week, loading (and saving) the week from ESPN the first time it is needed.
-export async function getOptimalForWeek(season: number, week: number): Promise<Map<number, number>> {
+// A week still in progress is computed live (never saved: it isn't final yet), so it is "best lineup so far".
+export async function getOptimalForWeek(season: number, week: number, isFinal = true): Promise<Map<number, number>> {
+  if (!isFinal) {
+    const lw = await getWeekLineups(week, season, season).catch(() => null);
+    return new Map((lw?.teams ?? []).map((t) => [t.teamId, t.max]));
+  }
   let rows = (await getStoredLineups(season)).filter((r) => r.week === week);
   if (rows.length === 0) {
     await syncSeasonLineups(season, [week], 1).catch(() => null);
