@@ -9,6 +9,7 @@ import { pts, ptsComma } from "@/lib/format";
 import { getWeekGamesPlayed, type WeekGamesPlayed } from "@/lib/games-played";
 import { projectMatchup } from "@/lib/win-probability";
 import MatchupProjection from "@/components/MatchupProjection";
+import { getOptimalForWeek, optimalMatchup } from "@/lib/optimal-play";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,12 @@ export default async function MatchupsPage({
     live = bundle !== null;
     teamById = (id) => bundle?.teams.find((t) => t.id === id);
   }
+
+  // Best-possible-lineup totals, only for current-season weeks that have finished games.
+  const optimalByTeam =
+    isCurrentSeason && matchups.some((m) => m.isFinal)
+      ? await getOptimalForWeek(season, week).catch(() => new Map<number, number>())
+      : new Map<number, number>();
 
   const contentFor = (homeId: number, awayId: number) =>
     content.find((c) => c.homeTeamId === homeId && c.awayTeamId === awayId);
@@ -159,6 +166,31 @@ export default async function MatchupsPage({
                   }}
                 />
               )}
+              {(() => {
+                const opt = m.isFinal ? optimalMatchup(m, optimalByTeam) : null;
+                if (!opt) return null;
+                const homeName = home?.name ?? String(m.homeTeamId);
+                const awayName = away?.name ?? String(m.awayTeamId);
+                const verdict =
+                  opt.optimal === "tie" ? "Dead even" : `${opt.optimal === "home" ? homeName : awayName} wins`;
+                return (
+                  <div className="mt-3 border-t border-ice-line pt-3 text-xs font-tabular">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted uppercase tracking-wide">Both play perfect lineups</span>
+                      {opt.flipped && <span className="px-1.5 py-0.5 bg-rink text-ice font-semibold">FLIPPED</span>}
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className={opt.optimal === "home" ? "font-semibold" : "text-muted"}>{homeName}</span>
+                      <span className={opt.optimal === "home" ? "font-semibold" : "text-muted"}>{pts(opt.homeMax)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={opt.optimal === "away" ? "font-semibold" : "text-muted"}>{awayName}</span>
+                      <span className={opt.optimal === "away" ? "font-semibold" : "text-muted"}>{pts(opt.awayMax)}</span>
+                    </div>
+                    <div className="text-muted mt-1">{opt.flipped ? `${verdict} instead of the real result` : `${verdict}, same as the real result`}</div>
+                  </div>
+                );
+              })()}
               <p className="text-xs text-muted mt-3">
                 {m.isExcluded ? "Final · doesn't count toward records" : m.isPlayoff ? "Final · playoff game" : m.isFinal ? "Final" : "In progress"}
               </p>
