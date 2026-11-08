@@ -311,7 +311,14 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
       const past = prev.map((m) => m.get(l.id)?.gp ?? 0);
       return past.every((gp) => gp <= 25) && past.filter((gp) => gp >= 6).length < 2;
     })
-    .map((l) => ({ l, score: l.points + l.ppg * 0.001, value: `${f2(l.points)} pts`, detail: `${l.gp} GP, ${f2(l.ppg)} pts/gm` }));
+    .map((l) => {
+      let note = "";
+      if (allRookies && !rosterable(l)) {
+        const cut = l.position !== "G" && curTiers ? curTiers[fd(l.position)].depth : bar ? bar[l.position] ?? 0 : 0;
+        note = ` · below the rosterable line (${f2(cut)}), so not in the Calder`;
+      }
+      return { l, score: l.points + l.ppg * 0.001, value: `${f2(l.points)} pts`, detail: `${l.gp} GP, ${f2(l.ppg)} pts/gm${note}` };
+    });
 
   // Where a named player stands for the Breakout, step by step, so a recorded winner the rules miss can be understood.
   let why: string | undefined;
