@@ -9,6 +9,7 @@ import { getPlayedElsewhereSeasons } from "@/lib/content";
 import { fetchLineupSlots } from "@/lib/vor";
 import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncPoolSeasons, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
+import { loadNhlRookies } from "@/lib/nhl-rookies";
 import { seasonLeaders, sleepingBeautyEstimate, type PastEntry, type DraftPickLite } from "@/lib/past-awards";
 import { sql } from "@/lib/db";
 import { loadAgeLookup } from "@/lib/trend-ages";
@@ -113,7 +114,11 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
   const leaders = haveSeason.has(season) ? seasonLeaders(rows, season, counts, teams?.length ?? meta.size) : null;
   const ageOf = await loadAgeLookup(meta.season);
   const trendsReady = haveSeason.has(season) && priorSeasons.length > 0 && missingPriors.length === 0;
-  const trends = trendsReady ? buildTrendAwards(rows, season, 5, { counts, teamCount: teams?.length ?? meta.size }, recordedFor("breakout")) : [];
+  // Rookies come from the NHL's own list for that season, so the Calder needs no earlier seasons on record (2020 works too).
+  const rookies = haveSeason.has(season) ? await loadNhlRookies(season, meta.season).catch(() => null) : null;
+  const league = { counts, teamCount: teams?.length ?? meta.size };
+  const trends = trendsReady ? buildTrendAwards(rows, season, 5, league, recordedFor("breakout"), rookies) : [];
+  const calderAlone = !trendsReady && rookies ? buildTrendAwards(rows, season, 5, league, undefined, rookies).find((a) => a.key === "calder") : undefined;
   const noStats = haveSeason.has(season) ? "" : `Player stats for ${season} are not loaded yet.`;
 
   // Hard Luck: actual wins against the wins the all-play record says the team earned, as a share of expected wins.
@@ -195,7 +200,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
       )}
       {trendsReady && priorSeasons.length < 3 && (
         <p className="text-sm text-muted mb-3">
-          Only {priorSeasons.length === 1 ? `${priorSeasons[0]} is` : `${priorSeasons.join(" and ")} are`} on record before {season}, so the year-over-year awards use just that history{priorSeasons.length < 2 ? " (Bounce Back needs two earlier seasons, so it cannot be computed)" : ""}. Calder is approximate: a player who debuted before the first season on record could look like a rookie.
+          Only {priorSeasons.length === 1 ? `${priorSeasons[0]} is` : `${priorSeasons.join(" and ")} are`} on record before {season}, so the year-over-year awards use just that history{priorSeasons.length < 2 ? " (Bounce Back needs two earlier seasons, so it cannot be computed)" : ""}. The Calder uses the NHL's own rookie list, so it isn't affected.
         </p>
       )}
 
@@ -214,7 +219,9 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
           note={noStats || sleeperNote || "No drafted player out-produced his slot."}
         />
         {!trendsReady &&
-          ([["breakout", "Breakout Player"], ["bounce", "Bounce Back Player"], ["improved", "Most Improved Player"], ["calder", "Calder Trophy"]] as const).map(([key, title]) => (
+          ([["breakout", "Breakout Player"], ["bounce", "Bounce Back Player"], ["improved", "Most Improved Player"], ["calder", "Calder Trophy"]] as const)
+            .filter(([key]) => !(key === "calder" && calderAlone))
+            .map(([key, title]) => (
             <Card
               key={title}
               title={title}
@@ -224,7 +231,7 @@ export default async function PastAwardsPage({ searchParams }: { searchParams: {
               note={noStats || (priorSeasons.length === 0 ? `${season} is the first season on record, so there is nothing earlier to compare with.` : `Waiting on earlier seasons (${missingPriors.join(", ")}). Refresh to load them.`)}
             />
           ))}
-        {trends.map((t) => (
+        {[...trends, ...(calderAlone ? [calderAlone] : [])].map((t) => (
           <Card
             key={t.key}
             title={t.title}

@@ -5,6 +5,7 @@
 import { sql } from "./db";
 import { getPlayerPool } from "./espn";
 import { getImportedSeason } from "./imported-seasons";
+import { rookieKey } from "./nhl-rookies";
 import { skaterTierCutoffs, rosterableBar, tierNameOf, type TierCuts } from "./past-awards";
 import type { Group } from "./radar";
 
@@ -178,7 +179,7 @@ export interface LeagueShape {
   teamCount: number;
 }
 
-export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, league: LeagueShape | null = null, probeName?: string): TrendAward[] {
+export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, league: LeagueShape | null = null, probeName?: string, rookieKeys: Set<string> | null = null): TrendAward[] {
   // The league's tiers, rebuilt for each season from its own totals. Without them (slots unknown) the older top-N
   // rules are used.
   const tierCache = new Map<number, Record<"F" | "D", TierCuts> | null>();
@@ -307,8 +308,11 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
   // fantasy points so far, the same measure as the Art Ross.
   // No rosterable cutoff: total points already count volume (a goalie with a few starts piles up few points), so a
   // per-game bar isn't needed and it unfairly shut out rookie skaters who play every night.
+  // When the NHL's own rookie list is available (rookieKeys), it decides who is a rookie: it already applies the age and
+  // games-played rules with the player's whole career, which the saved seasons here can't.
   const calder = [...cur.values()]
     .filter((l) => {
+      if (rookieKeys) return rookieKeys.has(rookieKey(l.name, l.position));
       const past = prev.map((m) => m.get(l.id)?.gp ?? 0);
       return past.every((gp) => gp <= 25) && past.filter((gp) => gp >= 6).length < 2;
     })
@@ -356,6 +360,6 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
     { key: "breakout", title: "Breakout Player", blurb: `Finalists for the biggest jump into the Good tier or better (by points per game, with separate forward and defence cutoffs; coming within 0.05 of Good counts) for the first time: not Good in any of the last three seasons. A breakout should be a player who stays elite, so age and the earlier seasons are shown. Skaters only: goalies are recognised by the Vezina and Jennings. Players with no earlier season are left to the Calder. Rosterable players only (Depth tier or better).`, entries: entries(breakout), why },
     { key: "bounce", title: "Bounce Back Player", blurb: `Last year's points per game fell ${DOWN_SEASON_DROP * 100}% or more, and he is back to ${BOUNCE_RECOVERY * 100}% of the earlier level. Ranked by the rebound. Rosterable players only.`, entries: entries(bounce) },
     { key: "improved", title: "Most Improved Player", blurb: "Biggest gain on last season, combining the change in points per game and the change in total points. Rosterable players only (Depth tier or better).", entries: entries(improved) },
-    { key: "calder", title: "Calder Trophy", blurb: "Best rookie by total fantasy points, owned or not, using the NHL rookie rules (no more than 25 games in any past season, and not 6+ games in each of two past seasons). Goalies and skaters compete together; total points count volume, so a goalie with only a few starts can't win.", entries: entries(calder) },
+    { key: "calder", title: "Calder Trophy", blurb: "Best rookie by total fantasy points, owned or not. Who counts as a rookie comes from the NHL's own rookie list (under 26, and little NHL time before). Goalies and skaters compete together; total points count volume, so a goalie with only a few starts can't win.", entries: entries(calder) },
   ];
 }

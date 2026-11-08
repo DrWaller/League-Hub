@@ -4,6 +4,7 @@ import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { getAllStored } from "@/lib/vor-store";
 import { buildTandems, getSleepingBeauty } from "@/lib/season-awards";
 import { loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
+import { loadNhlRookies } from "@/lib/nhl-rookies";
 import { fetchLineupSlots } from "@/lib/vor";
 import { loadAgeLookup } from "@/lib/trend-ages";
 import { addedLabel } from "@/lib/roster-moves";
@@ -179,7 +180,8 @@ export async function GET(req: NextRequest) {
       empty = "Nothing qualifies yet. Early in the season few players have enough games.";
       const poolRows = await loadPoolStats(meta.season);
       const slots = await fetchLineupSlots(meta.season).catch(() => null);
-      const award = buildTrendAwards(poolRows, meta.season, 5, { counts: slots, teamCount: teams.length }).find((a) => a.key === race);
+      const rookies = race === "calder" ? await loadNhlRookies(meta.season, meta.season).catch(() => null) : null;
+      const award = buildTrendAwards(poolRows, meta.season, 5, { counts: slots, teamCount: teams.length }, undefined, rookies).find((a) => a.key === race);
       const ageOf = await loadAgeLookup(meta.season);
       title = award?.title ?? race;
       tagline = { breakout: "Biggest jump into the Good tier or better", bounce: "Biggest rebound after a down year", improved: "Biggest gain on last season", calder: "Best rookie" }[race] ?? "";

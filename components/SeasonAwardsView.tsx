@@ -8,6 +8,7 @@ import { getPlayerRaces, buildTandems, getSleepingBeauty, PAST_WINNERS as RECORD
 import { loadHallOfFame, winnersByAward } from "@/lib/hall-of-fame";
 import { getAllStored } from "@/lib/vor-store";
 import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
+import { loadNhlRookies } from "@/lib/nhl-rookies";
 import { fetchLineupSlots } from "@/lib/vor";
 import { pts } from "@/lib/format";
 import { loadAgeLookup } from "@/lib/trend-ages";
@@ -296,7 +297,8 @@ export default async function SeasonAwardsView() {
   try {
     const poolRows = await loadPoolStats(meta.season);
     const slots = await fetchLineupSlots(meta.season).catch(() => null);
-    trends = buildTrendAwards(poolRows, meta.season, 5, { counts: slots, teamCount: teams.length });
+    const rookies = await loadNhlRookies(meta.season, meta.season).catch(() => null);
+    trends = buildTrendAwards(poolRows, meta.season, 5, { counts: slots, teamCount: teams.length }, undefined, rookies);
   } catch {
     /* empty */
   }

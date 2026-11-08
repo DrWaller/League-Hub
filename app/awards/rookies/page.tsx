@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStandings, getLeagueMeta } from "@/lib/espn";
 import { loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
 import { fetchLineupSlots } from "@/lib/vor";
+import { loadNhlRookies } from "@/lib/nhl-rookies";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -15,7 +16,8 @@ export default async function RookiesPage() {
   try {
     const rows = await loadPoolStats(meta.season);
     const slots = await fetchLineupSlots(meta.season).catch(() => null);
-    entries = buildTrendAwards(rows, meta.season, 300, { counts: slots, teamCount: teams.length }).find((a) => a.key === "calder")?.entries ?? [];
+    const rookies = await loadNhlRookies(meta.season, meta.season).catch(() => null);
+    entries = buildTrendAwards(rows, meta.season, 300, { counts: slots, teamCount: teams.length }, undefined, rookies).find((a) => a.key === "calder")?.entries ?? [];
   } catch {
     /* shown as empty */
   }
@@ -58,7 +60,7 @@ export default async function RookiesPage() {
     <div>
       <p className="text-sm mb-2"><Link href="/awards/races" className="text-rink underline">← Award Races</Link></p>
       <h1 className="font-display text-3xl mb-1">Rookie board</h1>
-      <p className="text-muted mb-5 max-w-prose">Every rookie this season under the NHL rookie rules, skaters and goalies shown separately. The Calder ranks them together by total fantasy points (the "Overall rank" column).</p>
+      <p className="text-muted mb-5 max-w-prose">Every rookie this season on the NHL's own rookie list, skaters and goalies shown separately. The Calder ranks them together by total fantasy points (the "Overall rank" column).</p>
       {table("Rookie skaters", skaters, 40)}
       {table("Rookie goalies", goalies, 20)}
     </div>
