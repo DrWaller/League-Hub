@@ -178,7 +178,7 @@ export interface LeagueShape {
   teamCount: number;
 }
 
-export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, league: LeagueShape | null = null, probeName?: string): TrendAward[] {
+export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, league: LeagueShape | null = null, probeName?: string, allRookies = false): TrendAward[] {
   // The league's tiers, rebuilt for each season from its own totals. Without them (slots unknown) the older top-N
   // rules are used.
   const tierCache = new Map<number, Record<"F" | "D", TierCuts> | null>();
@@ -306,7 +306,7 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
   // (The age limit, under 26 by Sept 15, is not checked: ESPN does not give birth dates here.) Best rookie by
   // fantasy points so far, the same measure as the Art Ross.
   const calder = [...cur.values()]
-    .filter(rosterable)
+    .filter((l) => allRookies || rosterable(l)) // allRookies: the Rookie board shows the whole field, not just rosterable players
     .filter((l) => {
       const past = prev.map((m) => m.get(l.id)?.gp ?? 0);
       return past.every((gp) => gp <= 25) && past.filter((gp) => gp >= 6).length < 2;
