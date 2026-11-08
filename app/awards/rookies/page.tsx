@@ -15,7 +15,7 @@ export default async function RookiesPage() {
   try {
     const rows = await loadPoolStats(meta.season);
     const slots = await fetchLineupSlots(meta.season).catch(() => null);
-    entries = buildTrendAwards(rows, meta.season, 300, { counts: slots, teamCount: teams.length }, undefined, true).find((a) => a.key === "calder")?.entries ?? [];
+    entries = buildTrendAwards(rows, meta.season, 300, { counts: slots, teamCount: teams.length }).find((a) => a.key === "calder")?.entries ?? [];
   } catch {
     /* shown as empty */
   }
@@ -58,7 +58,7 @@ export default async function RookiesPage() {
     <div>
       <p className="text-sm mb-2"><Link href="/awards/races" className="text-rink underline">← Award Races</Link></p>
       <h1 className="font-display text-3xl mb-1">Rookie board</h1>
-      <p className="text-muted mb-5 max-w-prose">Every rookie this season under the NHL rookie rules, skaters and goalies shown separately, with no quality cutoff. The Calder itself ranks them together by fantasy points and only considers rosterable players.</p>
+      <p className="text-muted mb-5 max-w-prose">Every rookie this season under the NHL rookie rules, skaters and goalies shown separately. The Calder ranks them together by total fantasy points (the "Overall rank" column).</p>
       {table("Rookie skaters", skaters, 40)}
       {table("Rookie goalies", goalies, 20)}
     </div>

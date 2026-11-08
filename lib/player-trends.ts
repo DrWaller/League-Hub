@@ -178,7 +178,7 @@ export interface LeagueShape {
   teamCount: number;
 }
 
-export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, league: LeagueShape | null = null, probeName?: string, allRookies = false): TrendAward[] {
+export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5, league: LeagueShape | null = null, probeName?: string): TrendAward[] {
   // The league's tiers, rebuilt for each season from its own totals. Without them (slots unknown) the older top-N
   // rules are used.
   const tierCache = new Map<number, Record<"F" | "D", TierCuts> | null>();
@@ -305,20 +305,14 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
   // never played more than 25 games in a past season and did not play 6 or more games in each of two past seasons.
   // (The age limit, under 26 by Sept 15, is not checked: ESPN does not give birth dates here.) Best rookie by
   // fantasy points so far, the same measure as the Art Ross.
+  // No rosterable cutoff: total points already count volume (a goalie with a few starts piles up few points), so a
+  // per-game bar isn't needed and it unfairly shut out rookie skaters who play every night.
   const calder = [...cur.values()]
-    .filter((l) => allRookies || rosterable(l)) // allRookies: the Rookie board shows the whole field, not just rosterable players
     .filter((l) => {
       const past = prev.map((m) => m.get(l.id)?.gp ?? 0);
       return past.every((gp) => gp <= 25) && past.filter((gp) => gp >= 6).length < 2;
     })
-    .map((l) => {
-      let note = "";
-      if (allRookies && !rosterable(l)) {
-        const cut = l.position !== "G" && curTiers ? curTiers[fd(l.position)].depth : bar ? bar[l.position] ?? 0 : 0;
-        note = ` · below the rosterable line (${f2(cut)}), so not in the Calder`;
-      }
-      return { l, score: l.points + l.ppg * 0.001, value: `${f2(l.points)} pts`, detail: `${l.gp} GP, ${f2(l.ppg)} pts/gm${note}` };
-    });
+    .map((l) => ({ l, score: l.points + l.ppg * 0.001, value: `${f2(l.points)} pts`, detail: `${l.gp} GP, ${f2(l.ppg)} pts/gm` }));
 
   // Where a named player stands for the Breakout, step by step, so a recorded winner the rules miss can be understood.
   let why: string | undefined;
@@ -362,6 +356,6 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
     { key: "breakout", title: "Breakout Player", blurb: `Finalists for the biggest jump into the Good tier or better (by points per game, with separate forward and defence cutoffs; coming within 0.05 of Good counts) for the first time: not Good in any of the last three seasons. A breakout should be a player who stays elite, so age and the earlier seasons are shown. Skaters only: goalies are recognised by the Vezina and Jennings. Players with no earlier season are left to the Calder. Rosterable players only (Depth tier or better).`, entries: entries(breakout), why },
     { key: "bounce", title: "Bounce Back Player", blurb: `Last year's points per game fell ${DOWN_SEASON_DROP * 100}% or more, and he is back to ${BOUNCE_RECOVERY * 100}% of the earlier level. Ranked by the rebound. Rosterable players only.`, entries: entries(bounce) },
     { key: "improved", title: "Most Improved Player", blurb: "Biggest gain on last season, combining the change in points per game and the change in total points. Rosterable players only (Depth tier or better).", entries: entries(improved) },
-    { key: "calder", title: "Calder Trophy", blurb: "Best rookie by fantasy points, owned or not, using the NHL rookie rules (no more than 25 games in any past season, and not 6+ games in each of two past seasons). Rosterable rookies only.", entries: entries(calder) },
+    { key: "calder", title: "Calder Trophy", blurb: "Best rookie by total fantasy points, owned or not, using the NHL rookie rules (no more than 25 games in any past season, and not 6+ games in each of two past seasons). Goalies and skaters compete together; total points count volume, so a goalie with only a few starts can't win.", entries: entries(calder) },
   ];
 }
