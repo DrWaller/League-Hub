@@ -36,7 +36,7 @@ export default async function PickupLogPage() {
       <p className="text-sm mb-2"><Link href="/awards/races" className="text-rink underline">← Award Races</Link></p>
       <h1 className="font-display text-3xl mb-1">Pickup Log</h1>
       <p className="text-muted mb-4 max-w-prose">
-        Every free-agent or waiver add this season, tracked day by day from the add until the team drops him. A game only counts if he was in the starting lineup (benched games are shown but don&apos;t count). VOR is his started points minus replacement level for each game started. Draft picks and trades are never tracked.
+        Every free-agent or waiver add this season, tracked day by day from the add until the team drops him. A game only counts if he was in the starting lineup (benched games are shown but don&apos;t count). Ranked by total points in the games he started, so an early add has had more time to pile them up; VOR (those points minus replacement level for each game started) is shown for reference. Draft picks and trades are never tracked.
       </p>
       <p className="text-xs text-muted mb-4">
         {counts.pickupAdds} free-agent or waiver adds found, {counts.daysChecked} days checked.
@@ -57,7 +57,7 @@ export default async function PickupLogPage() {
                 <th className="p-2">Added</th>
                 <th className="p-2 text-right">Start</th>
                 <th className="p-2 text-right">Bench</th>
-                <th className="p-2 text-right">Pts counted</th>
+                <th className="p-2 text-right">Pts counted (ranks)</th>
                 <th className="p-2 text-right">Pts on bench</th>
                 <th className="p-2 text-right">Avg/start</th>
                 <th className="p-2 text-right">VOR</th>
@@ -80,10 +80,10 @@ export default async function PickupLogPage() {
                   </td>
                   <td className="p-2 text-right">{p.started}</td>
                   <td className="p-2 text-right">{p.benched}</td>
-                  <td className="p-2 text-right">{pts(p.pointsCounted)}</td>
+                  <td className="p-2 text-right font-bold">{pts(p.pointsCounted)}</td>
                   <td className="p-2 text-right text-muted">{pts(p.pointsBench)}</td>
                   <td className="p-2 text-right">{p.started ? pts(p.avg) : "-"}</td>
-                  <td className="p-2 text-right font-bold">{p.vor >= 0 ? "+" : ""}{pts(p.vor)}</td>
+                  <td className="p-2 text-right text-muted">{p.vor >= 0 ? "+" : ""}{pts(p.vor)}</td>
                 </tr>
               ))}
             </tbody>

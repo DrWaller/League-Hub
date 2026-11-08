@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
       rows = list.map((p) => ({
         rank: p.rank, name: p.name, playerId: p.playerId,
         sub: `${p.position} - ${name(p.teamId)} - added ${addedLabel(p.addedAt)} - ${p.started} start${p.started === 1 ? "" : "s"}${p.benched ? `, ${p.benched} benched` : ""}${p.droppedAt ? ` - dropped ${addedLabel(p.droppedAt)}` : ""}`,
-        value: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)}`, gap: p.rank === 1 ? `VOR - ${pts(p.pointsCounted)} pts` : `-${pts(list[0].vor - p.vor)}`,
+        value: pts(p.pointsCounted), gap: p.rank === 1 ? "" : `-${pts(list[0].pointsCounted - p.pointsCounted)}`,
       }));
     } else {
       empty = "Nothing qualifies yet. Early in the season few players have enough games.";
@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
     const [logos, headshots] = await Promise.all([rows.some((r) => r.teamId != null) ? loadLogoData(false) : Promise.resolve({}), playerIds.length ? checkHeadshots(playerIds) : Promise.resolve(new Set<number>())]);
     const VALUE_LABEL: Record<string, string> = {
       presidents: "RECORD", points: "PTS", hardluck: "XWINS", jennings: "PTS", sleeping: "SPOTS UP", monster: "NIGHTS", night: "PTS", week: "VOR", month: "VOR",
-      mgrnight: "PTS", mgrweek: "PTS", mgrmonth: "PTS", pickup: "VOR", breakout: "PTS/GM", bounce: "PTS/GM", improved: "PTS/GM", calder: "PTS",
+      mgrnight: "PTS", mgrweek: "PTS", mgrmonth: "PTS", pickup: "PTS", breakout: "PTS/GM", bounce: "PTS/GM", improved: "PTS/GM", calder: "PTS",
     };
     return await renderPortraitRace({
       valueLabel: VALUE_LABEL[race],

@@ -413,15 +413,16 @@ export default async function SeasonAwardsView() {
         <Card
           title="Best Pickup"
           dl="/api/cards/award-race?race=pickup"
-          blurb="Best free-agent or waiver add of the season, tracked day by day from the add until the team drops him. Only games he started count (benched games don't), scored as VOR. Draft picks and trades never count."
+          blurb="Best free-agent or waiver add of the season, tracked day by day from the add until the team drops him. Only games he started count (benched games don't), and the score is his total points in those games, so an early add has had more time to pile them up. Draft picks and trades never count."
           rows={pickups.map((p) => ({
             key: `${p.teamId}-${p.playerId}`,
             name: p.name,
             sub: `${p.position} · ${name(p.teamId)} · added ${addedLabel(p.addedAt)} (${p.source.toLowerCase()}) · ${p.started} start${p.started === 1 ? "" : "s"}${p.benched ? `, ${p.benched} benched` : ""}${p.droppedAt ? ` · dropped ${addedLabel(p.droppedAt)}` : ""}`,
-            value: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`,
-            gap: p.rank === 1 ? `${pts(p.pointsCounted)} pts` : `-${pts(pickups[0].vor - p.vor)}`,
+            value: `${pts(p.pointsCounted)} pts`,
+            gap: p.rank === 1 ? "leader" : `-${pts(pickups[0].pointsCounted - p.pointsCounted)}`,
             rank: p.rank,
             playerId: p.playerId,
+            share: pickups[0].pointsCounted > 0 ? p.pointsCounted / pickups[0].pointsCounted : undefined,
           }))}
           note="No pickup has started a game yet. Adds are tracked from the draft; games show once the week finishes."
         />

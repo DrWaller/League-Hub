@@ -5,8 +5,8 @@
 //   - in an active slot  -> "started": his points counted for the team, and they count for the race
 //   - on the bench / IR  -> "benched": shown, but NOT credited (the points did nothing for the manager)
 // Tracking stops the day after the team drops him or trades him away (a later re-add starts it again), and a
-// player who arrived by the draft or a trade is never tracked. Race score = VOR of the started games:
-// started points - that week's replacement-level points per game x games started (the same bar weekly VOR uses).
+// player who arrived by the draft or a trade is never tracked. Race score = total points from the started games
+// (VOR of those games, started points - that week's replacement-level points per game x games started, is kept as info).
 
 import { sql } from "./db";
 import { fetchRosterDay } from "./games-played";
@@ -176,7 +176,8 @@ function rateFor(rates: Map<number, Record<string, number>>, week: number, posit
 
 const sourceLabel =(s: string) => (s === "FREEAGENT" ? "Free agent" : s.startsWith("WAIVER") ? "Waivers" : s);
 
-// Every tracked pickup, best first (by VOR of his starts, then points).
+// Every tracked pickup, best first: by TOTAL points scored in the games he started (VOR is still worked out and shown,
+// but doesn't rank). Total points means an early add has had more games to pile up points than a recent one.
 export function buildPickupLog(days: PickupDay[], moves: RosterMove[], rates: Map<number, Record<string, number>>, weekOf: (p: number) => number): PickupLogEntry[] {
   const index = indexMoves(moves);
   const by = new Map<string, PickupDay[]>();
@@ -227,7 +228,7 @@ export function buildPickupLog(days: PickupDay[], moves: RosterMove[], rates: Ma
       avg: started > 0 ? counted / started : 0,
     });
   }
-  return out.sort((a, b) => b.vor - a.vor || b.pointsCounted - a.pointsCounted).map((e, i) => ({ ...e, rank: i + 1 }));
+  return out.sort((a, b) => b.pointsCounted - a.pointsCounted || b.vor - a.vor).map((e, i) => ({ ...e, rank: i + 1 }));
 }
 
 export async function getPickupLog(season: number): Promise<PickupLogEntry[] | null> {
