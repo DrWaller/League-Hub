@@ -4,7 +4,8 @@ import { loadRecords } from "@/lib/records-data";
 import { buildRecords, GameRecord, SeasonRow } from "@/lib/records";
 import { getAllTimeNights } from "@/lib/nightly-store";
 import { prettyDate } from "@/lib/nightly-blurbs";
-import { ptsComma } from "@/lib/format";
+import { ptsComma, pts } from "@/lib/format";
+import { loadPlayerAverages, posLabel } from "@/lib/player-averages";
 import { loadLogoData } from "@/lib/og-team-logo";
 import { checkHeadshots } from "@/lib/headshots";
 import { renderPortraitRecordList, type RecordRow } from "@/lib/portrait-graphics";
@@ -84,12 +85,33 @@ export async function GET(req: NextRequest) {
         }
         break;
       }
+      case "ppg":
+      case "ppg-now": {
+        const g = req.nextUrl.searchParams.get("ppos");
+        const group = g === "F" || g === "D" || g === "G" ? g : null;
+        const mgp = [10, 20, 40].includes(Number(req.nextUrl.searchParams.get("mgp"))) ? Number(req.nextUrl.searchParams.get("mgp")) : 20;
+        const data = await loadPlayerAverages(meta.season, { minGp: mgp, group, fromYear });
+        const groupName = group === "F" ? "Forwards" : group === "D" ? "Defensemen" : group === "G" ? "Goalies" : null;
+        const live = list === "ppg-now";
+        title = live ? "This Season vs. History" : groupName ? `Best ${groupName} Seasons` : "Best Seasons, Pts/Game";
+        scope = `Fantasy pts per game${groupName && live ? ` · ${groupName}` : ""} · ${fromYear ? `${fromYear} on` : "All seasons"} · ${mgp}+ GP`;
+        rows = (live ? data.ranked.filter((r) => r.live).slice(0, 5) : data.ranked.slice(0, 5)).map((r) => ({
+          tie: pts(r.avg),
+          playerId: r.playerId > 0 ? r.playerId : undefined,
+          isNew: r.live && !live,
+          name: r.name,
+          sub: `${r.season}${r.live ? " (live)" : ""} \u00b7 ${posLabel(r.positionId)} \u00b7 ${r.gp} GP`,
+          value: pts(r.avg),
+          note: live ? `#${r.rank} all-time` : `${ptsComma(r.total)} pts`,
+        }));
+        break;
+      }
       default:
         return new Response("Unknown list", { status: 400 });
     }
 
     const headshots = await checkHeadshots(rows.flatMap((r) => (r.playerId != null ? [r.playerId] : [])).slice(0, 5)).catch(() => new Set<number>());
-    return await renderPortraitRecordList({ headshots, title, subtitle: list.startsWith("night") ? scope : `${scope} · regular season`, rows, tone, footer: `${meta.name.toUpperCase()} · RECORD BOOK` });
+    return await renderPortraitRecordList({ headshots, title, subtitle: list.startsWith("night") || list.startsWith("ppg") ? scope : `${scope} · regular season`, rows, tone, footer: `${meta.name.toUpperCase()} · RECORD BOOK` });
   } catch (err) {
     console.error("Record list graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

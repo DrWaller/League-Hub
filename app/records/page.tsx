@@ -11,6 +11,7 @@ import { getAllTimeNights } from "@/lib/nightly-store";
 import { prettyDate } from "@/lib/nightly-blurbs";
 import Cup from "@/components/Cup";
 import PlayerPhoto from "@/components/PlayerPhoto";
+import { loadPlayerAverages, posLabel } from "@/lib/player-averages";
 
 export const dynamic = "force-dynamic";
 
@@ -166,7 +167,7 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-export default async function RecordsPage({ searchParams }: { searchParams: { from?: string; pos?: string } }) {
+export default async function RecordsPage({ searchParams }: { searchParams: { from?: string; pos?: string; ppos?: string; mgp?: string } }) {
   const meta = await getLeagueMeta();
   const { records, seasonsUsed, seasonsSkipped, managerCount, managers, recSeasons, currentGames } = await loadRecords(meta.season);
   const allPlay = records.careers.length > 0 ? buildManagerLuck(0, managers, recSeasons).all : [];
@@ -181,6 +182,17 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
   const cut = fromYear
     ? buildRecords(managers, recSeasons.filter((r) => r.season >= fromYear), currentGames && currentGames.season >= fromYear ? [currentGames] : [])
     : records;
+  // All-time fantasy points per game (player seasons). ?ppos=F|D|G narrows it; ?mgp=10|20|40 is the minimum games for a finished season.
+  const avgGroup = (["F", "D", "G"] as const).find((g) => g === searchParams?.ppos) ?? null;
+  const minGp = [10, 20, 40].includes(Number(searchParams?.mgp)) ? Number(searchParams.mgp) : 20;
+  const avgData = await loadPlayerAverages(meta.season, { minGp, group: avgGroup, fromYear }).catch((err) => {
+    console.error("player averages failed", err);
+    return null;
+  });
+  const avgHref = (ppos: string | null, mgp: number) =>
+    `/records?${[fromYear ? `from=${fromYear}` : "", nightPos ? `pos=${nightPos}` : "", ppos ? `ppos=${ppos}` : "", mgp !== 20 ? `mgp=${mgp}` : ""].filter(Boolean).join("&")}`;
+  const avgCard = (list: string) => `/api/cards/record-list?list=${list}${fromYear ? `&from=${fromYear}` : ""}${avgGroup ? `&ppos=${avgGroup}` : ""}&mgp=${minGp}`;
+  const avgNow = avgData?.ranked.filter((r) => r.live).slice(0, 5) ?? [];
   const topTitles = [...records.careers].sort((a, b) => b.titles - a.titles)[0];
   const bestPct = [...records.careers].filter((c) => c.wins + c.losses + c.ties >= 20).sort((a, b) => b.winPct - a.winPct)[0];
   const maxPct = Math.max(...records.careers.map((c) => c.winPct), 0.0001);
@@ -342,6 +354,67 @@ export default async function RecordsPage({ searchParams }: { searchParams: { fr
                     weight: n.points,
                   }))}
                 />
+              </div>
+            </details>
+          )}
+
+          {avgData && avgData.ranked.length > 0 && (
+            <details open className="group">
+              <SectionHead
+                title="Fantasy points per game"
+                blurb={`The best average fantasy points per game in a single season, ${avgData.seasons.length ? `${range(avgData.seasons)}, ` : ""}every player on every roster or off it, scored by the league's own rules each season. Finished seasons need ${minGp}+ games, the season in progress ${avgData.liveMin}+ (it can still move). Goalies count per game started.`}
+              />
+              <EraToggle from={fromYear} current={fromYear != null} />
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <div className="inline-flex flex-wrap items-center gap-1 rounded-full bg-ice-panel p-1 font-body">
+                  {[["", "All"], ["F", "Forwards"], ["D", "D"], ["G", "G"]].map(([k, label]) => (
+                    <Link key={label} href={avgHref(k || null, minGp)} scroll={false} className={`px-3 py-1 text-xs rounded-full transition ${(avgGroup ?? "") === k ? "bg-rink text-ice shadow-sm" : "text-muted hover:text-rink"}`}>
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-full bg-ice-panel p-1 font-body">
+                  {[10, 20, 40].map((n) => (
+                    <Link key={n} href={avgHref(avgGroup, n)} scroll={false} className={`px-3 py-1 text-xs rounded-full transition ${minGp === n ? "bg-rink text-ice shadow-sm" : "text-muted hover:text-rink"}`}>
+                      {n}+ GP
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              {avgNow[0] && (
+                <p className="text-sm mb-4 max-w-prose font-body">
+                  <span className="font-semibold">{avgNow[0].name}</span> is at <span className="font-tabular font-semibold">{pts(avgNow[0].avg)}</span> per game through {avgNow[0].gp} games this season:{" "}
+                  <span className="font-semibold">#{avgNow[0].rank}</span> all-time{avgGroup ? ` among ${avgGroup === "F" ? "forwards" : avgGroup === "D" ? "defensemen" : "goalies"}` : ""} out of {avgData.ranked.length.toLocaleString("en-US")} qualifying player-seasons.
+                </p>
+              )}
+              <div className="grid md:grid-cols-2 gap-4">
+                <RecordList
+                  title="Best seasons, all-time" dl={avgCard("ppg")}
+                  tag="Pts / game"
+                  items={avgData.ranked.slice(0, 10).map((r) => ({
+                    key: `${r.season}-${r.playerId}-${r.name}`,
+                    name: r.name,
+                    sub: `${r.season}${r.live ? " (live)" : ""} · ${posLabel(r.positionId)} · ${r.gp} GP · ${pts(r.total)} pts`,
+                    value: pts(r.avg),
+                    weight: r.avg,
+                    playerId: r.playerId > 0 ? r.playerId : undefined,
+                  }))}
+                />
+                {avgNow.length > 0 && (
+                  <RecordList
+                    title="This season vs. history" dl={avgCard("ppg-now")}
+                    tag="Live"
+                    items={avgNow.map((r) => ({
+                      key: `now-${r.playerId}-${r.name}`,
+                      name: r.name,
+                      sub: `${posLabel(r.positionId)} · ${r.gp} GP · ${pts(r.total)} pts`,
+                      value: pts(r.avg),
+                      note: `#${r.rank} all-time`,
+                      weight: r.avg,
+                      playerId: r.playerId > 0 ? r.playerId : undefined,
+                    }))}
+                  />
+                )}
               </div>
             </details>
           )}
