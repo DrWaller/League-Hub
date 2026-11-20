@@ -22,13 +22,14 @@ const VIEWS: { id: View; label: string }[] = [
 ];
 const MIN_GP = 5; // same minimum games the hub already uses for a player's L30 tier
 type Cut = { franchise: number; superstar: number; elite: number; depth: number };
+type Cuts = Record<"F" | "D" | "G", Cut>;
 const tierByCut = (v: number | null, c: Cut): Tier | null => {
   if (v === null || !Number.isFinite(v)) return null;
   return v >= c.franchise ? "Superstar" : v >= c.superstar ? "Elite" : v >= c.elite ? "Good" : v >= c.depth ? "Depth" : "Replacement";
 };
 // Tier of a player for the chosen timeframe. Goalies are measured per team game (volume counts) and have no L30
 // tier, so they stay on their rating tier for L30. Skaters need a few games in the window to get a tier.
-function tierFor(p: DirPlayer, view: View, cuts: Record<"F" | "D" | "G", Cut>): Tier | null {
+function tierFor(p: DirPlayer, view: View, cuts: Cuts): Tier | null {
   if (view === "est") return p.tier;
   if (p.goalie) return view === "avg" ? tierByCut(p.goalie.perTeamGame, cuts.G) : p.tier;
   if (view === "avg") return p.avg !== null && p.gp >= MIN_GP ? tierByCut(p.avg, cuts[p.group]) : null;
@@ -40,67 +41,84 @@ function valueFor(p: DirPlayer, view: View): number {
   return (p.goalie ? p.est : p.l30?.avg) ?? -1;
 }
 
-function Badge({ tier, small }: { tier: Tier | null; small?: boolean }) {
-  if (!tier) return null;
-  const s = TIER_STYLE[tier];
+// Softer shades for the cards (the tier buttons keep the solid TIER_STYLE colours): bar = the underline and
+// stripe, bg / fg = the tier header strip.
+const SOFT: Record<Tier, { bar: string; bg: string; fg: string }> = {
+  Superstar: { bar: "#D9A441", bg: "#F8E7C2", fg: "#5A3D0A" },
+  Elite: { bar: "#1B6FB5", bg: "#D3E5F5", fg: "#0C3A63" },
+  Good: { bar: "#26864A", bg: "#D2EBDA", fg: "#14502B" },
+  Depth: { bar: "#7C8794", bg: "#E1E5EA", fg: "#3A424B" },
+  Replacement: { bar: "#B8574A", bg: "#F3D5D0", fg: "#6B2A21" },
+};
+
+function Trend({ t }: { t: DirPlayer["trend"] }) {
+  return t === "up" ? <span className="text-green-700 font-bold"> ↑</span> : t === "down" ? <span className="text-center-red font-bold"> ↓</span> : null;
+}
+
+// One of the three Rating / Season / L30 columns on a card: the number, games played, and an underline in the
+// tier colour for that timeframe. The column for the chosen timeframe is shaded.
+function Col({ label, value, sub, tier, on, trend }: { label: string; value: string; sub?: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"] }) {
   return (
-    <span className={`inline-block px-1.5 py-0.5 text-xs font-semibold ${small ? "" : "w-[74px] text-center"}`} style={{ background: s.bg, color: s.fg }}>
-      {tier}
-    </span>
+    <div className={`px-1 py-1.5 text-center ${on ? "bg-ice-panel" : ""}`}>
+      <div className="text-[11px] text-muted">{label}</div>
+      <div className={`text-base font-tabular ${on ? "font-semibold" : ""}`}>
+        {value}
+        {trend ? <Trend t={trend} /> : null}
+      </div>
+      <div className="text-[10px] text-muted font-tabular h-3.5">{sub ?? ""}</div>
+      <div className="h-[3px] mx-3 rounded-sm" style={{ background: tier ? SOFT[tier].bar : "#CBD6E2" }} />
+    </div>
   );
 }
 
-function Row({ p, tier, view }: { p: DirPlayer; tier: Tier | null; view: View }) {
+function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: number; view: View; cuts: Cuts }) {
+  const g = p.goalie;
+  const seasonTier = tierFor(p, "avg", cuts);
+  // Goalies have no L30 column, so L30 view highlights their rating.
+  const active = view === "est" || (view === "l30" && g) ? 0 : view === "avg" ? 1 : 2;
   return (
-    <div className="px-3 py-2.5 flex gap-3">
-      <PlayerPhoto playerId={p.id} name={p.name} size={36} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="font-semibold truncate">{p.name}</div>
-            <div className="text-xs text-muted">
+    <div className="flex bg-white border border-ice-line rounded-lg overflow-hidden">
+      <div className="w-1 shrink-0" style={{ background: SOFT[tier].bar }} />
+      <div className="flex-1 min-w-0 px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <PlayerPhoto playerId={p.id} name={p.name} size={36} />
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold truncate">
+              <span className="text-muted font-normal text-sm">#{rank}</span> {p.name}
+            </div>
+            <div className="text-xs text-muted truncate">
               {p.nhl} · {p.pos}
               {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
             </div>
           </div>
-          <div className="shrink-0 text-right">
-            <Badge tier={tier} />
-            {view !== "est" ? <div className="text-[10px] text-muted">by {view === "avg" ? "season" : "L30"}</div> : null}
-            {p.goalie ? (
-              <>
-                <div className="text-[11px] font-semibold font-tabular mt-0.5">≈ {p.goalie.pace} pts projected</div>
-                <div className="text-[11px] text-muted font-tabular">{f2(p.goalie.perTeamGame)} per team game · {p.goalie.gamesLeft} left</div>
-              </>
-            ) : (
-              <div className="text-[11px] text-muted font-tabular mt-0.5">{p.est === null ? "" : `${f2(p.est)} rating`}</div>
-            )}
-          </div>
-        </div>
-        {p.goalie ? (
-          <div className="mt-1.5 text-xs font-tabular text-muted">
-            {f2(p.goalie.perStart)} per start · starts {Math.round(p.goalie.share * 100)}%
-            {p.goalie.starts !== null && p.goalie.teamGames !== null ? ` (${p.goalie.starts} of ${p.goalie.teamGames})` : ""}
-            {p.injury ? " · tier held while injured" : ""}
-          </div>
-        ) : null}
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-tabular text-muted">
-          <span>
-            Season {p.avg === null ? "–" : f2(p.avg)} ({p.gp} gp)
-          </span>
-          {p.priorAvg !== null ? <span>Last yr {f2(p.priorAvg)}</span> : null}
-          <span className={`inline-flex items-center gap-1 ${p.goalie ? "hidden" : ""}`}>
-            L30 {p.l30 ? `${f2(p.l30.avg)} (${p.l30.gp} gp)` : "–"}
-            {p.form ? <Badge tier={p.form} small /> : null}
-            {p.trend === "up" ? <span className="text-green-700 font-bold">↑</span> : p.trend === "down" ? <span className="text-center-red font-bold">↓</span> : null}
-          </span>
-        </div>
-        <div className="mt-1.5 text-xs">
           {p.owner ? (
-            <span className="px-1.5 py-0.5 border border-ice-line text-rink">{p.owner}</span>
+            <span className="shrink-0 max-w-[110px] truncate text-[11px] px-2 py-0.5 border border-ice-line rounded text-rink">{p.owner}</span>
           ) : (
-            <span className="px-1.5 py-0.5 bg-green-100 text-green-800 font-semibold">{p.status}</span>
+            <span className="shrink-0 text-[11px] px-2 py-0.5 rounded bg-green-100 text-green-800 font-semibold">{p.status}</span>
           )}
         </div>
+        <div className="grid grid-cols-3 gap-1 mt-2">
+          <Col label="Rating" value={p.est === null ? "–" : f2(p.est)} sub={g ? "per team gm" : undefined} tier={p.tier} on={active === 0} />
+          <Col label="Season" value={g ? f2(g.perTeamGame) : p.avg === null ? "–" : f2(p.avg)} sub={g ? "per team gm" : `${p.gp} gp`} tier={seasonTier} on={active === 1} />
+          {g ? (
+            <Col label="Projected" value={`≈ ${g.pace}`} sub={`${g.gamesLeft} left`} tier={null} on={false} />
+          ) : (
+            <Col label="L30" value={p.l30 ? f2(p.l30.avg) : "–"} sub={p.l30 ? `${p.l30.gp} gp` : undefined} tier={p.form} on={active === 2} trend={p.trend} />
+          )}
+        </div>
+        {g || p.priorAvg !== null ? (
+          <div className="mt-1.5 text-xs text-muted font-tabular">
+            {g ? (
+              <>
+                {f2(g.perStart)} per start · starts {Math.round(g.share * 100)}%
+                {g.starts !== null && g.teamGames !== null ? ` (${g.starts} of ${g.teamGames})` : ""}
+                {p.injury ? " · tier held while injured" : ""}
+              </>
+            ) : (
+              <>Last yr {f2(p.priorAvg!)}</>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -113,6 +131,7 @@ export default function TierLists({ data }: { data: TierDirectory }) {
   const [view, setView] = useState<View>("est");
   const [q, setQ] = useState("");
   const [shown, setShown] = useState(PAGE);
+  const [fOpen, setFOpen] = useState(false);
 
   const c = data.tiers.cutoffs;
   const viewLabel = VIEWS.find((v) => v.id === view)!.label;
@@ -138,6 +157,12 @@ export default function TierLists({ data }: { data: TierDirectory }) {
     return [...rows].sort((a, b) => TIERS.indexOf(a.t) - TIERS.indexOf(b.t) || b.v - a.v);
   }, [placed, tier]);
 
+  // Rank inside the player's own tier (restarts at 1 under each tier header in the All view).
+  const ranks = useMemo(() => {
+    const seen: Partial<Record<Tier, number>> = {};
+    return list.map((x) => (seen[x.t] = (seen[x.t] ?? 0) + 1));
+  }, [list]);
+
   const range = (g: "F" | "D" | "G") => {
     if (tier === "ALL") return "";
     const x = c[g];
@@ -146,17 +171,21 @@ export default function TierLists({ data }: { data: TierDirectory }) {
     return lo === null ? `under ${f2(hi!)}` : hi === null ? `${f2(lo)}+` : `${f2(lo)} to ${f2(hi - 0.01)}`;
   };
   const unrated = base.length - placed.length;
+  const activeFilters = (group !== "ALL" ? 1 : 0) + (avail ? 1 : 0) + (q.trim() ? 1 : 0);
+  const groupLabel = GROUPS.find((g) => g.id === group)!.label;
+  const seg = (on: boolean) => `px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${on ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`;
+  const chip = "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-ice-panel text-rink";
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="-mx-1 px-1 pb-1 mb-3 flex gap-2 overflow-x-auto">
         <button
           type="button"
           onClick={() => {
             setTier("ALL");
             setShown(PAGE);
           }}
-          className={`px-3 py-2 text-sm font-semibold border-2 bg-white text-rink ${tier === "ALL" ? "border-rink" : "border-ice-line"}`}
+          className={`shrink-0 px-3 py-2 text-sm font-semibold border-2 bg-white text-rink ${tier === "ALL" ? "border-rink" : "border-ice-line"}`}
         >
           All <span className="font-tabular opacity-90">{placed.length}</span>
         </button>
@@ -168,7 +197,7 @@ export default function TierLists({ data }: { data: TierDirectory }) {
               setTier(t);
               setShown(PAGE);
             }}
-            className={`px-3 py-2 text-sm font-semibold border-2 ${tier === t ? "border-rink" : "border-transparent"}`}
+            className={`shrink-0 px-3 py-2 text-sm font-semibold border-2 ${tier === t ? "border-rink" : "border-transparent"}`}
             style={{ background: TIER_STYLE[t].bg, color: TIER_STYLE[t].fg }}
           >
             {t} <span className="font-tabular opacity-90">{counts[t]}</span>
@@ -176,36 +205,92 @@ export default function TierLists({ data }: { data: TierDirectory }) {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-x-4 gap-y-3 items-end mb-3">
-        <div className="text-xs text-muted flex flex-col gap-1">
-          Position
-          <div className="inline-flex border border-ice-line">
-            {GROUPS.map((g) => (
-              <button key={g.id} type="button" onClick={() => { setGroup(g.id); setShown(PAGE); }} className={`px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${group === g.id ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
-                {g.label}
-              </button>
-            ))}
-          </div>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="inline-flex border border-ice-line">
+          {VIEWS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => {
+                setView(s.id);
+                setShown(PAGE);
+              }}
+              className={seg(view === s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
-        <div className="text-xs text-muted flex flex-col gap-1">
-          Tiers & sort by
-          <div className="inline-flex border border-ice-line">
-            {VIEWS.map((s) => (
-              <button key={s.id} type="button" onClick={() => { setView(s.id); setShown(PAGE); }} className={`px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${view === s.id ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <label className="text-xs text-muted flex flex-col gap-1">
-          Search
-          <input value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE); }} placeholder="Player name" className="border border-ice-line bg-white px-2 py-1.5 text-sm w-40" />
-        </label>
-        <label className="text-sm flex items-center gap-2 pb-1.5">
-          <input type="checkbox" checked={avail} onChange={(e) => { setAvail(e.target.checked); setShown(PAGE); }} />
-          Available only
-        </label>
+        <button type="button" onClick={() => setFOpen(!fOpen)} className={`px-3 py-1.5 text-sm border border-ice-line ${fOpen ? "bg-ice-panel" : "bg-white hover:bg-ice-panel"}`}>
+          Filters{activeFilters ? ` · ${activeFilters}` : ""}
+        </button>
       </div>
+
+      {fOpen ? (
+        <div className="border border-ice-line bg-white p-3 mb-2 flex flex-wrap gap-x-4 gap-y-3 items-end">
+          <div className="text-xs text-muted flex flex-col gap-1">
+            Position
+            <div className="inline-flex border border-ice-line">
+              {GROUPS.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => {
+                    setGroup(g.id);
+                    setShown(PAGE);
+                  }}
+                  className={seg(group === g.id)}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="text-xs text-muted flex flex-col gap-1">
+            Search
+            <input
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setShown(PAGE);
+              }}
+              placeholder="Player name"
+              className="border border-ice-line bg-white px-2 py-1.5 text-sm w-40"
+            />
+          </label>
+          <label className="text-sm flex items-center gap-2 pb-1.5">
+            <input
+              type="checkbox"
+              checked={avail}
+              onChange={(e) => {
+                setAvail(e.target.checked);
+                setShown(PAGE);
+              }}
+            />
+            Available only
+          </label>
+        </div>
+      ) : null}
+
+      {activeFilters ? (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {group !== "ALL" ? (
+            <button type="button" className={chip} onClick={() => setGroup("ALL")} aria-label={`Clear ${groupLabel} filter`}>
+              {groupLabel} <span aria-hidden>×</span>
+            </button>
+          ) : null}
+          {avail ? (
+            <button type="button" className={chip} onClick={() => setAvail(false)} aria-label="Clear available only filter">
+              Available only <span aria-hidden>×</span>
+            </button>
+          ) : null}
+          {q.trim() ? (
+            <button type="button" className={chip} onClick={() => setQ("")} aria-label="Clear search">
+              “{q.trim()}” <span aria-hidden>×</span>
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <p className="text-xs text-muted mb-3 font-tabular">
         {tier === "ALL" ? (
@@ -226,16 +311,16 @@ export default function TierLists({ data }: { data: TierDirectory }) {
         <p className="text-muted">No players match.</p>
       ) : (
         <>
-          <div className="border border-ice-line bg-white divide-y divide-ice-line">
+          <div className="flex flex-col gap-2">
             {list.slice(0, shown).map((x, i, arr) => (
               <div key={x.p.id}>
                 {tier === "ALL" && (i === 0 || arr[i - 1].t !== x.t) ? (
-                  <div className="px-3 py-1.5 text-xs font-semibold flex items-center justify-between" style={{ background: TIER_STYLE[x.t].bg, color: TIER_STYLE[x.t].fg }}>
+                  <div className={`px-3 py-1.5 text-xs font-semibold flex items-center justify-between rounded ${i === 0 ? "mb-2" : "mt-3 mb-2"}`} style={{ background: SOFT[x.t].bg, color: SOFT[x.t].fg }}>
                     <span>{x.t}</span>
-                    <span className="font-tabular opacity-90">{counts[x.t]}</span>
+                    <span className="font-tabular">{counts[x.t]}</span>
                   </div>
                 ) : null}
-                <Row p={x.p} tier={x.t} view={view} />
+                <Card p={x.p} tier={x.t} rank={ranks[i]} view={view} cuts={c} />
               </div>
             ))}
           </div>
