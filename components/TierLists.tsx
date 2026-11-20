@@ -13,11 +13,32 @@ const GROUPS = [
   { id: "D", label: "Defence" },
   { id: "G", label: "Goalies" },
 ];
-const SORTS = [
+// The timeframe decides both which tier a player is in and how players are ordered inside a tier.
+type View = "est" | "avg" | "l30";
+const VIEWS: { id: View; label: string }[] = [
   { id: "est", label: "Rating" },
   { id: "avg", label: "Season" },
   { id: "l30", label: "L30" },
 ];
+const MIN_GP = 5; // same minimum games the hub already uses for a player's L30 tier
+type Cut = { franchise: number; superstar: number; elite: number; depth: number };
+const tierByCut = (v: number | null, c: Cut): Tier | null => {
+  if (v === null || !Number.isFinite(v)) return null;
+  return v >= c.franchise ? "Superstar" : v >= c.superstar ? "Elite" : v >= c.elite ? "Good" : v >= c.depth ? "Depth" : "Replacement";
+};
+// Tier of a player for the chosen timeframe. Goalies are measured per team game (volume counts) and have no L30
+// tier, so they stay on their rating tier for L30. Skaters need a few games in the window to get a tier.
+function tierFor(p: DirPlayer, view: View, cuts: Record<"F" | "D" | "G", Cut>): Tier | null {
+  if (view === "est") return p.tier;
+  if (p.goalie) return view === "avg" ? tierByCut(p.goalie.perTeamGame, cuts.G) : p.tier;
+  if (view === "avg") return p.avg !== null && p.gp >= MIN_GP ? tierByCut(p.avg, cuts[p.group]) : null;
+  return p.form;
+}
+function valueFor(p: DirPlayer, view: View): number {
+  if (view === "est") return p.est ?? -1;
+  if (view === "avg") return (p.goalie ? p.goalie.perTeamGame : p.avg) ?? -1;
+  return (p.goalie ? p.est : p.l30?.avg) ?? -1;
+}
 
 function Badge({ tier, small }: { tier: Tier | null; small?: boolean }) {
   if (!tier) return null;
@@ -29,7 +50,7 @@ function Badge({ tier, small }: { tier: Tier | null; small?: boolean }) {
   );
 }
 
-function Row({ p }: { p: DirPlayer }) {
+function Row({ p, tier, view }: { p: DirPlayer; tier: Tier | null; view: View }) {
   return (
     <div className="px-3 py-2.5 flex gap-3">
       <PlayerPhoto playerId={p.id} name={p.name} size={36} />
@@ -43,7 +64,8 @@ function Row({ p }: { p: DirPlayer }) {
             </div>
           </div>
           <div className="shrink-0 text-right">
-            <Badge tier={p.tier} />
+            <Badge tier={tier} />
+            {view !== "est" ? <div className="text-[10px] text-muted">by {view === "avg" ? "season" : "L30"}</div> : null}
             {p.goalie ? (
               <>
                 <div className="text-[11px] font-semibold font-tabular mt-0.5">≈ {p.goalie.pace} pts projected</div>
@@ -85,40 +107,59 @@ function Row({ p }: { p: DirPlayer }) {
 }
 
 export default function TierLists({ data }: { data: TierDirectory }) {
-  const [tier, setTier] = useState<Tier>("Superstar");
+  const [tier, setTier] = useState<Tier | "ALL">("Superstar");
   const [group, setGroup] = useState("ALL");
   const [avail, setAvail] = useState(false);
-  const [sort, setSort] = useState("est");
+  const [view, setView] = useState<View>("est");
   const [q, setQ] = useState("");
   const [shown, setShown] = useState(PAGE);
+
+  const c = data.tiers.cutoffs;
+  const viewLabel = VIEWS.find((v) => v.id === view)!.label;
 
   const base = useMemo(
     () =>
       data.players.filter((p) => (group === "ALL" || p.group === group) && (!avail || p.owner === null) && (!q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase()))),
     [data.players, group, avail, q]
   );
+  // Every player with his tier for the chosen timeframe; players with no tier for it (not enough games) are left out.
+  const placed = useMemo(
+    () => base.map((p) => ({ p, t: tierFor(p, view, c), v: valueFor(p, view) })).filter((x): x is { p: DirPlayer; t: Tier; v: number } => x.t !== null),
+    [base, view, c]
+  );
   const counts = useMemo(() => {
-    const c: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
-    for (const p of base) if (p.tier) c[p.tier]++;
-    return c;
-  }, [base]);
+    const out: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
+    for (const x of placed) out[x.t]++;
+    return out;
+  }, [placed]);
   const list = useMemo(() => {
-    const rows = base.filter((p) => p.tier === tier);
-    const key = (p: DirPlayer) => (sort === "avg" ? p.avg ?? -1 : sort === "l30" ? p.l30?.avg ?? -1 : p.est ?? -1);
-    return [...rows].sort((a, b) => key(b) - key(a));
-  }, [base, tier, sort]);
+    const rows = tier === "ALL" ? placed : placed.filter((x) => x.t === tier);
+    // Best tier first, then highest number for the chosen timeframe.
+    return [...rows].sort((a, b) => TIERS.indexOf(a.t) - TIERS.indexOf(b.t) || b.v - a.v);
+  }, [placed, tier]);
 
-  const c = data.tiers.cutoffs;
   const range = (g: "F" | "D" | "G") => {
+    if (tier === "ALL") return "";
     const x = c[g];
     const lo = tier === "Superstar" ? x.franchise : tier === "Elite" ? x.superstar : tier === "Good" ? x.elite : tier === "Depth" ? x.depth : null;
     const hi = tier === "Superstar" ? null : tier === "Elite" ? x.franchise : tier === "Good" ? x.superstar : tier === "Depth" ? x.elite : x.depth;
     return lo === null ? `under ${f2(hi!)}` : hi === null ? `${f2(lo)}+` : `${f2(lo)} to ${f2(hi - 0.01)}`;
   };
+  const unrated = base.length - placed.length;
 
   return (
     <div>
       <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => {
+            setTier("ALL");
+            setShown(PAGE);
+          }}
+          className={`px-3 py-2 text-sm font-semibold border-2 bg-white text-rink ${tier === "ALL" ? "border-rink" : "border-ice-line"}`}
+        >
+          All <span className="font-tabular opacity-90">{placed.length}</span>
+        </button>
         {TIERS.map((t) => (
           <button
             key={t}
@@ -147,10 +188,10 @@ export default function TierLists({ data }: { data: TierDirectory }) {
           </div>
         </div>
         <div className="text-xs text-muted flex flex-col gap-1">
-          Sort by
+          Tiers & sort by
           <div className="inline-flex border border-ice-line">
-            {SORTS.map((s) => (
-              <button key={s.id} type="button" onClick={() => setSort(s.id)} className={`px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${sort === s.id ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
+            {VIEWS.map((s) => (
+              <button key={s.id} type="button" onClick={() => { setView(s.id); setShown(PAGE); }} className={`px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${view === s.id ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
                 {s.label}
               </button>
             ))}
@@ -167,8 +208,18 @@ export default function TierLists({ data }: { data: TierDirectory }) {
       </div>
 
       <p className="text-xs text-muted mb-3 font-tabular">
-        {list.length} {tier} player{list.length === 1 ? "" : "s"} · Forwards {range("F")} · Defence {range("D")} · Goalies {range("G")} per team game · skaters avg pts per game
+        {tier === "ALL" ? (
+          <>
+            {list.length} players, best tier first, sorted by {viewLabel} within each tier
+          </>
+        ) : (
+          <>
+            {list.length} {tier} player{list.length === 1 ? "" : "s"} by {viewLabel} · Forwards {range("F")} · Defence {range("D")} · Goalies {range("G")} per team game · skaters avg pts per game
+          </>
+        )}
         {data.tiers.basis === "last season" ? " (cutoffs from last season's final)" : ""}
+        {view === "l30" ? ` · goalies have no L30 tier, so they stay on their rating tier${unrated > 0 ? `; ${unrated} skater${unrated === 1 ? "" : "s"} with fewer than ${MIN_GP} games in the last 30 days aren't placed` : ""}` : ""}
+        {view === "avg" && unrated > 0 ? ` · ${unrated} player${unrated === 1 ? "" : "s"} with fewer than ${MIN_GP} games this season aren't placed` : ""}
       </p>
 
       {list.length === 0 ? (
@@ -176,8 +227,16 @@ export default function TierLists({ data }: { data: TierDirectory }) {
       ) : (
         <>
           <div className="border border-ice-line bg-white divide-y divide-ice-line">
-            {list.slice(0, shown).map((p) => (
-              <Row key={p.id} p={p} />
+            {list.slice(0, shown).map((x, i, arr) => (
+              <div key={x.p.id}>
+                {tier === "ALL" && (i === 0 || arr[i - 1].t !== x.t) ? (
+                  <div className="px-3 py-1.5 text-xs font-semibold flex items-center justify-between" style={{ background: TIER_STYLE[x.t].bg, color: TIER_STYLE[x.t].fg }}>
+                    <span>{x.t}</span>
+                    <span className="font-tabular opacity-90">{counts[x.t]}</span>
+                  </div>
+                ) : null}
+                <Row p={x.p} tier={x.t} view={view} />
+              </div>
             ))}
           </div>
           {list.length > shown && (

@@ -13,7 +13,7 @@ export default async function TierListsPage() {
     <div>
       <h1 className="font-display text-3xl mb-1">Tier Lists</h1>
       <p className="text-muted mb-5 max-w-prose">
-        Every player in the league in each tier, rostered or available. Pick a tier, then narrow by position or by who is available.
+        Every player in the league in each tier, rostered or available. Pick a tier, or All to see every tier at once. Choose Rating, Season or L30 to group players by their tier for that timeframe, and narrow by position or by who is available.
       </p>
       {data ? <TierLists data={data} /> : <p className="text-muted">Couldn&apos;t load players from ESPN right now.</p>}
     </div>
