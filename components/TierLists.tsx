@@ -70,8 +70,8 @@ function Col({ label, value, sub, tier, on, trend, tag, delta, reserveTag }: { l
           </span>
         ) : null}
       </div>
-      {tag || reserveTag ? <div className="text-[11px] font-semibold h-4 leading-4 whitespace-nowrap">{tag ?? ""}</div> : null}
       <div className="text-[11px] font-tabular h-4 leading-4 whitespace-nowrap">{sub ?? ""}</div>
+      {tag || reserveTag ? <div className="text-[11px] font-semibold h-4 leading-4 whitespace-nowrap">{tag ?? ""}</div> : null}
     </div>
   );
 }
