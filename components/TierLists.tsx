@@ -52,13 +52,13 @@ function Trend({ t }: { t: DirPlayer["trend"] }) {
 // One of the three Rating / Season / L30 columns on a card: the number and games played, on a tile tinted with the
 // tier colour for that timeframe. The tile for the chosen timeframe gets an outline. `tag` names the tier only when it differs from the card's own tier, so a change (say
 // Elite over L30 on a Superstar card) is spelled out as well as coloured. `delta` is L30 minus season average.
-function Col({ label, value, sub, tier, on, trend, tag, delta }: { label: string; value: string; sub?: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"]; tag?: Tier | null; delta?: number | null }) {
+function Col({ label, value, sub, tier, on, trend, tag, delta, reserveTag }: { label: string; value: string; sub?: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"]; tag?: Tier | null; delta?: number | null; reserveTag?: boolean }) {
   return (
     <div
       className="px-1 py-1.5 text-center rounded-lg border-2"
       style={tier ? { background: SOFT[tier].bg, color: SOFT[tier].fg, borderColor: on ? "#0C2740" : "transparent" } : { background: "#EEF2F6", color: "#5B6672", borderColor: on ? "#5B6672" : "transparent" }}
     >
-      <div className="text-[11px]">{label}</div>
+      <div className="text-xs">{label}</div>
       <div className="h-6 leading-6 whitespace-nowrap text-base font-semibold font-tabular">
         {value}
         {trend === "up" ? " ↑" : trend === "down" ? " ↓" : ""}
@@ -69,10 +69,8 @@ function Col({ label, value, sub, tier, on, trend, tag, delta }: { label: string
           </span>
         ) : null}
       </div>
-      <div className="text-[10px] font-tabular h-3.5 whitespace-nowrap">
-        {tag ? `${tag} · ` : ""}
-        {sub ?? ""}
-      </div>
+      {tag || reserveTag ? <div className="text-[11px] font-semibold h-4 leading-4 whitespace-nowrap">{tag ?? ""}</div> : null}
+      <div className="text-[11px] font-tabular h-4 leading-4 whitespace-nowrap">{sub ?? ""}</div>
     </div>
   );
 }
@@ -80,6 +78,10 @@ function Col({ label, value, sub, tier, on, trend, tag, delta }: { label: string
 function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: number; view: View; cuts: Cuts }) {
   const g = p.goalie;
   const seasonTier = tierFor(p, "avg", cuts);
+  const rTag = p.tier !== tier ? p.tier : null;
+  const sTag = seasonTier !== tier ? seasonTier : null;
+  const lTag = !g && p.form !== tier ? p.form : null;
+  const anyTag = !!(rTag || sTag || lTag);
   // Goalies have no L30 column, so L30 view highlights their rating.
   const active = view === "est" || (view === "l30" && g) ? 0 : view === "avg" ? 1 : 2;
   return (
@@ -99,12 +101,12 @@ function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: n
           </div>
         </div>
         <div className="grid grid-cols-3 gap-1 mt-2">
-          <Col label="Rating" value={p.est === null ? "–" : f2(p.est)} sub={g ? "per team gm" : p.priorAvg !== null ? `last yr ${f2(p.priorAvg)}` : undefined} tier={p.tier} tag={p.tier !== tier ? p.tier : null} on={active === 0} />
-          <Col label="Season" value={g ? f2(g.perTeamGame) : p.avg === null ? "–" : f2(p.avg)} sub={g ? "per team gm" : `${p.gp} gp`} tier={seasonTier} tag={seasonTier !== tier ? seasonTier : null} on={active === 1} />
+          <Col label="Rating" value={p.est === null ? "–" : f2(p.est)} sub={g ? "per team gm" : p.priorAvg !== null ? `last yr ${f2(p.priorAvg)}` : undefined} tier={p.tier} tag={rTag} reserveTag={anyTag} on={active === 0} />
+          <Col label="Season" value={g ? f2(g.perTeamGame) : p.avg === null ? "–" : f2(p.avg)} sub={g ? "per team gm" : `${p.gp} gp`} tier={seasonTier} tag={sTag} reserveTag={anyTag} on={active === 1} />
           {g ? (
-            <Col label="Projected" value={`≈ ${g.pace}`} sub={`${g.gamesLeft} left`} tier={null} on={false} />
+            <Col label="Projected" value={`≈ ${g.pace}`} sub={`${g.gamesLeft} left`} tier={null} reserveTag={anyTag} on={false} />
           ) : (
-            <Col label="L30" value={p.l30 ? f2(p.l30.avg) : "–"} sub={p.l30 ? `${p.l30.gp} gp` : undefined} tier={p.form} tag={p.form !== tier ? p.form : null} on={active === 2} trend={p.trend} delta={p.l30 && p.avg !== null ? p.l30.avg - p.avg : null} />
+            <Col label="L30" value={p.l30 ? f2(p.l30.avg) : "–"} sub={p.l30 ? `${p.l30.gp} gp` : undefined} tier={p.form} tag={lTag} reserveTag={anyTag} on={active === 2} trend={p.trend} delta={p.l30 && p.avg !== null ? p.l30.avg - p.avg : null} />
           )}
         </div>
         {g ? (
@@ -235,7 +237,8 @@ export default function TierLists({ data }: { data: TierDirectory }) {
 
   return (
     <div>
-      <div className="relative mb-3">
+      <div className="sticky top-0 z-20 bg-ice -mx-4 px-4 sm:-mx-6 sm:px-6 pt-2 pb-2 mb-2 border-b border-ice-line">
+      <div className="relative mb-2">
       <div ref={chipsRef} onScroll={checkFade} className="-mx-1 px-1 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
         <button
           type="button"
@@ -265,7 +268,7 @@ export default function TierLists({ data }: { data: TierDirectory }) {
       {fade ? <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-ice to-transparent" /> : null}
       </div>
 
-      <div className="flex items-center justify-between gap-2 mb-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="inline-flex border border-ice-line">
           {VIEWS.map((s) => (
             <button
@@ -299,6 +302,8 @@ export default function TierLists({ data }: { data: TierDirectory }) {
             </button>
           </div>
         </div>
+      </div>
+
       </div>
 
       {fOpen ? (
