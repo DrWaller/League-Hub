@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import { TIERS, TIER_STYLE, type Tier } from "@/lib/tier-style";
 import type { DirPlayer, TierDirectory } from "@/lib/team-makeup";
@@ -57,13 +57,28 @@ function Trend({ t }: { t: DirPlayer["trend"] }) {
 
 // One of the three Rating / Season / L30 columns on a card: the number, games played, and an underline in the
 // tier colour for that timeframe. The column for the chosen timeframe is shaded.
-function Col({ label, value, sub, tier, on, trend }: { label: string; value: string; sub?: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"] }) {
+// `tag` names the tier only when it differs from the card's own tier, so a change (say Elite over L30 on a
+// Superstar card) is spelled out instead of left to a colour. `delta` is L30 minus season average.
+function Col({ label, value, sub, tier, on, trend, tag, delta }: { label: string; value: string; sub?: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"]; tag?: Tier | null; delta?: number | null }) {
   return (
     <div className={`px-1 py-1.5 text-center ${on ? "bg-ice-panel" : ""}`}>
-      <div className="text-[11px] text-muted">{label}</div>
+      <div className="text-[11px] text-muted flex items-center justify-center gap-1">
+        {label}
+        {tag ? (
+          <span className="text-[10px] leading-4 px-1 rounded font-semibold" style={{ background: SOFT[tag].bg, color: SOFT[tag].fg }}>
+            {tag}
+          </span>
+        ) : null}
+      </div>
       <div className={`text-base font-tabular ${on ? "font-semibold" : ""}`}>
         {value}
         {trend ? <Trend t={trend} /> : null}
+        {delta !== null && delta !== undefined && Math.abs(delta) >= 0.05 ? (
+          <span className={`ml-1 text-[11px] font-normal ${delta > 0 ? "text-green-700" : "text-center-red"}`}>
+            {delta > 0 ? "+" : "−"}
+            {f2(Math.abs(delta))}
+          </span>
+        ) : null}
       </div>
       <div className="text-[10px] text-muted font-tabular h-3.5">{sub ?? ""}</div>
       <div className="h-[3px] mx-3 rounded-sm" style={{ background: tier ? SOFT[tier].bar : "#CBD6E2" }} />
@@ -87,36 +102,25 @@ function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: n
               <span className="text-muted font-normal text-sm">#{rank}</span> {p.name}
             </div>
             <div className="text-xs text-muted truncate">
-              {p.nhl} · {p.pos}
+              {p.nhl} · {p.pos} · {p.owner ? <span className="text-rink">{p.owner}</span> : <span className="text-green-700 font-semibold">{p.status}</span>}
               {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
             </div>
           </div>
-          {p.owner ? (
-            <span className="shrink-0 max-w-[110px] truncate text-[11px] px-2 py-0.5 border border-ice-line rounded text-rink">{p.owner}</span>
-          ) : (
-            <span className="shrink-0 text-[11px] px-2 py-0.5 rounded bg-green-100 text-green-800 font-semibold">{p.status}</span>
-          )}
         </div>
         <div className="grid grid-cols-3 gap-1 mt-2">
-          <Col label="Rating" value={p.est === null ? "–" : f2(p.est)} sub={g ? "per team gm" : undefined} tier={p.tier} on={active === 0} />
-          <Col label="Season" value={g ? f2(g.perTeamGame) : p.avg === null ? "–" : f2(p.avg)} sub={g ? "per team gm" : `${p.gp} gp`} tier={seasonTier} on={active === 1} />
+          <Col label="Rating" value={p.est === null ? "–" : f2(p.est)} sub={g ? "per team gm" : p.priorAvg !== null ? `last yr ${f2(p.priorAvg)}` : undefined} tier={p.tier} tag={p.tier !== tier ? p.tier : null} on={active === 0} />
+          <Col label="Season" value={g ? f2(g.perTeamGame) : p.avg === null ? "–" : f2(p.avg)} sub={g ? "per team gm" : `${p.gp} gp`} tier={seasonTier} tag={seasonTier !== tier ? seasonTier : null} on={active === 1} />
           {g ? (
             <Col label="Projected" value={`≈ ${g.pace}`} sub={`${g.gamesLeft} left`} tier={null} on={false} />
           ) : (
-            <Col label="L30" value={p.l30 ? f2(p.l30.avg) : "–"} sub={p.l30 ? `${p.l30.gp} gp` : undefined} tier={p.form} on={active === 2} trend={p.trend} />
+            <Col label="L30" value={p.l30 ? f2(p.l30.avg) : "–"} sub={p.l30 ? `${p.l30.gp} gp` : undefined} tier={p.form} tag={p.form !== tier ? p.form : null} on={active === 2} trend={p.trend} delta={p.l30 && p.avg !== null ? p.l30.avg - p.avg : null} />
           )}
         </div>
-        {g || p.priorAvg !== null ? (
+        {g ? (
           <div className="mt-1.5 text-xs text-muted font-tabular">
-            {g ? (
-              <>
-                {f2(g.perStart)} per start · starts {Math.round(g.share * 100)}%
-                {g.starts !== null && g.teamGames !== null ? ` (${g.starts} of ${g.teamGames})` : ""}
-                {p.injury ? " · tier held while injured" : ""}
-              </>
-            ) : (
-              <>Last yr {f2(p.priorAvg!)}</>
-            )}
+            {f2(g.perStart)} per start · starts {Math.round(g.share * 100)}%
+            {g.starts !== null && g.teamGames !== null ? ` (${g.starts} of ${g.teamGames})` : ""}
+            {p.injury ? " · tier held while injured" : ""}
           </div>
         ) : null}
       </div>
@@ -127,7 +131,7 @@ function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: n
 // Dense one-line layout: rank, name, and Rating / Season / L30 each with a dot in that timeframe's tier colour.
 function Num({ value, tier, on, trend }: { value: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"] }) {
   return (
-    <div className={`w-[50px] shrink-0 text-right text-[13px] font-tabular ${on ? "font-semibold" : "text-muted"}`}>
+    <div className={`w-[46px] shrink-0 text-right text-[13px] font-tabular ${on ? "font-semibold" : "text-muted"}`}>
       {tier ? <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: SOFT[tier].bar }} /> : null}
       {value}
       {trend ? <Trend t={trend} /> : null}
@@ -164,6 +168,18 @@ export default function TierLists({ data }: { data: TierDirectory }) {
   const [shown, setShown] = useState(PAGE);
   const [fOpen, setFOpen] = useState(false);
   const [layout, setLayout] = useState<"cards" | "rows">("cards");
+  // Fade the right edge of the tier chips while more of them are scrolled out of sight.
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const [fade, setFade] = useState(true);
+  const checkFade = () => {
+    const el = chipsRef.current;
+    if (el) setFade(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+  useEffect(() => {
+    checkFade();
+    window.addEventListener("resize", checkFade);
+    return () => window.removeEventListener("resize", checkFade);
+  }, []);
   // Remember the layout on this phone. Storage can be blocked, so every access is wrapped.
   useEffect(() => {
     try {
@@ -223,7 +239,8 @@ export default function TierLists({ data }: { data: TierDirectory }) {
 
   return (
     <div>
-      <div className="-mx-1 px-1 pb-1 mb-3 flex gap-2 overflow-x-auto">
+      <div className="relative mb-3">
+      <div ref={chipsRef} onScroll={checkFade} className="-mx-1 px-1 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
         <button
           type="button"
           onClick={() => {
@@ -249,8 +266,10 @@ export default function TierLists({ data }: { data: TierDirectory }) {
           </button>
         ))}
       </div>
+      {fade ? <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-ice to-transparent" /> : null}
+      </div>
 
-      <div className="flex items-center justify-between gap-3 mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2">
         <div className="inline-flex border border-ice-line">
           {VIEWS.map((s) => (
             <button
@@ -266,9 +285,24 @@ export default function TierLists({ data }: { data: TierDirectory }) {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => setFOpen(!fOpen)} className={`px-3 py-1.5 text-sm border border-ice-line ${fOpen ? "bg-ice-panel" : "bg-white hover:bg-ice-panel"}`}>
-          Filters{activeFilters ? ` · ${activeFilters}` : ""}
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setFOpen(!fOpen)} className={`px-3 py-1.5 text-sm border border-ice-line ${fOpen ? "bg-ice-panel" : "bg-white hover:bg-ice-panel"}`}>
+            Filters{activeFilters ? ` · ${activeFilters}` : ""}
+          </button>
+          <div className="inline-flex border border-ice-line" role="group" aria-label="Layout">
+            <button type="button" onClick={() => pickLayout("cards")} aria-label="Cards layout" aria-pressed={layout === "cards"} className={`px-2 py-1.5 ${layout === "cards" ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <rect x="2" y="2" width="12" height="5" rx="1" />
+                <rect x="2" y="9" width="12" height="5" rx="1" />
+              </svg>
+            </button>
+            <button type="button" onClick={() => pickLayout("rows")} aria-label="Rows layout" aria-pressed={layout === "rows"} className={`px-2 py-1.5 border-l border-ice-line ${layout === "rows" ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <path d="M2 3.5h12M2 8h12M2 12.5h12" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
 
       {fOpen ? (
@@ -356,23 +390,14 @@ export default function TierLists({ data }: { data: TierDirectory }) {
         <p className="text-muted">No players match.</p>
       ) : (
         <>
-          <div className="flex justify-end mb-2">
-            <div className="inline-flex border border-ice-line" role="group" aria-label="Layout">
-              {(["cards", "rows"] as const).map((l) => (
-                <button key={l} type="button" onClick={() => pickLayout(l)} className={`px-2.5 py-1 text-xs ${layout === l ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
-                  {l === "cards" ? "Cards" : "Rows"}
-                </button>
-              ))}
-            </div>
-          </div>
           {layout === "rows" ? (
             <div className="border border-ice-line bg-white rounded-lg overflow-hidden">
               <div className="flex items-center gap-2 px-2.5 py-1 bg-ice-panel text-[11px] text-muted">
                 <div className="w-5 shrink-0">#</div>
                 <div className="flex-1">Player</div>
-                <div className="w-[50px] shrink-0 text-right">Rating</div>
-                <div className="w-[50px] shrink-0 text-right">Season</div>
-                <div className="w-[50px] shrink-0 text-right">L30</div>
+                <div className="w-[46px] shrink-0 text-right">Rating</div>
+                <div className="w-[46px] shrink-0 text-right">Season</div>
+                <div className="w-[46px] shrink-0 text-right">L30</div>
               </div>
               {list.slice(0, shown).map((x, i, arr) => (
                 <div key={x.p.id}>
