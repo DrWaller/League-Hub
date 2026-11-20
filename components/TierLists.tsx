@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import { TIERS, TIER_STYLE, type Tier } from "@/lib/tier-style";
 import type { DirPlayer, TierDirectory } from "@/lib/team-makeup";
@@ -124,6 +124,37 @@ function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: n
   );
 }
 
+// Dense one-line layout: rank, name, and Rating / Season / L30 each with a dot in that timeframe's tier colour.
+function Num({ value, tier, on, trend }: { value: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"] }) {
+  return (
+    <div className={`w-[50px] shrink-0 text-right text-[13px] font-tabular ${on ? "font-semibold" : "text-muted"}`}>
+      {tier ? <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle" style={{ background: SOFT[tier].bar }} /> : null}
+      {value}
+      {trend ? <Trend t={trend} /> : null}
+    </div>
+  );
+}
+
+function DenseRow({ p, rank, view, cuts, first }: { p: DirPlayer; rank: number; view: View; cuts: Cuts; first: boolean }) {
+  const g = p.goalie;
+  const active = view === "est" || (view === "l30" && g) ? 0 : view === "avg" ? 1 : 2;
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-2 ${first ? "" : "border-t border-ice-line"}`}>
+      <div className="w-5 shrink-0 text-xs text-muted font-tabular">{rank}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold truncate">{p.name}</div>
+        <div className="text-[11px] text-muted truncate">
+          {p.nhl} · {p.pos} · {p.owner ?? p.status}
+          {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
+        </div>
+      </div>
+      <Num value={p.est === null ? "–" : f2(p.est)} tier={p.tier} on={active === 0} />
+      <Num value={g ? f2(g.perTeamGame) : p.avg === null ? "–" : f2(p.avg)} tier={tierFor(p, "avg", cuts)} on={active === 1} />
+      {g ? <Num value={`≈${g.pace}`} tier={null} on={false} /> : <Num value={p.l30 ? f2(p.l30.avg) : "–"} tier={p.form} on={active === 2} trend={p.trend} />}
+    </div>
+  );
+}
+
 export default function TierLists({ data }: { data: TierDirectory }) {
   const [tier, setTier] = useState<Tier | "ALL">("Superstar");
   const [group, setGroup] = useState("ALL");
@@ -132,6 +163,20 @@ export default function TierLists({ data }: { data: TierDirectory }) {
   const [q, setQ] = useState("");
   const [shown, setShown] = useState(PAGE);
   const [fOpen, setFOpen] = useState(false);
+  const [layout, setLayout] = useState<"cards" | "rows">("cards");
+  // Remember the layout on this phone. Storage can be blocked, so every access is wrapped.
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem("tierListsLayout");
+      if (v === "rows" || v === "cards") setLayout(v);
+    } catch {}
+  }, []);
+  const pickLayout = (v: "cards" | "rows") => {
+    setLayout(v);
+    try {
+      window.localStorage.setItem("tierListsLayout", v);
+    } catch {}
+  };
 
   const c = data.tiers.cutoffs;
   const viewLabel = VIEWS.find((v) => v.id === view)!.label;
@@ -311,19 +356,51 @@ export default function TierLists({ data }: { data: TierDirectory }) {
         <p className="text-muted">No players match.</p>
       ) : (
         <>
-          <div className="flex flex-col gap-2">
-            {list.slice(0, shown).map((x, i, arr) => (
-              <div key={x.p.id}>
-                {tier === "ALL" && (i === 0 || arr[i - 1].t !== x.t) ? (
-                  <div className={`px-3 py-1.5 text-xs font-semibold flex items-center justify-between rounded ${i === 0 ? "mb-2" : "mt-3 mb-2"}`} style={{ background: SOFT[x.t].bg, color: SOFT[x.t].fg }}>
-                    <span>{x.t}</span>
-                    <span className="font-tabular">{counts[x.t]}</span>
-                  </div>
-                ) : null}
-                <Card p={x.p} tier={x.t} rank={ranks[i]} view={view} cuts={c} />
-              </div>
-            ))}
+          <div className="flex justify-end mb-2">
+            <div className="inline-flex border border-ice-line" role="group" aria-label="Layout">
+              {(["cards", "rows"] as const).map((l) => (
+                <button key={l} type="button" onClick={() => pickLayout(l)} className={`px-2.5 py-1 text-xs ${layout === l ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
+                  {l === "cards" ? "Cards" : "Rows"}
+                </button>
+              ))}
+            </div>
           </div>
+          {layout === "rows" ? (
+            <div className="border border-ice-line bg-white rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-2.5 py-1 bg-ice-panel text-[11px] text-muted">
+                <div className="w-5 shrink-0">#</div>
+                <div className="flex-1">Player</div>
+                <div className="w-[50px] shrink-0 text-right">Rating</div>
+                <div className="w-[50px] shrink-0 text-right">Season</div>
+                <div className="w-[50px] shrink-0 text-right">L30</div>
+              </div>
+              {list.slice(0, shown).map((x, i, arr) => (
+                <div key={x.p.id}>
+                  {tier === "ALL" && (i === 0 || arr[i - 1].t !== x.t) ? (
+                    <div className={`px-3 py-1 text-xs font-semibold flex items-center justify-between ${i === 0 ? "" : "border-t border-ice-line"}`} style={{ background: SOFT[x.t].bg, color: SOFT[x.t].fg }}>
+                      <span>{x.t}</span>
+                      <span className="font-tabular">{counts[x.t]}</span>
+                    </div>
+                  ) : null}
+                  <DenseRow p={x.p} rank={ranks[i]} view={view} cuts={c} first={i === 0 || (tier === "ALL" && arr[i - 1].t !== x.t)} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {list.slice(0, shown).map((x, i, arr) => (
+                <div key={x.p.id}>
+                  {tier === "ALL" && (i === 0 || arr[i - 1].t !== x.t) ? (
+                    <div className={`px-3 py-1.5 text-xs font-semibold flex items-center justify-between rounded ${i === 0 ? "mb-2" : "mt-3 mb-2"}`} style={{ background: SOFT[x.t].bg, color: SOFT[x.t].fg }}>
+                      <span>{x.t}</span>
+                      <span className="font-tabular">{counts[x.t]}</span>
+                    </div>
+                  ) : null}
+                  <Card p={x.p} tier={x.t} rank={ranks[i]} view={view} cuts={c} />
+                </div>
+              ))}
+            </div>
+          )}
           {list.length > shown && (
             <button type="button" onClick={() => setShown(shown + PAGE)} className="mt-3 px-4 py-2 text-sm border border-ice-line bg-white hover:bg-ice-panel">
               Show more ({list.length - shown} left)
