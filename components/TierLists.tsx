@@ -260,7 +260,7 @@ export default function TierLists({ data }: { data: TierDirectory }) {
               setShown(PAGE);
             }}
             className={`shrink-0 px-3 py-2 text-sm font-semibold border-2 ${tier === t ? "border-rink" : "border-transparent"}`}
-            style={{ background: TIER_STYLE[t].bg, color: TIER_STYLE[t].fg }}
+            style={{ background: SOFT[t].bg, color: SOFT[t].fg, textShadow: t === "Superstar" ? "0 1px 1px rgba(60,40,0,0.35)" : undefined }}
           >
             {t} <span className="font-tabular opacity-90">{counts[t]}</span>
           </button>
