@@ -55,33 +55,30 @@ function Trend({ t }: { t: DirPlayer["trend"] }) {
   return t === "up" ? <span className="text-green-700 font-bold"> ↑</span> : t === "down" ? <span className="text-center-red font-bold"> ↓</span> : null;
 }
 
-// One of the three Rating / Season / L30 columns on a card: the number, games played, and an underline in the
-// tier colour for that timeframe. The column for the chosen timeframe is shaded.
-// `tag` names the tier only when it differs from the card's own tier, so a change (say Elite over L30 on a
-// Superstar card) is spelled out instead of left to a colour. `delta` is L30 minus season average.
+// One of the three Rating / Season / L30 columns on a card: the number and games played, on a tile tinted with the
+// tier colour for that timeframe. The tile for the chosen timeframe gets an outline. `tag` names the tier only when it differs from the card's own tier, so a change (say
+// Elite over L30 on a Superstar card) is spelled out as well as coloured. `delta` is L30 minus season average.
 function Col({ label, value, sub, tier, on, trend, tag, delta }: { label: string; value: string; sub?: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"]; tag?: Tier | null; delta?: number | null }) {
   return (
-    <div className={`px-1 py-1.5 text-center ${on ? "bg-ice-panel" : ""}`}>
-      <div className="text-[11px] text-muted flex items-center justify-center gap-1">
-        {label}
-        {tag ? (
-          <span className="text-[10px] leading-4 px-1 rounded font-semibold" style={{ background: SOFT[tag].bg, color: SOFT[tag].fg }}>
-            {tag}
-          </span>
-        ) : null}
-      </div>
-      <div className={`h-6 leading-6 whitespace-nowrap text-base font-tabular ${on ? "font-semibold" : ""}`}>
+    <div
+      className="px-1 py-1.5 text-center rounded-lg border-2"
+      style={tier ? { background: SOFT[tier].bg, color: SOFT[tier].fg, borderColor: on ? SOFT[tier].fg : "transparent" } : { background: "#EEF2F6", color: "#5B6672", borderColor: on ? "#5B6672" : "transparent" }}
+    >
+      <div className="text-[11px]">{label}</div>
+      <div className="h-6 leading-6 whitespace-nowrap text-base font-semibold font-tabular">
         {value}
         {trend ? <Trend t={trend} /> : null}
         {delta !== null && delta !== undefined && Math.abs(delta) >= 0.05 ? (
-          <span className={`ml-1 text-[11px] font-normal ${delta > 0 ? "text-green-700" : "text-center-red"}`}>
+          <span className="ml-1 text-[11px] font-normal">
             {delta > 0 ? "+" : "−"}
             {f2(Math.abs(delta))}
           </span>
         ) : null}
       </div>
-      <div className="text-[10px] text-muted font-tabular h-3.5">{sub ?? ""}</div>
-      <div className="h-[3px] mx-3 rounded-sm" style={{ background: tier ? SOFT[tier].bar : "#CBD6E2" }} />
+      <div className="text-[10px] font-tabular h-3.5 whitespace-nowrap">
+        {tag ? `${tag} · ` : ""}
+        {sub ?? ""}
+      </div>
     </div>
   );
 }
