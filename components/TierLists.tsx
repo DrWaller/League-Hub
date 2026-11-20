@@ -41,15 +41,9 @@ function valueFor(p: DirPlayer, view: View): number {
   return (p.goalie ? p.est : p.l30?.avg) ?? -1;
 }
 
-// Softer shades for the cards (the tier buttons keep the solid TIER_STYLE colours): bar = the underline and
-// stripe, bg / fg = the tier header strip.
-const SOFT: Record<Tier, { bar: string; bg: string; fg: string }> = {
-  Superstar: { bar: "#D9A441", bg: "#F8E7C2", fg: "#5A3D0A" },
-  Elite: { bar: "#1B6FB5", bg: "#D3E5F5", fg: "#0C3A63" },
-  Good: { bar: "#26864A", bg: "#D2EBDA", fg: "#14502B" },
-  Depth: { bar: "#7C8794", bg: "#E1E5EA", fg: "#3A424B" },
-  Replacement: { bar: "#B8574A", bg: "#F3D5D0", fg: "#6B2A21" },
-};
+// The cards use the exact tier colours from the tier buttons (TIER_STYLE): bar = the card stripe and the dots in
+// Rows, bg / fg = the stat tiles and the tier header strip.
+const SOFT = Object.fromEntries(TIERS.map((t) => [t, { bar: TIER_STYLE[t].bg, bg: TIER_STYLE[t].bg, fg: TIER_STYLE[t].fg }])) as Record<Tier, { bar: string; bg: string; fg: string }>;
 
 function Trend({ t }: { t: DirPlayer["trend"] }) {
   return t === "up" ? <span className="text-green-700 font-bold"> ↑</span> : t === "down" ? <span className="text-center-red font-bold"> ↓</span> : null;
@@ -62,12 +56,12 @@ function Col({ label, value, sub, tier, on, trend, tag, delta }: { label: string
   return (
     <div
       className="px-1 py-1.5 text-center rounded-lg border-2"
-      style={tier ? { background: SOFT[tier].bg, color: SOFT[tier].fg, borderColor: on ? SOFT[tier].fg : "transparent" } : { background: "#EEF2F6", color: "#5B6672", borderColor: on ? "#5B6672" : "transparent" }}
+      style={tier ? { background: SOFT[tier].bg, color: SOFT[tier].fg, borderColor: on ? "#0C2740" : "transparent" } : { background: "#EEF2F6", color: "#5B6672", borderColor: on ? "#5B6672" : "transparent" }}
     >
       <div className="text-[11px]">{label}</div>
       <div className="h-6 leading-6 whitespace-nowrap text-base font-semibold font-tabular">
         {value}
-        {trend ? <Trend t={trend} /> : null}
+        {trend === "up" ? " ↑" : trend === "down" ? " ↓" : ""}
         {delta !== null && delta !== undefined && Math.abs(delta) >= 0.05 ? (
           <span className="ml-1 text-[11px] font-normal">
             {delta > 0 ? "+" : "−"}
