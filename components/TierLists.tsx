@@ -70,7 +70,7 @@ function Col({ label, value, sub, tier, on, trend, tag, delta }: { label: string
           </span>
         ) : null}
       </div>
-      <div className={`text-base font-tabular ${on ? "font-semibold" : ""}`}>
+      <div className={`h-6 leading-6 whitespace-nowrap text-base font-tabular ${on ? "font-semibold" : ""}`}>
         {value}
         {trend ? <Trend t={trend} /> : null}
         {delta !== null && delta !== undefined && Math.abs(delta) >= 0.05 ? (
@@ -146,9 +146,14 @@ function DenseRow({ p, rank, view, cuts, first }: { p: DirPlayer; rank: number; 
     <div className={`flex items-center gap-2 px-2.5 py-2 ${first ? "" : "border-t border-ice-line"}`}>
       <div className="w-5 shrink-0 text-xs text-muted font-tabular">{rank}</div>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold truncate">{p.name}</div>
-        <div className="text-[11px] text-muted truncate">
-          {p.nhl} · {p.pos} · {p.owner ?? p.status}
+        <div className="flex items-baseline gap-1.5 min-w-0">
+          <span className="text-sm font-semibold truncate">{p.name}</span>
+          <span className="shrink-0 text-[11px] text-muted">
+            {p.nhl} · {p.pos}
+          </span>
+        </div>
+        <div className="text-[11px] truncate">
+          {p.owner ? <span className="text-rink">{p.owner}</span> : <span className="text-green-700 font-semibold">{p.status}</span>}
           {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
         </div>
       </div>
