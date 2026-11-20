@@ -42,8 +42,9 @@ function valueFor(p: DirPlayer, view: View): number {
 }
 
 // The cards use the exact tier colours from the tier buttons (TIER_STYLE): bar = the card stripe and the dots in
-// Rows, bg / fg = the stat tiles and the tier header strip.
-const SOFT = Object.fromEntries(TIERS.map((t) => [t, { bar: TIER_STYLE[t].bg, bg: TIER_STYLE[t].bg, fg: TIER_STYLE[t].fg }])) as Record<Tier, { bar: string; bg: string; fg: string }>;
+// Rows, bg / fg = the stat tiles and the tier header strip. Superstar text is white on the cards (the buttons keep
+// their navy), with a faint shadow in the tiles so it stays readable on the gold.
+const SOFT = Object.fromEntries(TIERS.map((t) => [t, { bar: TIER_STYLE[t].bg, bg: TIER_STYLE[t].bg, fg: t === "Superstar" ? "#FFFFFF" : TIER_STYLE[t].fg }])) as Record<Tier, { bar: string; bg: string; fg: string }>;
 
 function Trend({ t }: { t: DirPlayer["trend"] }) {
   return t === "up" ? <span className="text-green-700 font-bold"> ↑</span> : t === "down" ? <span className="text-center-red font-bold"> ↓</span> : null;
@@ -56,7 +57,7 @@ function Col({ label, value, sub, tier, on, trend, tag, delta, reserveTag }: { l
   return (
     <div
       className="px-1 py-1.5 text-center rounded-lg border-2"
-      style={tier ? { background: SOFT[tier].bg, color: SOFT[tier].fg, borderColor: on ? "#0C2740" : "transparent" } : { background: "#EEF2F6", color: "#5B6672", borderColor: on ? "#5B6672" : "transparent" }}
+      style={tier ? { background: SOFT[tier].bg, color: SOFT[tier].fg, borderColor: on ? "#0C2740" : "transparent", textShadow: tier === "Superstar" ? "0 1px 1px rgba(60,40,0,0.35)" : undefined } : { background: "#EEF2F6", color: "#5B6672", borderColor: on ? "#5B6672" : "transparent" }}
     >
       <div className="text-xs">{label}</div>
       <div className="h-6 leading-6 whitespace-nowrap text-base font-semibold font-tabular">
