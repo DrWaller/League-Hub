@@ -38,7 +38,7 @@ export async function renderDraftPick(opts: { pick: AssessedPick; footer?: strin
         <div style={{ display: "flex", alignItems: "center", flexGrow: 1, padding: "34px 44px 10px 44px", gap: 36 }}>
           <PlayerAvatar name={p.name} src={p.playerId != null ? headshotUrl(p.playerId) : ""} hasHeadshot={opts.hasHeadshot} size={250} fontFamily={display} fontSize={90} border="6px solid rgba(255,255,255,0.8)" />
           <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0, gap: 10 }}>
-            <div style={{ display: "flex", fontFamily: display, fontSize: 30, letterSpacing: 4, opacity: 0.9 }}>{`PICK ${p.overall}${p.round != null ? ` · ROUND ${p.round}` : ""}${p.keeper ? " · KEEPER" : ""}`}</div>
+            <div style={{ display: "flex", fontFamily: display, fontSize: 30, letterSpacing: 4, opacity: 0.9 }}>{p.keeper ? "KEEPER" : `PICK ${p.overall}${p.round != null ? ` · ROUND ${p.round}` : ""}`}</div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: nameSize, lineHeight: 1.02, whiteSpace: "nowrap" }}>{p.name}</div>
             <div style={{ display: "flex", fontSize: subSize, whiteSpace: "nowrap" }}>{sub}</div>
             <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 40, letterSpacing: 5, textTransform: "uppercase", marginTop: 6 }}>{p.tier ?? "Not placed"}</div>

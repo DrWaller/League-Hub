@@ -9,17 +9,22 @@ import type { AssessedPick } from "./draft-assessment";
 // than one child needs display:flex, so each text is a single string.
 
 const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
-const W_AVG = 130;
-const W_TOT = 130;
-const W_TIER = 170;
 const GAP = 14;
 const fit = (room: number, chars: number, min: number, max: number) => Math.max(min, Math.min(max, Math.floor(room / (Math.max(1, chars) * 0.5))));
 
 export async function renderDraftRound(opts: { round: number; picks: AssessedPick[]; footer?: string; headshots?: Set<number>; keepers?: boolean; title?: string; subtitle?: string; labels?: Map<number, string>; hideTeam?: boolean }) {
   const headshots = opts.headshots ?? new Set<number>();
   const n = Math.max(1, opts.picks.length);
-  const rowH = Math.min(104, Math.floor((1094 - 24 - 40 - (n - 1) * 8) / n));
-  const avatar = Math.min(76, rowH - 22);
+  // Keepers aren't draft picks: no pick number, and with only a few rows everything is drawn larger so it reads on a phone.
+  const nopk = !!opts.keepers;
+  const rowH = Math.min(nopk ? 140 : 104, Math.floor((1094 - 24 - 40 - (n - 1) * 8) / n));
+  const k = nopk ? Math.min(1.3, rowH / 104) : 1;
+  const W_AVG = Math.round(130 * k);
+  const W_TOT = Math.round(130 * k);
+  const W_TIER = Math.round(170 * k);
+  const avatar = Math.min(Math.round(76 * k), rowH - 22);
+  const pkW = nopk ? 0 : 60;
+  const gaps = nopk ? 4 : 5;
   return frame({
     dark: true,
     flush: true,
@@ -29,7 +34,7 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "10px 28px 14px 28px" }}>
         <div style={{ display: "flex", alignItems: "center", height: 40, gap: GAP, padding: "0 18px", fontFamily: display, fontWeight: 600, fontSize: 22, letterSpacing: 3, color: "#9FB3C8" }}>
-          <div style={{ display: "flex", width: 60, justifyContent: "center" }}>PK</div>
+          {nopk ? null : <div style={{ display: "flex", width: 60, justifyContent: "center" }}>PK</div>}
           <div style={{ display: "flex", flexGrow: 1, paddingLeft: avatar + GAP }}>PLAYER</div>
           <div style={{ display: "flex", width: W_AVG, justifyContent: "flex-end" }}>AVG</div>
           <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end" }}>TOTAL</div>
@@ -41,24 +46,24 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
             // Gold rows get solid white text at full strength (no fading) with a faint shadow, like the Tier Lists cards.
             const s = gold ? { bg: TIER_STYLE.Superstar.bg, fg: "#FFFFFF" } : p.tier ? TIER_STYLE[p.tier] : { bg: "#2B4560", fg: "#C9D6E6" };
             const o = (x: number) => (gold ? 1 : x);
-            const room = 1024 - 36 - 60 - avatar - W_AVG - W_TOT - W_TIER - GAP * 5;
-            const name = p.keeper ? `${p.name} (K)` : p.name;
-            const nameSize = fit(room, name.length, 22, 38);
+            const room = 1024 - 36 - pkW - avatar - W_AVG - W_TOT - W_TIER - GAP * gaps;
+            const name = p.name;
+            const nameSize = fit(room, name.length, 22, Math.round(38 * k));
             const tag = opts.labels?.get(p.overall);
             const subText = [p.position, opts.hideTeam ? null : p.team, p.gp != null ? `${p.gp} GP` : null, tag ?? null].filter(Boolean).join(" · ");
-            const subSize = fit(room * 1.6, subText.length, 15, 22);
+            const subSize = fit(room * 1.6, subText.length, 15, Math.round(22 * k));
             const avg = p.perTeamGame != null ? p.perTeamGame : p.avg;
             return (
               <div key={p.overall} style={{ display: "flex", alignItems: "center", gap: GAP, height: rowH, flexShrink: 0, padding: "0 18px", borderRadius: 14, background: s.bg, color: s.fg, textShadow: gold ? "0 2px 3px rgba(60,40,0,0.45)" : "none" }}>
-                <div style={{ display: "flex", width: 60, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 40, lineHeight: 1, opacity: o(0.85) }}>{String(p.overall)}</div>
+                {nopk ? null : <div style={{ display: "flex", width: 60, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 40, lineHeight: 1, opacity: o(0.85) }}>{String(p.overall)}</div>}
                 <PlayerAvatar name={p.name} src={p.playerId != null ? headshotUrl(p.playerId) : ""} hasHeadshot={p.playerId != null && headshots.has(p.playerId)} size={avatar} fontFamily={display} fontSize={Math.round(avatar * 0.36)} border="3px solid rgba(255,255,255,0.7)" />
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: nameSize, lineHeight: 1.05, whiteSpace: "nowrap" }}>{name}</div>
                   <div style={{ display: "flex", fontSize: subSize, lineHeight: 1.1, opacity: o(0.88), fontWeight: gold ? 600 : 400, whiteSpace: "nowrap" }}>{subText}</div>
                 </div>
-                <div style={{ display: "flex", width: W_AVG, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 44, lineHeight: 1 }}>{f2(avg)}</div>
-                <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end", fontFamily: display, fontWeight: 600, fontSize: 32, lineHeight: 1, opacity: o(0.9) }}>{f2(p.total)}</div>
-                <div style={{ display: "flex", width: W_TIER, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 2, textTransform: "uppercase" }}>{p.tier ?? "N/A"}</div>
+                <div style={{ display: "flex", width: W_AVG, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: Math.round(44 * k), lineHeight: 1 }}>{f2(avg)}</div>
+                <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end", fontFamily: display, fontWeight: 600, fontSize: Math.round(32 * k), lineHeight: 1, opacity: o(0.9) }}>{f2(p.total)}</div>
+                <div style={{ display: "flex", width: W_TIER, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: Math.round(24 * k), letterSpacing: 2, textTransform: "uppercase" }}>{p.tier ?? "N/A"}</div>
               </div>
             );
           })}

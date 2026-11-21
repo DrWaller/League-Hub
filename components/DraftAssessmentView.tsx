@@ -50,15 +50,15 @@ function Card({ p }: { p: AssessedPick }) {
           {p.playerId != null && p.playerId > 0 ? <PlayerPhoto playerId={p.playerId} name={p.name} size={36} /> : null}
           <div className="min-w-0 flex-1">
             <div className="font-semibold truncate">
-              <span className="text-muted font-normal text-sm">#{p.overall}</span> {p.name}
-              {p.keeper ? <span className="ml-1.5 align-middle text-[10px] font-semibold border border-ice-line text-muted px-1 rounded">K</span> : null}
+              {p.keeper ? null : <span className="text-muted font-normal text-sm">#{p.overall} </span>}
+              {p.name}
             </div>
             <div className="text-xs text-muted truncate">
               {p.nhl ? `${p.nhl} · ` : ""}
               {p.position} · <span className="text-rink">{p.team}</span>
             </div>
           </div>
-          {p.round != null ? <div className="shrink-0 text-[11px] text-muted font-tabular">Rd {p.round}</div> : null}
+          {p.round != null && !p.keeper ? <div className="shrink-0 text-[11px] text-muted font-tabular">Rd {p.round}</div> : null}
           <SaveCard p={p} />
         </div>
         <div className="grid grid-cols-3 gap-1 mt-1.5">
