@@ -1,0 +1,65 @@
+import { frame } from "./portrait-graphics";
+import { PlayerAvatar } from "./og-avatar";
+import { headshotUrl } from "./headshots";
+import { TIER_STYLE } from "./tier-style";
+import type { AssessedPick } from "./draft-assessment";
+
+// One portrait (1080 x 1350) graphic for one draft round: every pick in order as a full-width row filled in its tier
+// colour, with headshot, player and team, season avg, season total and tier. Satori rules: every element with more
+// than one child needs display:flex, so each text is a single string.
+
+const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
+const W_AVG = 130;
+const W_TOT = 130;
+const W_TIER = 170;
+const GAP = 14;
+const fit = (room: number, chars: number, min: number, max: number) => Math.max(min, Math.min(max, Math.floor(room / (Math.max(1, chars) * 0.5))));
+
+export async function renderDraftRound(opts: { round: number; picks: AssessedPick[]; footer?: string; headshots?: Set<number>; keepers?: boolean }) {
+  const headshots = opts.headshots ?? new Set<number>();
+  const n = Math.max(1, opts.picks.length);
+  const rowH = Math.min(104, Math.floor((1094 - 24 - 40 - (n - 1) * 8) / n));
+  const avatar = Math.min(76, rowH - 22);
+  return frame({
+    dark: true,
+    flush: true,
+    footer: opts.footer,
+    title: opts.keepers ? "Draft Keepers" : `Draft Round ${opts.round}`,
+    subtitle: "Season avg pts/game, total and tier (goalies on pts per team game)",
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "10px 28px 14px 28px" }}>
+        <div style={{ display: "flex", alignItems: "center", height: 40, gap: GAP, padding: "0 18px", fontFamily: display, fontWeight: 600, fontSize: 22, letterSpacing: 3, color: "#9FB3C8" }}>
+          <div style={{ display: "flex", width: 60, justifyContent: "center" }}>PK</div>
+          <div style={{ display: "flex", flexGrow: 1, paddingLeft: avatar + GAP }}>PLAYER</div>
+          <div style={{ display: "flex", width: W_AVG, justifyContent: "flex-end" }}>AVG</div>
+          <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end" }}>TOTAL</div>
+          <div style={{ display: "flex", width: W_TIER, justifyContent: "flex-end" }}>TIER</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {opts.picks.map((p) => {
+            const s = p.tier ? TIER_STYLE[p.tier] : { bg: "#2B4560", fg: "#C9D6E6" };
+            const room = 1024 - 36 - 60 - avatar - W_AVG - W_TOT - W_TIER - GAP * 5;
+            const name = p.keeper ? `${p.name} (K)` : p.name;
+            const nameSize = fit(room, name.length, 22, 38);
+            const subText = `${p.position} · ${p.team}${p.gp != null ? ` · ${p.gp} GP` : ""}`;
+            const subSize = fit(room * 1.6, subText.length, 15, 22);
+            const avg = p.perTeamGame != null ? p.perTeamGame : p.avg;
+            return (
+              <div key={p.overall} style={{ display: "flex", alignItems: "center", gap: GAP, height: rowH, flexShrink: 0, padding: "0 18px", borderRadius: 14, background: s.bg, color: s.fg }}>
+                <div style={{ display: "flex", width: 60, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 40, lineHeight: 1, opacity: 0.85 }}>{String(p.overall)}</div>
+                <PlayerAvatar name={p.name} src={p.playerId != null ? headshotUrl(p.playerId) : ""} hasHeadshot={p.playerId != null && headshots.has(p.playerId)} size={avatar} fontFamily={display} fontSize={Math.round(avatar * 0.36)} border="3px solid rgba(255,255,255,0.7)" />
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: nameSize, lineHeight: 1.05, whiteSpace: "nowrap" }}>{name}</div>
+                  <div style={{ display: "flex", fontSize: subSize, lineHeight: 1.1, opacity: 0.88, whiteSpace: "nowrap" }}>{subText}</div>
+                </div>
+                <div style={{ display: "flex", width: W_AVG, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 44, lineHeight: 1 }}>{f2(avg)}</div>
+                <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end", fontFamily: display, fontWeight: 600, fontSize: 32, lineHeight: 1, opacity: 0.9 }}>{f2(p.total)}</div>
+                <div style={{ display: "flex", width: W_TIER, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 2, textTransform: "uppercase" }}>{p.tier ?? "N/A"}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    ),
+  });
+}

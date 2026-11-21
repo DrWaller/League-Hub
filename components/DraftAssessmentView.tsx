@@ -77,6 +77,11 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
     const k = p.keeper ? "Keepers" : `Round ${p.round ?? Math.ceil(p.overall / 10)}`;
     groups.set(k, [...(groups.get(k) ?? []), p]);
   }
+  // Each round downloads as its own graphic (the keepers section is rounds 15 to 18, so it has none here).
+  const dl = (label: string) => {
+    const m = label.match(/^Round (\d+)$/);
+    return m ? `/api/cards/draft-round?round=${m[1]}` : "";
+  };
   const btn = (on: boolean) => `shrink-0 px-3 py-2 text-sm font-semibold border-2 ${on ? "border-rink" : "border-transparent"}`;
 
   return (
@@ -103,7 +108,14 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
       ) : (
         Array.from(groups.entries()).map(([label, list]) => (
           <section key={label} className="mb-4">
-            <h2 className="font-display text-xl uppercase tracking-wide bg-rink text-ice px-3 py-2 rounded-lg mb-2 border-l-4 border-gold">{label}</h2>
+            <div className="flex items-center justify-between gap-3 bg-rink text-ice px-3 py-2 rounded-lg mb-2 border-l-4 border-gold">
+              <h2 className="font-display text-xl uppercase tracking-wide">{label}</h2>
+              {dl(label) ? (
+                <a href={dl(label)} download={`draft-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-gold/70 px-3 py-1.5 text-gold hover:bg-white/10">
+                  Download
+                </a>
+              ) : null}
+            </div>
             <div className="flex flex-col gap-2">
               {list.map((p) => (
                 <Card key={p.overall} p={p} />
