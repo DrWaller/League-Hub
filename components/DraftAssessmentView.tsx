@@ -14,6 +14,18 @@ const SOFT = Object.fromEntries(TIERS.map((t) => [t, { bg: TIER_STYLE[t].bg, fg:
 const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(2)}`;
 const shadow = (t: Tier | null) => (t === "Superstar" ? "0 1px 1px rgba(60,40,0,0.35)" : undefined);
 
+// Small download icon: saves this pick as its own card image.
+function SaveCard({ p }: { p: AssessedPick }) {
+  const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return (
+    <a href={`/api/cards/draft-pick?pick=${p.overall}`} download={`draft-pick-${p.overall}-${slug}.png`} aria-label={`Download ${p.name} card`} title="Download card" className="shrink-0 flex items-center justify-center w-8 h-8 border border-ice-line rounded text-rink hover:bg-ice-panel">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <path d="M8 2v8M4.5 7 8 10.5 11.5 7M3 13.5h10" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </a>
+  );
+}
+
 function Tile({ label, value, sub, tier }: { label: string; value: string; sub?: string; tier: Tier | null }) {
   return (
     <div
@@ -46,6 +58,7 @@ function Card({ p }: { p: AssessedPick }) {
             </div>
           </div>
           {p.round != null ? <div className="shrink-0 text-[11px] text-muted font-tabular">Rd {p.round}</div> : null}
+          <SaveCard p={p} />
         </div>
         <div className="grid grid-cols-3 gap-1 mt-1.5">
           <Tile label="Season" value={f2(g ? p.perTeamGame : p.avg)} sub={g ? "per team gm" : p.gp != null ? `${p.gp} gp` : undefined} tier={p.tier} />
@@ -89,6 +102,7 @@ function ValueCard({ p, kind }: { p: AssessedPick; kind: "steal" | "bust" }) {
               <div className="text-[10px] text-muted">drafted #{p.overall}</div>
             </div>
           ) : null}
+          <SaveCard p={p} />
         </div>
         <div className="grid grid-cols-3 gap-1 mt-1.5">
           <Tile label="Season" value={f2(g ? p.perTeamGame : p.avg)} sub={g ? "per team gm" : p.gp != null ? `${p.gp} gp` : undefined} tier={p.tier} />
