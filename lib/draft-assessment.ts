@@ -8,6 +8,7 @@ import { ensureDraftSchema } from "@/lib/draft";
 import { getAllStored } from "@/lib/vor-store";
 import { getLeagueTiers, loadPools, tierOf, type Tier } from "@/lib/league-tiers";
 import { getGoalieUsage } from "@/lib/goalie-starts";
+import { availableGames } from "@/lib/goalie-exceptions";
 import { NHL_ABBREV } from "@/lib/best-available";
 import { norm } from "@/lib/lines";
 import type { Group, PoolPlayer } from "@/lib/radar";
@@ -96,7 +97,8 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
     if (tiers && p) {
       if (group === "G") {
         const tg = usage?.teamGames(p.name) ?? maxGp;
-        perTeamGame = tg > 0 && p.gp > 0 ? Math.round((p.appliedTotal / tg) * 100) / 100 : null;
+        const den = availableGames(season, p.name, tg, p.gp);
+        perTeamGame = tg > 0 && p.gp > 0 ? Math.round((p.appliedTotal / den) * 100) / 100 : null;
         tier = perTeamGame != null ? tierOf(perTeamGame, tiers.cutoffs.G) : null;
       } else if (avg !== null && p.gp >= 5) tier = tierOf(avg, tiers.cutoffs[group]);
     }
