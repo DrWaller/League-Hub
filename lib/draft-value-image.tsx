@@ -27,14 +27,14 @@ export async function renderDraftValue(opts: { kind: ValueKind; picks: AssessedP
     flush: true,
     footer: opts.footer,
     title: `Draft ${VALUE_TITLES[opts.kind]}`,
-    subtitle: "Season pts vs the player who finished at the pick's slot",
+    subtitle: "Season VOR vs the player currently ranked at the pick's slot",
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "10px 28px 14px 28px" }}>
         <div style={{ display: "flex", alignItems: "center", height: 40, gap: GAP, padding: "0 18px", fontFamily: display, fontWeight: 600, fontSize: 22, letterSpacing: 3, color: "#9FB3C8" }}>
           <div style={{ display: "flex", width: 60, justifyContent: "center" }}>PK</div>
           <div style={{ display: "flex", flexGrow: 1, paddingLeft: avatar + GAP }}>PLAYER</div>
           <div style={{ display: "flex", width: W_FIN, justifyContent: "flex-end" }}>CURRENT</div>
-          <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end" }}>TOTAL</div>
+          <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end" }}>VOR</div>
           <div style={{ display: "flex", width: W_VS, justifyContent: "flex-end" }}>VS SLOT</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -54,7 +54,7 @@ export async function renderDraftValue(opts: { kind: ValueKind; picks: AssessedP
                   <div style={{ display: "flex", fontSize: subSize, lineHeight: 1.1, opacity: white ? 1 : 0.88, whiteSpace: "nowrap" }}>{subText}</div>
                 </div>
                 <div style={{ display: "flex", width: W_FIN, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 38, lineHeight: 1 }}>{p.finish != null ? `#${p.finish}` : "–"}</div>
-                <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end", fontFamily: display, fontWeight: 600, fontSize: 32, lineHeight: 1 }}>{f2(p.total)}</div>
+                <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end", fontFamily: display, fontWeight: 600, fontSize: 32, lineHeight: 1 }}>{f2(p.vor)}</div>
                 <div style={{ display: "flex", width: W_VS, justifyContent: "center", padding: "8px 0", borderRadius: 10, background: "#0C2740", textShadow: "none", fontFamily: display, fontWeight: 700, fontSize: 36, lineHeight: 1, color: up ? "#7BE0A0" : "#FF8FA0" }}>
                   {p.surplus != null ? signed(p.surplus) : "–"}
                 </div>

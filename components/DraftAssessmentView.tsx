@@ -106,7 +106,7 @@ function ValueCard({ p, kind }: { p: AssessedPick; kind: "steal" | "bust" }) {
         </div>
         <div className="grid grid-cols-3 gap-1 mt-1.5">
           <Tile label="Season" value={f2(g ? p.perTeamGame : p.avg)} sub={g ? "per team gm" : p.gp != null ? `${p.gp} gp` : undefined} tier={p.tier} />
-          <Tile label="Total" value={f2(p.total)} sub="pts" tier={p.tier} />
+          <Tile label="VOR" value={f2(p.vor)} sub="season" tier={p.tier} />
           <div className="px-1 py-1 text-center rounded-lg border-2 border-transparent" style={{ background: "#0C2740", color: "#FFFFFF" }}>
             <div className="text-xs leading-4">vs slot</div>
             <div className="h-5 leading-5 whitespace-nowrap text-base font-semibold font-tabular" style={{ color: kind === "steal" ? "#7BE0A0" : "#FF8FA0" }}>
@@ -158,7 +158,7 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
 
       <div className={view === "value" ? "" : "hidden"}>
         <p className="text-xs text-muted mb-3 max-w-prose">
-          Each drafted pick against the player who finished at his draft slot in season points so far. Points above or below that player are shown as vs slot. Keepers aren&apos;t assessed.
+          Ranked by season VOR (value over the last league starter at his position, so every position is on one scale and games played count). Each pick is measured against the player currently ranked at his draft slot; the VOR above or below that player is vs slot. Keepers aren&apos;t assessed.
         </p>
         {(["steals", "busts", "missed"] as ValueKind[]).map((kind) =>
           value[kind].length === 0 ? null : (

@@ -28,7 +28,7 @@ export async function renderDraftPick(opts: { pick: AssessedPick; footer?: strin
   const stat = (label: string, value: string, note?: string) => (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexGrow: 1, flexBasis: 0, padding: "12px 0", borderRadius: 16, background: "rgba(0,0,0,0.18)" }}>
       <div style={{ display: "flex", fontFamily: display, fontSize: 24, letterSpacing: 3, opacity: 0.9 }}>{label}</div>
-      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 64, lineHeight: 1.05 }}>{value}</div>
+      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 56, lineHeight: 1.05 }}>{value}</div>
       <div style={{ display: "flex", fontSize: 22, opacity: 0.9, height: 26 }}>{note ?? ""}</div>
     </div>
   );
@@ -47,7 +47,8 @@ export async function renderDraftPick(opts: { pick: AssessedPick; footer?: strin
         <div style={{ display: "flex", gap: 14, padding: "0 44px" }}>
           {stat("SEASON", f2(avg), g ? "per team game" : "avg pts/game")}
           {stat("TOTAL", f2(p.total), "pts")}
-          {stat("GAMES", p.gp != null ? String(p.gp) : "–", "played")}
+          {stat("VOR", f2(p.vor), "season")}
+          {stat("GP", p.gp != null ? String(p.gp) : "–", "played")}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16, height: 84, padding: "0 44px", background: "#0C2740", color: "#FFFFFF", textShadow: "none" }}>
           {p.surplus != null ? (

@@ -5,9 +5,9 @@ import { TIERS } from "./tier-style";
 export type ValueKind = "steals" | "busts" | "missed";
 export const VALUE_TITLES: Record<ValueKind, string> = { steals: "Steals", busts: "Busts", missed: "Missed Time" };
 export const VALUE_BLURBS: Record<ValueKind, string> = {
-  steals: "Scored more than the player currently at his draft slot.",
+  steals: "More season VOR than the player currently ranked at his draft slot.",
   busts: "Played at least half the games and didn't live up to the slot: rounds 1 to 3 and not Good, or rounds 4 to 7 and Replacement. Players who are Good or better are never busts.",
-  missed: "Played under half the games so far (injured or out of the lineup) and are behind the player currently at their slot.",
+  missed: "Played under half the games so far (injured or out of the lineup) and are behind the VOR of the player currently ranked at their slot.",
 };
 
 export function splitValue(picks: AssessedPick[], top = 10): Record<ValueKind, AssessedPick[]> {

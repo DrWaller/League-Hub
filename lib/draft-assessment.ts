@@ -5,6 +5,7 @@
 import { sql } from "@/lib/db";
 import { getLeagueMeta } from "@/lib/espn";
 import { ensureDraftSchema } from "@/lib/draft";
+import { getAllStored } from "@/lib/vor-store";
 import { getLeagueTiers, loadPools, tierOf, type Tier } from "@/lib/league-tiers";
 import { makeGoalieRater } from "@/lib/team-makeup";
 import { NHL_ABBREV } from "@/lib/best-available";
@@ -26,17 +27,19 @@ export interface AssessedPick {
   perTeamGame: number | null; // goalies only: the number their tier is set on
   playerId: number | null;
   nhl: string | null;
-  finish: number | null; // rank of his season points among every player in the pool
-  par: number | null; // points scored by the player who finished at this pick's slot
-  outscoredBy: number; // later non-keeper picks who have scored more than him
-  outscored: number; // earlier non-keeper picks who have scored less than him
-  surplus: number | null; // total minus par: positive = steal, negative = bust (keepers aren't assessed)
+  vor: number | null; // season VOR: his weekly value over the last league starter at his position, summed
+  finish: number | null; // current rank of his season VOR among every player with VOR
+  par: number | null; // season VOR of the player currently ranked at this pick's slot
+  outscoredBy: number; // later non-keeper picks with more VOR than him
+  outscored: number; // earlier non-keeper picks with less VOR than him
+  surplus: number | null; // VOR minus par: positive = steal, negative = bust (keepers aren't assessed)
 }
 
 export interface DraftAssessment {
   season: number;
   source: string;
   basis: string; // where the tier cutoffs come from
+  vorWeeks: number; // last finished week included in the VOR numbers (0 = none saved yet)
   picks: AssessedPick[];
 }
 
@@ -67,12 +70,18 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
       if (!byName.has(norm(p.name))) byName.set(norm(p.name), p);
     }
 
-  // Every player ranked by season points: a pick is "par" if he scored what the player who finished at his slot scored.
-  const ranked = (["F", "D", "G"] as Group[]).flatMap((g) => pools[g]).sort((a, b) => b.appliedTotal - a.appliedTotal);
+  // Season VOR per player (sum of his saved weekly VOR, one scale for every position and games played). A pick is "par"
+  // if he has the VOR of the player currently ranked at his draft slot. Players who never posted a game count as 0.
+  const stored = await getAllStored(season).catch(() => []);
+  const vorBy = new Map<number, number>();
+  let vorWeeks = 0;
+  for (const r of stored) {
+    vorBy.set(r.playerId, (vorBy.get(r.playerId) ?? 0) + r.vor);
+    vorWeeks = Math.max(vorWeeks, r.week);
+  }
+  const ranked = Array.from(vorBy.entries()).map(([id, vor]) => ({ id, vor })).sort((a, b) => b.vor - a.vor);
   const finishById = new Map<number, number>();
-  ranked.forEach((r, i) => {
-    if (!finishById.has(r.id)) finishById.set(r.id, i + 1);
-  });
+  ranked.forEach((r, i) => finishById.set(r.id, i + 1));
 
   const picks: AssessedPick[] = list.map((r) => {
     const name = String(r.player_name ?? "");
@@ -108,19 +117,20 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
       perTeamGame,
       playerId: p ? p.id : pid,
       nhl: p ? NHL_ABBREV[p.proTeamId] ?? null : null,
-      finish: p ? finishById.get(p.id) ?? null : null,
-      par: !r.is_keeper && ranked[Number(r.overall_pick) - 1] ? ranked[Number(r.overall_pick) - 1].appliedTotal : null,
+      vor: p && vorWeeks > 0 ? Math.round((vorBy.get(p.id) ?? 0) * 100) / 100 : null,
+      finish: p && vorWeeks > 0 ? finishById.get(p.id) ?? ranked.length + 1 : null,
+      par: !r.is_keeper && ranked[Number(r.overall_pick) - 1] ? Math.round(ranked[Number(r.overall_pick) - 1].vor * 100) / 100 : null,
       surplus: null,
       outscoredBy: 0,
       outscored: 0,
     };
   });
-  for (const x of picks) if (!x.keeper && x.total != null && x.par != null) x.surplus = x.total - x.par;
-  const nk = picks.filter((y) => !y.keeper && y.total != null);
+  for (const x of picks) if (!x.keeper && x.vor != null && x.par != null) x.surplus = Math.round((x.vor - x.par) * 100) / 100;
+  const nk = picks.filter((y) => !y.keeper && y.vor != null);
   for (const x of nk) {
-    x.outscoredBy = nk.filter((y) => y.overall > x.overall && y.total! > x.total!).length;
-    x.outscored = nk.filter((y) => y.overall < x.overall && y.total! < x.total!).length;
+    x.outscoredBy = nk.filter((y) => y.overall > x.overall && y.vor! > x.vor!).length;
+    x.outscored = nk.filter((y) => y.overall < x.overall && y.vor! < x.vor!).length;
   }
   const basis = tiers ? `${tiers.basis === "this season" ? "This season's" : "Last season's"} league cutoffs (${tiers.gamesPlayed} GP in)` : "Tier cutoffs unavailable";
-  return { season, source, basis, picks };
+  return { season, source, basis, vorWeeks, picks };
 }
