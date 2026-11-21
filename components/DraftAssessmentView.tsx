@@ -1,0 +1,120 @@
+"use client";
+
+import { useState } from "react";
+import PlayerPhoto from "@/components/PlayerPhoto";
+import { TIERS, TIER_STYLE, type Tier } from "@/lib/tier-style";
+import type { AssessedPick } from "@/lib/draft-assessment";
+
+const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
+
+// Same look as the Tier Lists cards: the stripe, tiles and chips use the exact tier colours (Superstar text is white on
+// the cards with a faint shadow so it stays readable on the gold).
+const SOFT = Object.fromEntries(TIERS.map((t) => [t, { bg: TIER_STYLE[t].bg, fg: t === "Superstar" ? "#FFFFFF" : TIER_STYLE[t].fg }])) as Record<Tier, { bg: string; fg: string }>;
+const shadow = (t: Tier | null) => (t === "Superstar" ? "0 1px 1px rgba(60,40,0,0.35)" : undefined);
+
+function Tile({ label, value, sub, tier }: { label: string; value: string; sub?: string; tier: Tier | null }) {
+  return (
+    <div
+      className="px-1 py-1 text-center rounded-lg border-2 border-transparent"
+      style={tier ? { background: SOFT[tier].bg, color: SOFT[tier].fg, textShadow: shadow(tier) } : { background: "#EEF2F6", color: "#5B6672" }}
+    >
+      <div className="text-xs leading-4">{label}</div>
+      <div className="h-5 leading-5 whitespace-nowrap text-base font-semibold font-tabular">{value}</div>
+      <div className="text-[11px] font-tabular h-4 leading-4 whitespace-nowrap">{sub ?? ""}</div>
+    </div>
+  );
+}
+
+function Card({ p }: { p: AssessedPick }) {
+  const g = p.perTeamGame != null;
+  return (
+    <div className="flex bg-white border border-ice-line rounded-lg overflow-hidden">
+      <div className="w-1 shrink-0" style={{ background: p.tier ? SOFT[p.tier].bg : "#C9D1DA" }} />
+      <div className="flex-1 min-w-0 px-3 py-2">
+        <div className="flex items-center gap-2.5">
+          {p.playerId != null && p.playerId > 0 ? <PlayerPhoto playerId={p.playerId} name={p.name} size={36} /> : null}
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold truncate">
+              <span className="text-muted font-normal text-sm">#{p.overall}</span> {p.name}
+              {p.keeper ? <span className="ml-1.5 align-middle text-[10px] font-semibold border border-ice-line text-muted px-1 rounded">K</span> : null}
+            </div>
+            <div className="text-xs text-muted truncate">
+              {p.nhl ? `${p.nhl} · ` : ""}
+              {p.position} · <span className="text-rink">{p.team}</span>
+            </div>
+          </div>
+          {p.round != null ? <div className="shrink-0 text-[11px] text-muted font-tabular">Rd {p.round}</div> : null}
+        </div>
+        <div className="grid grid-cols-3 gap-1 mt-1.5">
+          <Tile label="Season" value={f2(g ? p.perTeamGame : p.avg)} sub={g ? "per team gm" : p.gp != null ? `${p.gp} gp` : undefined} tier={p.tier} />
+          <Tile label="Total" value={f2(p.total)} sub={g && p.gp != null ? `${p.gp} gp` : "pts"} tier={p.tier} />
+          <div
+            className="px-1 py-1 text-center rounded-lg border-2 border-transparent flex flex-col justify-center"
+            style={p.tier ? { background: SOFT[p.tier].bg, color: SOFT[p.tier].fg, textShadow: shadow(p.tier) } : { background: "#EEF2F6", color: "#5B6672" }}
+          >
+            <div className="text-xs leading-4">Tier</div>
+            <div className="text-sm font-semibold leading-5 truncate">{p.tier ?? "Not placed"}</div>
+            <div className="h-4" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }) {
+  const [tier, setTier] = useState<Tier | "ALL" | "NONE">("ALL");
+  const drafted = picks.filter((p) => !p.keeper);
+  const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
+  let unplaced = 0;
+  for (const p of drafted) {
+    if (p.tier) counts[p.tier]++;
+    else unplaced++;
+  }
+  const keep = (p: AssessedPick) => tier === "ALL" || (tier === "NONE" ? p.tier === null : p.tier === tier);
+  const groups = new Map<string, AssessedPick[]>();
+  for (const p of picks.filter(keep)) {
+    const k = p.keeper ? "Keepers" : `Round ${p.round ?? Math.ceil(p.overall / 10)}`;
+    groups.set(k, [...(groups.get(k) ?? []), p]);
+  }
+  const btn = (on: boolean) => `shrink-0 px-3 py-2 text-sm font-semibold border-2 ${on ? "border-rink" : "border-transparent"}`;
+
+  return (
+    <div>
+      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-2">
+        <button type="button" onClick={() => setTier("ALL")} className={`${btn(tier === "ALL")} bg-white text-rink !border-ice-line ${tier === "ALL" ? "!border-rink" : ""}`}>
+          All <span className="font-tabular opacity-90">{picks.length}</span>
+        </button>
+        {TIERS.map((t) => (
+          <button key={t} type="button" onClick={() => setTier(tier === t ? "ALL" : t)} className={btn(tier === t)} style={{ background: SOFT[t].bg, color: SOFT[t].fg, textShadow: shadow(t) }}>
+            {t} <span className="font-tabular opacity-90">{counts[t]}</span>
+          </button>
+        ))}
+        {unplaced > 0 ? (
+          <button type="button" onClick={() => setTier(tier === "NONE" ? "ALL" : "NONE")} className={`${btn(tier === "NONE")} bg-ice-panel text-muted`}>
+            Not placed <span className="font-tabular">{unplaced}</span>
+          </button>
+        ) : null}
+      </div>
+      <p className="text-xs text-muted mb-3">Tier counts are the drafted picks only; keepers are listed at the end.</p>
+
+      {groups.size === 0 ? (
+        <p className="text-muted">No picks match.</p>
+      ) : (
+        Array.from(groups.entries()).map(([label, list]) => (
+          <section key={label} className="mb-4">
+            <div className="px-3 py-1.5 text-xs font-semibold flex items-center justify-between rounded bg-ice-panel text-rink mb-2">
+              <span>{label}</span>
+              <span className="font-tabular">{list.length}</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {list.map((p) => (
+                <Card key={p.overall} p={p} />
+              ))}
+            </div>
+          </section>
+        ))
+      )}
+    </div>
+  );
+}

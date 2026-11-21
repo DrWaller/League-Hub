@@ -24,6 +24,8 @@ export interface AssessedPick {
   avg: number | null; // points per game played
   tier: Tier | null;
   perTeamGame: number | null; // goalies only: the number their tier is set on
+  playerId: number | null;
+  nhl: string | null;
 }
 
 export interface DraftAssessment {
@@ -92,6 +94,8 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
       avg,
       tier,
       perTeamGame,
+      playerId: p ? p.id : pid,
+      nhl: p ? NHL_ABBREV[p.proTeamId] ?? null : null,
     };
   });
   const basis = tiers ? `${tiers.basis === "this season" ? "This season's" : "Last season's"} league cutoffs (${tiers.gamesPlayed} GP in)` : "Tier cutoffs unavailable";
