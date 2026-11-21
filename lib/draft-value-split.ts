@@ -6,8 +6,8 @@ export type ValueKind = "steals" | "busts" | "missed";
 export const VALUE_TITLES: Record<ValueKind, string> = { steals: "Steals", busts: "Busts", missed: "Missed Time" };
 export const VALUE_BLURBS: Record<ValueKind, string> = {
   steals: "Beat what his round expects: Elite or better in rounds 1 to 3 (Good is the standard in round 1 and the hope in rounds 2 and 3), or Good or better from round 4 on (Depth is already a win there). Ranked by season VOR above the player currently at his slot.",
-  busts: "Played at least half the games and didn't live up to the slot: round 1 and not Good, or rounds 2 to 7 and Replacement. Depth is a fine result after round 1, and Good or better is never a bust.",
-  missed: "Played under half the games so far (injured or out of the lineup) and are behind the VOR of the player currently ranked at their slot.",
+  busts: "Skaters who played at least half the games (any goalie) and didn't live up to the slot: round 1 and not Good, or rounds 2 to 7 and Replacement. Depth is a fine result after round 1, and Good or better is never a bust.",
+  missed: "Skaters who played under half the games so far (injured or out of the lineup) and are behind the VOR of the player currently ranked at their slot. Goalies who sit are judged as busts instead.",
 };
 
 // The steal / bust / missed-time predicates, shared by the league lists and the per-team views.
@@ -30,8 +30,10 @@ function makeRules(picks: AssessedPick[]) {
   const kindOf = (p: AssessedPick): ValueKind | null => {
     if (p.keeper || p.surplus == null) return null;
     if (overdelivered(p)) return "steals";
-    if (p.surplus < 0 && played(p) && underdelivered(p)) return "busts";
-    if (p.surplus < 0 && !played(p)) return "missed";
+    // A goalie who isn't playing is on the bench, not hurt (we can't tell), so he's judged on his tier like anyone else.
+    const goalie = p.position === "G";
+    if (p.surplus < 0 && (goalie || played(p)) && underdelivered(p)) return "busts";
+    if (p.surplus < 0 && !goalie && !played(p)) return "missed";
     return null;
   };
   return { kindOf };

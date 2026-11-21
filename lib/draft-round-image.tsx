@@ -18,11 +18,12 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
   // Keepers aren't draft picks: no pick number, and with only a few rows everything is drawn larger so it reads on a phone.
   const nopk = !!opts.keepers;
   const rowH = Math.min(nopk ? 140 : 104, Math.floor((1094 - 24 - 40 - (n - 1) * 8) / n));
-  const k = nopk ? Math.min(1.3, rowH / 104) : 1;
+  // Text scale: bigger for the few keeper rows, a bit smaller when many rows share the page (a team has 14 picks).
+  const k = nopk ? Math.min(1.3, rowH / 104) : Math.min(1, 0.55 + rowH / 230);
   const W_AVG = Math.round(130 * k);
   const W_TOT = Math.round(130 * k);
   const W_TIER = Math.round(170 * k);
-  const avatar = Math.min(Math.round(76 * k), rowH - 22);
+  const avatar = Math.min(Math.round(76 * k), rowH - 16);
   const pkW = nopk ? 0 : 60;
   const gaps = nopk ? 4 : 5;
   return frame({
@@ -48,10 +49,10 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
             const o = (x: number) => (gold ? 1 : x);
             const room = 1024 - 36 - pkW - avatar - W_AVG - W_TOT - W_TIER - GAP * gaps;
             const name = p.name;
-            const nameSize = fit(room, name.length, 22, Math.round(38 * k));
+            const nameSize = fit(room, name.length, Math.round(22 * Math.min(k, 1)), Math.round(38 * k));
             const tag = opts.labels?.get(p.overall);
             const subText = [p.position, opts.hideTeam ? null : p.team, p.gp != null ? `${p.gp} GP` : null, tag ?? null].filter(Boolean).join(" · ");
-            const subSize = fit(room * 1.6, subText.length, 15, Math.round(22 * k));
+            const subSize = fit(room * 1.6, subText.length, Math.round(15 * Math.min(k, 1)), Math.round(22 * k));
             const avg = p.perTeamGame != null ? p.perTeamGame : p.avg;
             return (
               <div key={p.overall} style={{ display: "flex", alignItems: "center", gap: GAP, height: rowH, flexShrink: 0, padding: "0 18px", borderRadius: 14, background: s.bg, color: s.fg, textShadow: gold ? "0 2px 3px rgba(60,40,0,0.45)" : "none" }}>
