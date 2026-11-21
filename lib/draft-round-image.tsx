@@ -25,7 +25,7 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
     flush: true,
     footer: opts.footer,
     title: opts.keepers ? "Draft Keepers" : `Draft Round ${opts.round}`,
-    subtitle: "Season avg pts/game, total and tier (goalies on pts per team game)",
+    subtitle: "",
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "10px 28px 14px 28px" }}>
         <div style={{ display: "flex", alignItems: "center", height: 40, gap: GAP, padding: "0 18px", fontFamily: display, fontWeight: 600, fontSize: 22, letterSpacing: 3, color: "#9FB3C8" }}>
