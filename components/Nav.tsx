@@ -30,6 +30,7 @@ const NAV: Entry[] = [
       { href: "/zero-g", label: "Zero G" },
       { href: "/team-makeup", label: "Team Makeup" },
       { href: "/tier-lists", label: "Tier Lists" },
+      { href: "/draft-assessment", label: "Draft Assessment" },
       { href: "/game-grid", label: "Game Grid" },
     ],
   },
