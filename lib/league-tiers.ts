@@ -12,7 +12,7 @@
 // so a tier only moves because a player does, not because the line did.
 
 import { sql } from "@/lib/db";
-import { getLeagueMeta, getPlayerPool } from "@/lib/espn";
+import { getLeagueMeta, getPlayerPool, getRosters } from "@/lib/espn";
 import { fetchLineupSlots, SLOT } from "@/lib/vor";
 import type { Group, PoolPlayer } from "@/lib/radar";
 import { getGoalieUsage } from "@/lib/goalie-starts";
@@ -27,6 +27,7 @@ export interface LeagueTiers {
   v?: number; // cutoff version: 2 = goalies on points per team game
   season: number;
   basis: "last season" | "this season";
+  benchV?: number; // 2 = the Bench line comes from the free-agent pool (see freeAgentBench)
   checkpoint: number; // 0 = last season's final, 1-3 = this season at 20 / 40 / 60 games
   gamesPlayed: number;
   cutoffs: Record<Group, Cutoffs>;
@@ -77,6 +78,32 @@ function cutoffsFrom(pools: Record<Group, PoolPlayer[]>, starters: Record<Group,
   return out;
 }
 
+// Bench / Replacement line. Replacement means "about what you can pick up for free", so the line is the typical decent
+// free agent: the MEDIAN of the top FA_SAMPLE free agents at the position (rated the same way as the other cutoffs). The
+// median, not the best one, because the best free agent or two are often players who should be rostered; a rostered player
+// can still be rated below the line. It always sits under the Depth line. Returns null when there are too few free agents
+// to read a level from (the 1.5x-starters line from cutoffsFrom is then kept).
+const FA_SAMPLE = 10;
+function freeAgentBench(pools: Record<Group, PoolPlayer[]>, rostered: Set<number>, minGp: number, goalieTeamGames: (name: string) => number | null, cutoffs: Record<Group, Cutoffs>): Partial<Record<Group, number>> {
+  const out: Partial<Record<Group, number>> = {};
+  for (const g of GROUPS) {
+    const fa = pools[g]
+      .filter((p) => p.gp >= minGp && !rostered.has(p.id))
+      .map((p) => (g === "G" ? p.appliedTotal / (goalieTeamGames(p.name) ?? 82) : p.appliedTotal / p.gp))
+      .sort((a, b) => b - a)
+      .slice(0, FA_SAMPLE);
+    if (fa.length < 5) continue;
+    const mid = fa.length % 2 ? fa[(fa.length - 1) / 2] : (fa[fa.length / 2 - 1] + fa[fa.length / 2]) / 2;
+    out[g] = round2(Math.max(0, Math.min(floor05(mid), cutoffs[g].depth - 0.05)));
+  }
+  return out;
+}
+async function rosteredIds(season: number): Promise<Set<number> | null> {
+  const r = await getRosters(season).catch(() => null);
+  if (!r || !r.live || r.rosters.length === 0) return null;
+  return new Set(r.rosters.flatMap((t) => t.players.map((p) => p.id)));
+}
+
 async function ensureTable() {
   await sql`
     CREATE TABLE IF NOT EXISTS tier_cutoffs (
@@ -113,13 +140,15 @@ export async function getLeagueTiers(): Promise<LeagueTiers | null> {
     if (r.rows.length) {
       const saved = JSON.parse(r.rows[0].payload as string) as LeagueTiers;
       if (saved.v === CUTOFF_VERSION) {
-        // Saved before Bench existed: keep every frozen cutoff as it is and add only the Bench line, then save it.
-        if (GROUPS.some((g) => saved.cutoffs[g]?.bench == null)) {
-          const usage = await getGoalieUsage(saved.basis === "last season" ? season - 1 : season).catch(() => null);
-          const pools = saved.basis === "last season" ? await loadPools(season - 1, false) : cur;
-          const minGp = saved.basis === "last season" ? 20 : Math.min(20, Math.max(5, Math.floor(gamesPlayed * 0.5)));
-          const fresh = cutoffsFrom(pools, saved.starters ?? starters, minGp, (n) => usage?.teamGames(n) ?? null);
-          for (const g of GROUPS) saved.cutoffs[g] = { ...saved.cutoffs[g], bench: Math.min(fresh[g].bench ?? 0, round2(Math.max(0, saved.cutoffs[g].depth - 0.05))) };
+        // Saved before the free-agent Bench line: keep every frozen cutoff and replace only the Bench line, then save it.
+        if (saved.benchV !== 2) {
+          if (saved.basis === "this season") {
+            const [ids, usage] = await Promise.all([rosteredIds(season), getGoalieUsage(season).catch(() => null)]);
+            const minGp = Math.min(20, Math.max(5, Math.floor(gamesPlayed * 0.5)));
+            const fa = ids ? freeAgentBench(cur, ids, minGp, (n) => usage?.teamGames(n) ?? null, saved.cutoffs) : {};
+            for (const g of GROUPS) if (fa[g] != null) saved.cutoffs[g] = { ...saved.cutoffs[g], bench: fa[g] };
+          }
+          saved.benchV = 2;
           try {
             await sql`UPDATE tier_cutoffs SET payload = ${JSON.stringify(saved)} WHERE season = ${season} AND checkpoint = ${checkpoint};`;
           } catch (err) {
@@ -139,9 +168,13 @@ export async function getLeagueTiers(): Promise<LeagueTiers | null> {
     cutoffs = cutoffsFrom(await loadPools(season - 1, false), starters, 20, (n) => usage?.teamGames(n) ?? null);
   } else {
     const usage = await getGoalieUsage(season).catch(() => null);
-    cutoffs = cutoffsFrom(cur, starters, Math.min(20, Math.max(5, Math.floor(gamesPlayed * 0.5))), (n) => usage?.teamGames(n) ?? null);
+    const minGp = Math.min(20, Math.max(5, Math.floor(gamesPlayed * 0.5)));
+    cutoffs = cutoffsFrom(cur, starters, minGp, (n) => usage?.teamGames(n) ?? null);
+    const ids = await rosteredIds(season);
+    const fa = ids ? freeAgentBench(cur, ids, minGp, (n) => usage?.teamGames(n) ?? null, cutoffs) : {};
+    for (const g of GROUPS) if (fa[g] != null) cutoffs[g] = { ...cutoffs[g], bench: fa[g] };
   }
-  const result: LeagueTiers = { v: CUTOFF_VERSION, season, basis: checkpoint === 0 ? "last season" : "this season", checkpoint, gamesPlayed, cutoffs, starters };
+  const result: LeagueTiers = { v: CUTOFF_VERSION, benchV: 2, season, basis: checkpoint === 0 ? "last season" : "this season", checkpoint, gamesPlayed, cutoffs, starters };
   try {
     const payload = JSON.stringify(result);
     await sql`INSERT INTO tier_cutoffs (season, checkpoint, payload) VALUES (${season}, ${checkpoint}, ${payload}) ON CONFLICT (season, checkpoint) DO UPDATE SET payload = ${payload}, created_at = now();`;

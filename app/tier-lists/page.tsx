@@ -13,7 +13,7 @@ export default async function TierListsPage() {
     <div>
       <h1 className="font-display text-3xl mb-1">Tier Lists</h1>
       <p className="text-muted mb-5 max-w-prose">
-        Every league player by tier, rostered or available. Rating, Season or L30 sets how they&apos;re grouped.
+        Every league player by tier, rostered or available. Rating, Season or L30 sets how they&apos;re grouped. Bench is rostered level, above what a typical free agent gives you; Replacement is free-agent level.
       </p>
       {data ? <TierLists data={data} /> : <p className="text-muted">Couldn&apos;t load players from ESPN right now.</p>}
     </div>
