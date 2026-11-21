@@ -7,7 +7,7 @@ import { getLeagueMeta } from "@/lib/espn";
 import { ensureDraftSchema } from "@/lib/draft";
 import { getAllStored } from "@/lib/vor-store";
 import { getLeagueTiers, loadPools, tierOf, type Tier } from "@/lib/league-tiers";
-import { makeGoalieRater } from "@/lib/team-makeup";
+import { getGoalieUsage } from "@/lib/goalie-starts";
 import { NHL_ABBREV } from "@/lib/best-available";
 import { norm } from "@/lib/lines";
 import type { Group, PoolPlayer } from "@/lib/radar";
@@ -55,13 +55,12 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
   const source = rows.map((r) => String(r.source)).sort((a, b) => (rank[a] ?? 9) - (rank[b] ?? 9))[0];
   const list = rows.filter((r) => String(r.source) === source);
 
-  const [tiers, pools, prevPools] = await Promise.all([getLeagueTiers(), loadPools(season, true), loadPools(season - 1, false)]);
+  const [tiers, pools] = await Promise.all([getLeagueTiers(), loadPools(season, true)]);
   // Same as the Tier Lists "Season" tier: skaters on avg pts per game (5+ GP); goalies on the rating's points per
   // team game (points per start x share of team games started), so a goalie's volume counts.
   const maxGp = Math.max(0, ...pools.G.map((g) => g.gp));
-  const { rate: rateG } = await makeGoalieRater(season, maxGp);
-  const prior = new Map<number, { gp: number; avg: number }>();
-  for (const g of ["F", "D", "G"] as Group[]) for (const p of prevPools[g]) if (p.gp > 0) prior.set(p.id, { gp: p.gp, avg: p.appliedTotal / p.gp });
+  // This season only: a goalie's points divided by his team's games so far (no last-season blend), the same measure the cutoffs use.
+  const usage = await getGoalieUsage(season).catch(() => null);
   const byId = new Map<number, PoolPlayer>();
   const byName = new Map<string, PoolPlayer>();
   for (const g of ["F", "D", "G"] as Group[])
@@ -96,10 +95,9 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
     let perTeamGame: number | null = null;
     if (tiers && p) {
       if (group === "G") {
-        const pr = prior.get(p.id);
-        const r = rateG(p.name, NHL_ABBREV[p.proTeamId] ?? "", p.gp > 0 ? { gp: p.gp, avg: p.appliedTotal / p.gp } : null, pr && pr.gp >= 20 ? pr.avg : null, false, null);
-        perTeamGame = r ? r.info.perTeamGame : null;
-        tier = r ? tierOf(r.info.perTeamGame, tiers.cutoffs.G) : null;
+        const tg = usage?.teamGames(p.name) ?? maxGp;
+        perTeamGame = tg > 0 && p.gp > 0 ? Math.round((p.appliedTotal / tg) * 100) / 100 : null;
+        tier = perTeamGame != null ? tierOf(perTeamGame, tiers.cutoffs.G) : null;
       } else if (avg !== null && p.gp >= 5) tier = tierOf(avg, tiers.cutoffs[group]);
     }
     return {
