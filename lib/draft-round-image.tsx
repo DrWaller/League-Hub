@@ -38,8 +38,8 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {opts.picks.map((p) => {
             const gold = p.tier === "Superstar";
-            // Gold rows get solid, deeper navy text at full strength (no fading), so it stays crisp on the gold.
-            const s = gold ? { bg: TIER_STYLE.Superstar.bg, fg: "#07182A" } : p.tier ? TIER_STYLE[p.tier] : { bg: "#2B4560", fg: "#C9D6E6" };
+            // Gold rows get solid white text at full strength (no fading) with a faint shadow, like the Tier Lists cards.
+            const s = gold ? { bg: TIER_STYLE.Superstar.bg, fg: "#FFFFFF" } : p.tier ? TIER_STYLE[p.tier] : { bg: "#2B4560", fg: "#C9D6E6" };
             const o = (x: number) => (gold ? 1 : x);
             const room = 1024 - 36 - 60 - avatar - W_AVG - W_TOT - W_TIER - GAP * 5;
             const name = p.keeper ? `${p.name} (K)` : p.name;
@@ -48,7 +48,7 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
             const subSize = fit(room * 1.6, subText.length, 15, 22);
             const avg = p.perTeamGame != null ? p.perTeamGame : p.avg;
             return (
-              <div key={p.overall} style={{ display: "flex", alignItems: "center", gap: GAP, height: rowH, flexShrink: 0, padding: "0 18px", borderRadius: 14, background: s.bg, color: s.fg }}>
+              <div key={p.overall} style={{ display: "flex", alignItems: "center", gap: GAP, height: rowH, flexShrink: 0, padding: "0 18px", borderRadius: 14, background: s.bg, color: s.fg, textShadow: gold ? "0 2px 3px rgba(60,40,0,0.45)" : "none" }}>
                 <div style={{ display: "flex", width: 60, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 40, lineHeight: 1, opacity: o(0.85) }}>{String(p.overall)}</div>
                 <PlayerAvatar name={p.name} src={p.playerId != null ? headshotUrl(p.playerId) : ""} hasHeadshot={p.playerId != null && headshots.has(p.playerId)} size={avatar} fontFamily={display} fontSize={Math.round(avatar * 0.36)} border="3px solid rgba(255,255,255,0.7)" />
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, flexGrow: 1, flexShrink: 1, minWidth: 0 }}>

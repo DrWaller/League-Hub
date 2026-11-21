@@ -4,6 +4,7 @@ import { useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import { TIERS, TIER_STYLE, type Tier } from "@/lib/tier-style";
 import type { AssessedPick } from "@/lib/draft-assessment";
+import { splitValue, VALUE_BLURBS, VALUE_TITLES, type ValueKind } from "@/lib/draft-value-split";
 
 const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
 
@@ -126,9 +127,7 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
     const m = label.match(/^Round (\d+)$/);
     return m ? `/api/cards/draft-round?round=${m[1]}` : "";
   };
-  const rated = picks.filter((p) => !p.keeper && p.surplus != null);
-  const steals = [...rated].filter((p) => p.surplus! > 0).sort((a, b) => b.surplus! - a.surplus!).slice(0, 10);
-  const busts = [...rated].filter((p) => p.surplus! < 0).sort((a, b) => a.surplus! - b.surplus!).slice(0, 10);
+  const value = splitValue(picks);
   const seg = (on: boolean) => `px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${on ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`;
   const btn = (on: boolean) => `shrink-0 px-3 py-2 text-sm font-semibold border-2 ${on ? "border-rink" : "border-transparent"}`;
 
@@ -145,21 +144,26 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
 
       <div className={view === "value" ? "" : "hidden"}>
         <p className="text-xs text-muted mb-3 max-w-prose">
-          Each drafted pick against the player who finished at his draft slot in season points so far. A steal scored more than that player (pts above par); a bust scored less. Keepers aren&apos;t assessed.
+          Each drafted pick against the player who finished at his draft slot in season points so far. Points above or below that player are shown as vs slot. Keepers aren&apos;t assessed.
         </p>
-        {[
-          { label: "Steals", list: steals, kind: "steal" as const },
-          { label: "Busts", list: busts, kind: "bust" as const },
-        ].map(({ label, list, kind }) => (
-          <section key={label} className="mb-4">
-            <h2 className="font-display text-xl uppercase tracking-wide bg-rink text-ice px-3 py-2 rounded-lg mb-2 border-l-4 border-gold">{label}</h2>
-            <div className="flex flex-col gap-2">
-              {list.map((p) => (
-                <ValueCard key={p.overall} p={p} kind={kind} />
-              ))}
-            </div>
-          </section>
-        ))}
+        {(["steals", "busts", "missed"] as ValueKind[]).map((kind) =>
+          value[kind].length === 0 ? null : (
+            <section key={kind} className="mb-4">
+              <div className="flex items-center justify-between gap-3 bg-rink text-ice px-3 py-2 rounded-lg mb-1 border-l-4 border-gold">
+                <h2 className="font-display text-xl uppercase tracking-wide">{VALUE_TITLES[kind]}</h2>
+                <a href={`/api/cards/draft-value?kind=${kind}`} download={`draft-${kind}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-gold/70 px-3 py-1.5 text-gold hover:bg-white/10">
+                  Download
+                </a>
+              </div>
+              <p className="text-xs text-muted mb-2">{VALUE_BLURBS[kind]}</p>
+              <div className="flex flex-col gap-2">
+                {value[kind].map((p) => (
+                  <ValueCard key={p.overall} p={p} kind={kind === "steals" ? "steal" : "bust"} />
+                ))}
+              </div>
+            </section>
+          )
+        )}
       </div>
 
       <div className={view === "picks" ? "" : "hidden"}>
