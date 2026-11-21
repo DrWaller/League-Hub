@@ -1,5 +1,5 @@
 import { getDraftAssessment } from "@/lib/draft-assessment";
-import TierBadge from "@/components/TierBadge";
+import { TIER_STYLE } from "@/lib/tier-style";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Draft Assessment" };
@@ -36,17 +36,21 @@ export default async function DraftAssessmentPage() {
             </thead>
             <tbody>
               {data.picks.map((p) => (
-                <tr key={p.overall} className="border-b border-ice-line/60">
-                  <td className="py-1 pr-2 text-muted">{p.overall}</td>
+                <tr
+                  key={p.overall}
+                  className="border-b border-white/40"
+                  style={p.tier ? { background: TIER_STYLE[p.tier].bg, color: TIER_STYLE[p.tier].fg } : undefined}
+                >
+                  <td className="py-1 pl-2 pr-2 opacity-80">{p.overall}</td>
                   <td className="py-1 pr-2 whitespace-nowrap">
-                    {p.name} <span className="text-muted text-xs">{p.position}</span>
-                    {p.keeper ? <span className="ml-1 text-[10px] text-muted">K</span> : null}
+                    {p.name} <span className="opacity-80 text-xs">{p.position}</span>
+                    {p.keeper ? <span className="ml-1 text-[10px] opacity-80">K</span> : null}
                   </td>
                   <td className="py-1 pr-2 whitespace-nowrap">{p.team}</td>
                   <td className="py-1 pr-2 text-right">{f2(p.total)}</td>
                   <td className="py-1 pr-2 text-right">{f2(p.avg)}</td>
                   <td className="py-1 pr-2 text-right">{p.gp ?? "–"}</td>
-                  <td className="py-1"><TierBadge tier={p.tier} /></td>
+                  <td className="py-1 pr-2 font-semibold">{p.tier ?? ""}</td>
                 </tr>
               ))}
             </tbody>
