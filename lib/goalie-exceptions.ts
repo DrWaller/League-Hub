@@ -7,6 +7,7 @@ export const STARTER_SHARE = 0.8;
 export const GOALIE_MISSED: Record<number, Record<string, { missedGames?: number }>> = {
   2027: {
     "Connor Hellebuyck": {},
+    "Igor Shesterkin": {}, // season-ending injury
   },
 };
 
@@ -17,3 +18,6 @@ export function availableGames(season: number, name: string, teamGames: number, 
   if (e.missedGames != null) return Math.max(1, teamGames - e.missedGames);
   return Math.max(1, Math.min(teamGames, starts / STARTER_SHARE));
 }
+
+// Goalies flagged as hurt (any season): they show under Missed Time instead of Busts when behind their slot.
+export const isHurtGoalie = (name: string) => Object.values(GOALIE_MISSED).some((m) => name in m);

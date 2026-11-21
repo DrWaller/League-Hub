@@ -1,6 +1,7 @@
 // Pure helper (safe in client components): splits assessed picks into steals, busts and missed-time picks.
 import type { AssessedPick } from "./draft-assessment";
 import { TIERS } from "./tier-style";
+import { isHurtGoalie } from "./goalie-exceptions";
 
 export type ValueKind = "steals" | "busts" | "missed";
 export const VALUE_TITLES: Record<ValueKind, string> = { steals: "Steals", busts: "Busts", missed: "Missed Time" };
@@ -32,6 +33,7 @@ function makeRules(picks: AssessedPick[]) {
     if (overdelivered(p)) return "steals";
     // A goalie who isn't playing is on the bench, not hurt (we can't tell), so he's judged on his tier like anyone else.
     const goalie = p.position === "G";
+    if (goalie && isHurtGoalie(p.name)) return p.surplus < 0 ? "missed" : null;
     if (p.surplus < 0 && (goalie || played(p)) && underdelivered(p)) return "busts";
     if (p.surplus < 0 && !goalie && !played(p)) return "missed";
     return null;
