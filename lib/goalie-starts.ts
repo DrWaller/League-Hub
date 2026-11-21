@@ -22,26 +22,63 @@ const LOOKBACK = 10;
 type GameRow = { gameId: number; date: string; team: string; id: number; name: string; started: boolean };
 type TeamGame = { gameId: number; date: string; starter: number | null; played: Set<number>; b2b2: boolean };
 
+// The NHL stats API now caps one response at ~100 rows even with limit=-1, which left every team with only its first
+// 2-4 games (so a goalie's start share was mostly the prior). Page through with an explicit limit and a unique sort.
+const PAGE = 100;
 async function fetchGoalieGames(season: number, revalidate = 900): Promise<GameRow[] | null> {
   const exp = `gameTypeId=2 and seasonId=${SEASON_ID(season)}`;
-  const url = `https://api.nhle.com/stats/rest/en/goalie/summary?isAggregate=false&isGame=true&limit=-1&sort=gameDate&cayenneExp=${encodeURIComponent(exp)}`;
-  try {
-    const res = await fetch(url, { next: { revalidate } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return ((data?.data ?? []) as any[])
-      .filter((r) => Number(r.gamesPlayed) > 0)
-      .map((r) => ({
-        gameId: Number(r.gameId),
-        date: String(r.gameDate).slice(0, 10),
-        team: String(r.teamAbbrev ?? "").toUpperCase(),
-        id: Number(r.playerId),
-        name: String(r.goalieFullName ?? ""),
-        started: Number(r.gamesStarted) > 0,
-      }));
-  } catch {
-    return null;
+  const sort = JSON.stringify([
+    { property: "gameId", direction: "ASC" },
+    { property: "playerId", direction: "ASC" },
+  ]);
+  const page = async (start: number): Promise<{ data: any[]; total: number | null } | null> => {
+    const url = `https://api.nhle.com/stats/rest/en/goalie/summary?isAggregate=false&isGame=true&limit=${PAGE}&start=${start}&sort=${encodeURIComponent(sort)}&cayenneExp=${encodeURIComponent(exp)}`;
+    try {
+      const res = await fetch(url, { next: { revalidate } });
+      if (!res.ok) return null;
+      const d = await res.json();
+      return { data: (d?.data ?? []) as any[], total: Number.isFinite(Number(d?.total)) ? Number(d.total) : null };
+    } catch {
+      return null;
+    }
+  };
+  const first = await page(0);
+  if (!first) return null;
+  let all = first.data;
+  if (first.data.length > 0) {
+    if (first.total != null && first.total > first.data.length) {
+      const starts: number[] = [];
+      for (let st = first.data.length; st < Math.min(first.total, 20000); st += first.data.length) starts.push(st);
+      const rest = await Promise.all(starts.map((st) => page(st)));
+      if (rest.some((r) => r === null)) return null;
+      for (const r of rest) all = all.concat(r!.data);
+    } else if (first.total == null) {
+      // No total reported: keep paging until a short page.
+      for (let st = first.data.length, n = first.data.length; n === first.data.length && st < 20000; st += n) {
+        const r = await page(st);
+        if (!r) break;
+        all = all.concat(r.data);
+        n = r.data.length;
+      }
+    }
   }
+  const seen = new Set<string>();
+  return all
+    .filter((r) => Number(r.gamesPlayed) > 0)
+    .filter((r) => {
+      const k = `${r.gameId}|${r.playerId}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .map((r) => ({
+      gameId: Number(r.gameId),
+      date: String(r.gameDate).slice(0, 10),
+      team: String(r.teamAbbrev ?? "").toUpperCase(),
+      id: Number(r.playerId),
+      name: String(r.goalieFullName ?? ""),
+      started: Number(r.gamesStarted) > 0,
+    }));
 }
 
 const dayBefore = (d: string) => new Date(new Date(`${d}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10);
