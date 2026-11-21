@@ -17,18 +17,22 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
   const n = Math.max(1, opts.picks.length);
   // Keepers aren't draft picks: no pick number, and with only a few rows everything is drawn larger so it reads on a phone.
   const nopk = !!opts.keepers;
-  const rowH = Math.min(nopk ? 140 : 104, Math.floor((1094 - 24 - 40 - (n - 1) * 8) / n));
+  // Long lists with no subtitle (a team's 14 picks) get a shorter header and tighter gaps so the rows can be taller.
+  const compact = n > 10 && !opts.subtitle;
+  const rowGap = compact ? 6 : 8;
+  const rowH = Math.min(nopk ? 140 : 104, Math.floor(((compact ? 1160 : 1094) - 24 - 40 - (n - 1) * rowGap) / n));
   // Text scale: bigger for the few keeper rows, a bit smaller when many rows share the page (a team has 14 picks).
-  const k = nopk ? Math.min(1.3, rowH / 104) : Math.min(1, 0.55 + rowH / 230);
+  const k = nopk ? Math.min(1.3, rowH / 104) : Math.min(1, 0.62 + rowH / 260);
   const W_AVG = Math.round(130 * k);
   const W_TOT = Math.round(130 * k);
   const W_TIER = Math.round(170 * k);
-  const avatar = Math.min(Math.round(76 * k), rowH - 16);
+  const avatar = Math.min(Math.round(76 * k), rowH - 14);
   const pkW = nopk ? 0 : 60;
   const gaps = nopk ? 4 : 5;
   return frame({
     dark: true,
     flush: true,
+    compactHeader: compact,
     footer: opts.footer,
     title: opts.title ?? (opts.keepers ? "Draft Keepers" : `Draft Round ${opts.round}`),
     subtitle: opts.subtitle ?? "",
@@ -41,7 +45,7 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
           <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end" }}>TOTAL</div>
           <div style={{ display: "flex", width: W_TIER, justifyContent: "flex-end" }}>TIER</div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: rowGap }}>
           {opts.picks.map((p) => {
             const gold = p.tier === "Superstar";
             // Gold rows get solid white text at full strength (no fading) with a faint shadow, like the Tier Lists cards.
@@ -52,7 +56,7 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
             const nameSize = fit(room, name.length, Math.round(22 * Math.min(k, 1)), Math.round(38 * k));
             const tag = opts.labels?.get(p.overall);
             const subText = [p.position, opts.hideTeam ? null : p.team, p.gp != null ? `${p.gp} GP` : null, tag ?? null].filter(Boolean).join(" · ");
-            const subSize = fit(room * 1.6, subText.length, Math.round(15 * Math.min(k, 1)), Math.round(22 * k));
+            const subSize = fit(room * 1.6, subText.length, Math.round(17 * Math.min(k, 1)), Math.round(22 * k));
             const avg = p.perTeamGame != null ? p.perTeamGame : p.avg;
             return (
               <div key={p.overall} style={{ display: "flex", alignItems: "center", gap: GAP, height: rowH, flexShrink: 0, padding: "0 18px", borderRadius: 14, background: s.bg, color: s.fg, textShadow: gold ? "0 2px 3px rgba(60,40,0,0.45)" : "none" }}>

@@ -95,6 +95,7 @@ export async function frame(opts: {
   bold?: boolean; // kept for compatibility; every portrait graphic now uses this one style
   flush?: boolean; // body runs edge to edge (no side/top padding): Player Spotlight
   dark?: boolean; // navy scoreboard look (award race graphics)
+  compactHeader?: boolean; // shorter header band (120px) for graphics that need the room for rows
   plain?: boolean; // no rink markings behind the content (Player Radar draws its own chart)
   headerContent?: (f: { display: string; body: string }) => ReactNode; // replaces the title/subtitle/week badge (player cards put the player here)
   body: (f: { display: string; body: string }) => ReactNode;
@@ -111,7 +112,7 @@ export async function frame(opts: {
   const titleHasWeek = /week\s+\d+/i.test(headTitle);
   const showBadge = week != null && !titleHasWeek;
   // Shrink long titles so they stay on one line (the badge takes ~210px when shown).
-  const headerStyle: CSSProperties = { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: BOLD_HEADER_H, padding: "0 64px", background: opts.dark ? "#0F2B47" : OG.rink, borderBottom: `6px solid ${OG.centerRed}` };
+  const headerStyle: CSSProperties = { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch", flexShrink: 0, width: W, height: opts.compactHeader ? 126 : BOLD_HEADER_H, padding: "0 64px", background: opts.dark ? "#0F2B47" : OG.rink, borderBottom: `6px solid ${OG.centerRed}` };
   const titleRoom = 952 - (showBadge ? 190 : 0);
   const titleSize = Math.max(52, Math.min(showBadge ? 76 : 84, Math.floor(titleRoom / (headTitle.length * 0.52))));
   // A plain "Week N" subtitle just repeats the badge: show the week's dates there
