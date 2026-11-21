@@ -55,27 +55,19 @@ function Trend({ t }: { t: DirPlayer["trend"] }) {
   return t === "up" ? <span className="text-green-700 font-bold"> ↑</span> : t === "down" ? <span className="text-center-red font-bold"> ↓</span> : null;
 }
 
-// One of the Rating / Season / L30 / Last yr columns on a card: the number and games played, on a tile tinted with the
-// tier colour for that timeframe. The tile for the chosen timeframe gets an outline. `tag` names the tier only when it differs from the card's own tier, so a change (say
-// Elite over L30 on a Superstar card) is spelled out as well as coloured. `delta` (L30 minus season average, with the tier-trend arrow) sits on the bottom line.
-function Col({ label, value, sub, tier, on, trend, tag, delta, reserveTag, reserveDelta }: { label: string; value: string; sub?: string; tier: Tier | null; on: boolean; trend?: DirPlayer["trend"]; tag?: Tier | null; delta?: number | null; reserveTag?: boolean; reserveDelta?: boolean }) {
-  const showDelta = delta !== null && delta !== undefined && Math.abs(delta) >= 0.05;
+// One of the Rating / Season / L30 / Last yr columns on a card: the number and games played, on a tile tinted with
+// the tier colour for that timeframe (the colour is the tier; the tile's title names it). The tile for the chosen
+// timeframe gets an outline.
+function Col({ label, value, sub, tier, on }: { label: string; value: string; sub?: string; tier: Tier | null; on: boolean }) {
   return (
     <div
-      className="px-1 py-1.5 text-center rounded-lg border-2"
+      title={tier ? `${label}: ${tier}` : undefined}
+      className="px-1 py-1 text-center rounded-lg border-2"
       style={tier ? { background: SOFT[tier].bg, color: SOFT[tier].fg, borderColor: on ? "#0C2740" : "transparent", textShadow: tier === "Superstar" ? "0 1px 1px rgba(60,40,0,0.35)" : undefined } : { background: "#EEF2F6", color: "#5B6672", borderColor: on ? "#5B6672" : "transparent" }}
     >
-      <div className="text-xs">{label}</div>
-      <div className="h-6 leading-6 whitespace-nowrap text-base font-semibold font-tabular">
-        {value}
-      </div>
+      <div className="text-xs leading-4">{label}</div>
+      <div className="h-5 leading-5 whitespace-nowrap text-base font-semibold font-tabular">{value}</div>
       <div className="text-[11px] font-tabular h-4 leading-4 whitespace-nowrap">{sub ?? ""}</div>
-      {tag || reserveTag ? <div className="text-[11px] font-semibold h-4 leading-4 whitespace-nowrap">{tag ?? ""}</div> : null}
-      {showDelta || reserveDelta ? (
-        <div className="text-[11px] font-tabular h-4 leading-4 whitespace-nowrap">
-          {showDelta ? `${trend === "up" ? "↑ " : trend === "down" ? "↓ " : ""}${delta! > 0 ? "+" : "−"}${f2(Math.abs(delta!))}` : ""}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -83,12 +75,8 @@ function Col({ label, value, sub, tier, on, trend, tag, delta, reserveTag, reser
 function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: number; view: View; cuts: Cuts }) {
   const g = p.goalie;
   const seasonTier = tierFor(p, "avg", cuts);
-  const rTag = p.tier !== tier ? p.tier : null;
-  const sTag = seasonTier !== tier ? seasonTier : null;
-  const lTag = !g && p.form !== tier ? p.form : null;
   const lyTier = tierFor(p, "ly", cuts);
-  const yTag = lyTier !== null && lyTier !== tier ? lyTier : null;
-  const anyTag = !!(rTag || sTag || lTag || yTag);
+  // L30 minus season average, shown in the header (with the tier-trend arrow) so it doesn't cost a line in the tiles.
   const d = p.l30 && p.avg !== null ? p.l30.avg - p.avg : null;
   const showD = !g && d !== null && Math.abs(d) >= 0.05;
   // Goalies have no L30 or last-year column, so those views highlight their rating.
@@ -96,7 +84,7 @@ function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: n
   return (
     <div className="flex bg-white border border-ice-line rounded-lg overflow-hidden">
       <div className="w-1 shrink-0" style={{ background: SOFT[tier].bar }} />
-      <div className="flex-1 min-w-0 px-3 py-2.5">
+      <div className="flex-1 min-w-0 px-3 py-2">
         <div className="flex items-center gap-2.5">
           <PlayerPhoto playerId={p.id} name={p.name} size={36} />
           <div className="min-w-0 flex-1">
@@ -108,16 +96,26 @@ function Card({ p, tier, rank, view, cuts }: { p: DirPlayer; tier: Tier; rank: n
               {p.injury ? <span className="text-center-red"> · {p.injury}</span> : null}
             </div>
           </div>
+          {showD ? (
+            <div className="shrink-0 text-right leading-tight">
+              <div className={`text-xs font-semibold font-tabular ${d! > 0 ? "text-green-700" : "text-center-red"}`}>
+                {p.trend === "up" ? "↑ " : p.trend === "down" ? "↓ " : ""}
+                {d! > 0 ? "+" : "−"}
+                {f2(Math.abs(d!))}
+              </div>
+              <div className="text-[10px] text-muted">L30 vs season</div>
+            </div>
+          ) : null}
         </div>
-        <div className={`grid ${g ? "grid-cols-3" : "grid-cols-4"} gap-1 mt-2`}>
-          <Col label="Rating" value={p.est === null ? "–" : f2(p.est)} sub={g ? "per team gm" : undefined} tier={p.tier} tag={rTag} reserveTag={anyTag} reserveDelta={showD} on={active === 0} />
-          <Col label="Season" value={g ? f2(g.perTeamGame) : p.avg === null ? "–" : f2(p.avg)} sub={g ? "per team gm" : `${p.gp} gp`} tier={seasonTier} tag={sTag} reserveTag={anyTag} reserveDelta={showD} on={active === 1} />
+        <div className={`grid ${g ? "grid-cols-3" : "grid-cols-4"} gap-1 mt-1.5`}>
+          <Col label="Rating" value={p.est === null ? "–" : f2(p.est)} sub={g ? "per team gm" : undefined} tier={p.tier} on={active === 0} />
+          <Col label="Season" value={g ? f2(g.perTeamGame) : p.avg === null ? "–" : f2(p.avg)} sub={g ? "per team gm" : `${p.gp} gp`} tier={seasonTier} on={active === 1} />
           {g ? (
-            <Col label="Projected" value={`≈ ${g.pace}`} sub={`${g.gamesLeft} left`} tier={null} reserveTag={anyTag} reserveDelta={showD} on={false} />
+            <Col label="Projected" value={`≈ ${g.pace}`} sub={`${g.gamesLeft} left`} tier={null} on={false} />
           ) : (
             <>
-              <Col label="L30" value={p.l30 ? f2(p.l30.avg) : "–"} sub={p.l30 ? `${p.l30.gp} gp` : undefined} tier={p.form} tag={lTag} reserveTag={anyTag} on={active === 2} trend={p.trend} delta={d} reserveDelta={showD} />
-              <Col label="Last yr" value={p.priorAvg === null ? "–" : f2(p.priorAvg)} tier={lyTier} tag={yTag} reserveTag={anyTag} reserveDelta={showD} on={active === 3} />
+              <Col label="L30" value={p.l30 ? f2(p.l30.avg) : "–"} sub={p.l30 ? `${p.l30.gp} gp` : undefined} tier={p.form} on={active === 2} />
+              <Col label="Last yr" value={p.priorAvg === null ? "–" : f2(p.priorAvg)} tier={lyTier} on={active === 3} />
             </>
           )}
         </div>
@@ -290,7 +288,7 @@ export default function TierLists({ data }: { data: TierDirectory }) {
                 setView(s.id);
                 setShown(PAGE);
               }}
-              className={`px-2 py-1.5 text-[13px] border-r border-ice-line last:border-r-0 ${view === s.id ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}
+              className={`px-1.5 py-1.5 text-[13px] border-r border-ice-line last:border-r-0 ${view === s.id ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}
             >
               {s.label}
             </button>
@@ -300,19 +298,23 @@ export default function TierLists({ data }: { data: TierDirectory }) {
           <button type="button" onClick={() => setFOpen(!fOpen)} className={`px-2.5 py-1.5 text-[13px] border border-ice-line ${fOpen ? "bg-ice-panel" : "bg-white hover:bg-ice-panel"}`}>
             Filters{activeFilters ? ` · ${activeFilters}` : ""}
           </button>
-          <div className="inline-flex border border-ice-line" role="group" aria-label="Layout">
-            <button type="button" onClick={() => pickLayout("cards")} aria-label="Cards layout" aria-pressed={layout === "cards"} className={`px-1.5 py-1.5 ${layout === "cards" ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
+          <button
+            type="button"
+            onClick={() => pickLayout(layout === "cards" ? "rows" : "cards")}
+            aria-label={layout === "cards" ? "Switch to rows layout" : "Switch to cards layout"}
+            className="px-2 py-1.5 border border-ice-line bg-white hover:bg-ice-panel"
+          >
+            {layout === "cards" ? (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <path d="M2 3.5h12M2 8h12M2 12.5h12" />
+              </svg>
+            ) : (
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                 <rect x="2" y="2" width="12" height="5" rx="1" />
                 <rect x="2" y="9" width="12" height="5" rx="1" />
               </svg>
-            </button>
-            <button type="button" onClick={() => pickLayout("rows")} aria-label="Rows layout" aria-pressed={layout === "rows"} className={`px-1.5 py-1.5 border-l border-ice-line ${layout === "rows" ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                <path d="M2 3.5h12M2 8h12M2 12.5h12" />
-              </svg>
-            </button>
-          </div>
+            )}
+          </button>
         </div>
       </div>
 
