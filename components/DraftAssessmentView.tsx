@@ -10,6 +10,7 @@ const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
 // Same look as the Tier Lists cards: the stripe, tiles and chips use the exact tier colours (Superstar text is white on
 // the cards with a faint shadow so it stays readable on the gold).
 const SOFT = Object.fromEntries(TIERS.map((t) => [t, { bg: TIER_STYLE[t].bg, fg: t === "Superstar" ? "#FFFFFF" : TIER_STYLE[t].fg }])) as Record<Tier, { bg: string; fg: string }>;
+const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(2)}`;
 const shadow = (t: Tier | null) => (t === "Superstar" ? "0 1px 1px rgba(60,40,0,0.35)" : undefined);
 
 function Tile({ label, value, sub, tier }: { label: string; value: string; sub?: string; tier: Tier | null }) {
@@ -62,8 +63,51 @@ function Card({ p }: { p: AssessedPick }) {
   );
 }
 
+// A steal or bust: same card as the pick list, with Season / Total tiles in the tier colour and a navy "vs slot" tile
+// showing the points above or below what the player who finished at his draft slot scored.
+function ValueCard({ p, kind }: { p: AssessedPick; kind: "steal" | "bust" }) {
+  const g = p.perTeamGame != null;
+  return (
+    <div className="flex bg-white border border-ice-line rounded-lg overflow-hidden">
+      <div className="w-1 shrink-0" style={{ background: p.tier ? SOFT[p.tier].bg : "#C9D1DA" }} />
+      <div className="flex-1 min-w-0 px-3 py-2">
+        <div className="flex items-center gap-2.5">
+          {p.playerId != null && p.playerId > 0 ? <PlayerPhoto playerId={p.playerId} name={p.name} size={36} /> : null}
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold truncate">
+              <span className="text-muted font-normal text-sm">#{p.overall}</span> {p.name}
+            </div>
+            <div className="text-xs text-muted truncate">
+              {p.nhl ? `${p.nhl} · ` : ""}
+              {p.position} · <span className="text-rink">{p.team}</span>
+            </div>
+          </div>
+          {p.finish != null ? (
+            <div className="shrink-0 text-right leading-tight">
+              <div className="text-xs font-semibold font-tabular">Finished #{p.finish}</div>
+              <div className="text-[10px] text-muted">drafted #{p.overall}</div>
+            </div>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-3 gap-1 mt-1.5">
+          <Tile label="Season" value={f2(g ? p.perTeamGame : p.avg)} sub={g ? "per team gm" : p.gp != null ? `${p.gp} gp` : undefined} tier={p.tier} />
+          <Tile label="Total" value={f2(p.total)} sub="pts" tier={p.tier} />
+          <div className="px-1 py-1 text-center rounded-lg border-2 border-transparent" style={{ background: "#0C2740", color: "#FFFFFF" }}>
+            <div className="text-xs leading-4">vs slot</div>
+            <div className="h-5 leading-5 whitespace-nowrap text-base font-semibold font-tabular" style={{ color: kind === "steal" ? "#7BE0A0" : "#FF8FA0" }}>
+              {p.surplus != null ? signed(p.surplus) : "–"}
+            </div>
+            <div className="text-[11px] font-tabular h-4 leading-4 whitespace-nowrap">{p.par != null ? `par ${f2(p.par)}` : ""}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }) {
   const [tier, setTier] = useState<Tier | "ALL" | "NONE">("ALL");
+  const [view, setView] = useState<"picks" | "value">("picks");
   const drafted = picks.filter((p) => !p.keeper);
   const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
   let unplaced = 0;
@@ -82,10 +126,43 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
     const m = label.match(/^Round (\d+)$/);
     return m ? `/api/cards/draft-round?round=${m[1]}` : "";
   };
+  const rated = picks.filter((p) => !p.keeper && p.surplus != null);
+  const steals = [...rated].filter((p) => p.surplus! > 0).sort((a, b) => b.surplus! - a.surplus!).slice(0, 10);
+  const busts = [...rated].filter((p) => p.surplus! < 0).sort((a, b) => a.surplus! - b.surplus!).slice(0, 10);
+  const seg = (on: boolean) => `px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${on ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`;
   const btn = (on: boolean) => `shrink-0 px-3 py-2 text-sm font-semibold border-2 ${on ? "border-rink" : "border-transparent"}`;
 
   return (
     <div>
+      <div className="inline-flex border border-ice-line mb-3">
+        <button type="button" onClick={() => setView("picks")} className={seg(view === "picks")}>
+          Picks
+        </button>
+        <button type="button" onClick={() => setView("value")} className={seg(view === "value")}>
+          Steals &amp; Busts
+        </button>
+      </div>
+
+      <div className={view === "value" ? "" : "hidden"}>
+        <p className="text-xs text-muted mb-3 max-w-prose">
+          Each drafted pick against the player who finished at his draft slot in season points so far. A steal scored more than that player (pts above par); a bust scored less. Keepers aren&apos;t assessed.
+        </p>
+        {[
+          { label: "Steals", list: steals, kind: "steal" as const },
+          { label: "Busts", list: busts, kind: "bust" as const },
+        ].map(({ label, list, kind }) => (
+          <section key={label} className="mb-4">
+            <h2 className="font-display text-xl uppercase tracking-wide bg-rink text-ice px-3 py-2 rounded-lg mb-2 border-l-4 border-gold">{label}</h2>
+            <div className="flex flex-col gap-2">
+              {list.map((p) => (
+                <ValueCard key={p.overall} p={p} kind={kind} />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className={view === "picks" ? "" : "hidden"}>
       <div className="flex gap-1.5 overflow-x-auto pb-2 mb-2">
         <button type="button" onClick={() => setTier("ALL")} className={`${btn(tier === "ALL")} bg-white text-rink !border-ice-line ${tier === "ALL" ? "!border-rink" : ""}`}>
           All <span className="font-tabular opacity-90">{picks.length}</span>
@@ -124,6 +201,7 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
           </section>
         ))
       )}
+      </div>
     </div>
   );
 }

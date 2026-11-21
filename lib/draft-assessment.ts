@@ -26,6 +26,9 @@ export interface AssessedPick {
   perTeamGame: number | null; // goalies only: the number their tier is set on
   playerId: number | null;
   nhl: string | null;
+  finish: number | null; // rank of his season points among every player in the pool
+  par: number | null; // points scored by the player who finished at this pick's slot
+  surplus: number | null; // total minus par: positive = steal, negative = bust (keepers aren't assessed)
 }
 
 export interface DraftAssessment {
@@ -62,6 +65,13 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
       if (!byName.has(norm(p.name))) byName.set(norm(p.name), p);
     }
 
+  // Every player ranked by season points: a pick is "par" if he scored what the player who finished at his slot scored.
+  const ranked = (["F", "D", "G"] as Group[]).flatMap((g) => pools[g]).sort((a, b) => b.appliedTotal - a.appliedTotal);
+  const finishById = new Map<number, number>();
+  ranked.forEach((r, i) => {
+    if (!finishById.has(r.id)) finishById.set(r.id, i + 1);
+  });
+
   const picks: AssessedPick[] = list.map((r) => {
     const name = String(r.player_name ?? "");
     const pid = r.player_id == null ? null : Number(r.player_id);
@@ -96,8 +106,12 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
       perTeamGame,
       playerId: p ? p.id : pid,
       nhl: p ? NHL_ABBREV[p.proTeamId] ?? null : null,
+      finish: p ? finishById.get(p.id) ?? null : null,
+      par: !r.is_keeper && ranked[Number(r.overall_pick) - 1] ? ranked[Number(r.overall_pick) - 1].appliedTotal : null,
+      surplus: null,
     };
   });
+  for (const x of picks) if (!x.keeper && x.total != null && x.par != null) x.surplus = x.total - x.par;
   const basis = tiers ? `${tiers.basis === "this season" ? "This season's" : "Last season's"} league cutoffs (${tiers.gamesPlayed} GP in)` : "Tier cutoffs unavailable";
   return { season, source, basis, picks };
 }
