@@ -20,9 +20,9 @@ function PickRow({ p }: { p: AssessedPick }) {
       </div>
       <div className="text-right tabular-nums leading-tight">
         <div className="text-[10px] font-bold uppercase tracking-wider opacity-90">{p.tier ?? "–"}</div>
-        <div className="text-lg font-bold leading-none">{f2(p.avg)}</div>
+        <div className="text-lg font-bold leading-none">{f2(p.perTeamGame ?? p.avg)}</div>
         <div className="text-[11px] opacity-85">
-          {f2(p.total)} pts · {p.gp ?? "–"} GP
+          {f2(p.total)} pts · {p.gp ?? "–"} GP{p.perTeamGame != null ? " · per team gm" : ""}
         </div>
       </div>
     </li>

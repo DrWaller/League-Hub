@@ -125,7 +125,7 @@ type Win = { gp: number; avg: number } | null;
 // doesn't read as 100%) and capped. Injured goalies keep their season share (the last-10 share would collapse
 // while they are out and drop the tier). The projected total is points so far plus his team's REAL games left
 // in the fantasy regular season at that rate.
-async function makeGoalieRater(season: number, leagueMaxGp: number) {
+export async function makeGoalieRater(season: number, leagueMaxGp: number) {
   const [cur, prev, sg] = await Promise.all([getGoalieUsage(season).catch(() => null), getGoalieUsage(season - 1).catch(() => null), getSeasonGames()]);
   const rate = (name: string, nhl: string, w: Win, priorAvg: number | null, injured: boolean, projBase: number | null): { est: number; info: GoalieRating } | null => {
     let perStart: number | null = null;

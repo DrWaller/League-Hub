@@ -6,7 +6,8 @@ import { sql } from "@/lib/db";
 import { getLeagueMeta } from "@/lib/espn";
 import { ensureDraftSchema } from "@/lib/draft";
 import { getLeagueTiers, loadPools, tierOf, type Tier } from "@/lib/league-tiers";
-import { getGoalieUsage } from "@/lib/goalie-starts";
+import { makeGoalieRater } from "@/lib/team-makeup";
+import { NHL_ABBREV } from "@/lib/best-available";
 import { norm } from "@/lib/lines";
 import type { Group, PoolPlayer } from "@/lib/radar";
 
@@ -22,6 +23,7 @@ export interface AssessedPick {
   gp: number | null;
   avg: number | null; // points per game played
   tier: Tier | null;
+  perTeamGame: number | null; // goalies only: the number their tier is set on
 }
 
 export interface DraftAssessment {
@@ -43,7 +45,13 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
   const source = rows.map((r) => String(r.source)).sort((a, b) => (rank[a] ?? 9) - (rank[b] ?? 9))[0];
   const list = rows.filter((r) => String(r.source) === source);
 
-  const [tiers, pools, usage] = await Promise.all([getLeagueTiers(), loadPools(season, true), getGoalieUsage(season).catch(() => null)]);
+  const [tiers, pools, prevPools] = await Promise.all([getLeagueTiers(), loadPools(season, true), loadPools(season - 1, false)]);
+  // Same as the Tier Lists "Season" tier: skaters on avg pts per game (5+ GP); goalies on the rating's points per
+  // team game (points per start x share of team games started), so a goalie's volume counts.
+  const maxGp = Math.max(0, ...pools.G.map((g) => g.gp));
+  const { rate: rateG } = await makeGoalieRater(season, maxGp);
+  const prior = new Map<number, { gp: number; avg: number }>();
+  for (const g of ["F", "D", "G"] as Group[]) for (const p of prevPools[g]) if (p.gp > 0) prior.set(p.id, { gp: p.gp, avg: p.appliedTotal / p.gp });
   const byId = new Map<number, PoolPlayer>();
   const byName = new Map<string, PoolPlayer>();
   for (const g of ["F", "D", "G"] as Group[])
@@ -61,11 +69,15 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
     const total = p ? p.appliedTotal : null;
     const gp = p ? p.gp : null;
     const avg = p && p.gp > 0 ? p.appliedTotal / p.gp : null;
-    // Goalie tiers are set on points per TEAM game (volume counts), same as the league tiers.
-    let rate = avg;
-    if (p && group === "G") {
-      const tg = usage?.teamGames(p.name) ?? null;
-      rate = tg && tg > 0 ? p.appliedTotal / tg : avg;
+    let tier: Tier | null = null;
+    let perTeamGame: number | null = null;
+    if (tiers && p) {
+      if (group === "G") {
+        const pr = prior.get(p.id);
+        const r = rateG(p.name, NHL_ABBREV[p.proTeamId] ?? "", p.gp > 0 ? { gp: p.gp, avg: p.appliedTotal / p.gp } : null, pr && pr.gp >= 20 ? pr.avg : null, false, null);
+        perTeamGame = r ? r.info.perTeamGame : null;
+        tier = r ? tierOf(r.info.perTeamGame, tiers.cutoffs.G) : null;
+      } else if (avg !== null && p.gp >= 5) tier = tierOf(avg, tiers.cutoffs[group]);
     }
     return {
       overall: Number(r.overall_pick),
@@ -78,7 +90,8 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
       total,
       gp,
       avg,
-      tier: tiers && rate != null ? tierOf(rate, tiers.cutoffs[group]) : null,
+      tier,
+      perTeamGame,
     };
   });
   const basis = tiers ? `${tiers.basis === "this season" ? "This season's" : "Last season's"} league cutoffs (${tiers.gamesPlayed} GP in)` : "Tier cutoffs unavailable";
