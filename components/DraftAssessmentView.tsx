@@ -98,8 +98,8 @@ function ValueCard({ p, kind }: { p: AssessedPick; kind: "steal" | "bust" }) {
           </div>
           {p.finish != null ? (
             <div className="shrink-0 text-right leading-tight">
-              <div className="text-xs font-semibold font-tabular">Finished #{p.finish}</div>
-              <div className="text-[10px] text-muted">drafted #{p.overall}</div>
+              <div className="text-xs font-semibold font-tabular">Current #{p.finish}</div>
+              <div className="text-[10px] text-muted">{kind === "steal" ? `beat ${p.outscored} earlier picks` : `${p.outscoredBy} later picks scored more`}</div>
             </div>
           ) : null}
           <SaveCard p={p} />

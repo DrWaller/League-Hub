@@ -10,7 +10,7 @@ import { VALUE_TITLES, type ValueKind } from "./draft-value-split";
 
 const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
 const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(2)}`;
-const W_FIN = 110;
+const W_FIN = 136;
 const W_TOT = 120;
 const W_VS = 170;
 const GAP = 14;
@@ -33,7 +33,7 @@ export async function renderDraftValue(opts: { kind: ValueKind; picks: AssessedP
         <div style={{ display: "flex", alignItems: "center", height: 40, gap: GAP, padding: "0 18px", fontFamily: display, fontWeight: 600, fontSize: 22, letterSpacing: 3, color: "#9FB3C8" }}>
           <div style={{ display: "flex", width: 60, justifyContent: "center" }}>PK</div>
           <div style={{ display: "flex", flexGrow: 1, paddingLeft: avatar + GAP }}>PLAYER</div>
-          <div style={{ display: "flex", width: W_FIN, justifyContent: "flex-end" }}>FINISH</div>
+          <div style={{ display: "flex", width: W_FIN, justifyContent: "flex-end" }}>CURRENT</div>
           <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end" }}>TOTAL</div>
           <div style={{ display: "flex", width: W_VS, justifyContent: "flex-end" }}>VS SLOT</div>
         </div>

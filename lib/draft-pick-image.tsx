@@ -54,7 +54,7 @@ export async function renderDraftPick(opts: { pick: AssessedPick; footer?: strin
             <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
               <div style={{ display: "flex", fontFamily: display, fontSize: 26, letterSpacing: 3, color: "#9FB3C8" }}>VS SLOT</div>
               <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: 52, color: p.surplus >= 0 ? "#7BE0A0" : "#FF8FA0" }}>{signed(p.surplus)}</div>
-              <div style={{ display: "flex", fontSize: 24, color: "#C9D6E6" }}>{`finished #${p.finish ?? "–"} · par ${f2(p.par)}`}</div>
+              <div style={{ display: "flex", fontSize: 24, color: "#C9D6E6" }}>{`now #${p.finish ?? "–"} · par ${f2(p.par)}`}</div>
             </div>
           ) : (
             <div style={{ display: "flex", fontSize: 24, color: "#C9D6E6" }}>Keeper (not assessed vs slot)</div>

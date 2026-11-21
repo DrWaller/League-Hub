@@ -28,6 +28,8 @@ export interface AssessedPick {
   nhl: string | null;
   finish: number | null; // rank of his season points among every player in the pool
   par: number | null; // points scored by the player who finished at this pick's slot
+  outscoredBy: number; // later non-keeper picks who have scored more than him
+  outscored: number; // earlier non-keeper picks who have scored less than him
   surplus: number | null; // total minus par: positive = steal, negative = bust (keepers aren't assessed)
 }
 
@@ -109,9 +111,16 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
       finish: p ? finishById.get(p.id) ?? null : null,
       par: !r.is_keeper && ranked[Number(r.overall_pick) - 1] ? ranked[Number(r.overall_pick) - 1].appliedTotal : null,
       surplus: null,
+      outscoredBy: 0,
+      outscored: 0,
     };
   });
   for (const x of picks) if (!x.keeper && x.total != null && x.par != null) x.surplus = x.total - x.par;
+  const nk = picks.filter((y) => !y.keeper && y.total != null);
+  for (const x of nk) {
+    x.outscoredBy = nk.filter((y) => y.overall > x.overall && y.total! > x.total!).length;
+    x.outscored = nk.filter((y) => y.overall < x.overall && y.total! < x.total!).length;
+  }
   const basis = tiers ? `${tiers.basis === "this season" ? "This season's" : "Last season's"} league cutoffs (${tiers.gamesPlayed} GP in)` : "Tier cutoffs unavailable";
   return { season, source, basis, picks };
 }
