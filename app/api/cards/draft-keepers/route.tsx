@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 import { getDraftAssessment } from "@/lib/draft-assessment";
 import { getLeagueMeta } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
-import { renderDraftRound } from "@/lib/draft-round-image";
-import { renderKeeperRanking } from "@/lib/draft-keepers-image";
+import { renderKeeperRanking, renderKeeperCards } from "@/lib/draft-keepers-image";
 import { keeperTeams } from "@/lib/draft-teams";
 import { seasonFooter } from "@/lib/portrait-graphics";
 
@@ -28,7 +27,7 @@ export async function GET(req: NextRequest) {
     const picks = data.picks.filter((p) => p.keeper && p.team === team).sort((a, b) => (b.vor ?? -Infinity) - (a.vor ?? -Infinity));
     const ids = picks.flatMap((p) => (p.playerId != null && p.playerId > 0 ? [p.playerId] : []));
     const headshots = ids.length ? await checkHeadshots(ids) : new Set<number>();
-    return await renderDraftRound({ round: 0, picks, keepers: true, title: `${team} Keepers`, subtitle: `Keeper VOR ${t.vor >= 0 ? "+" : "−"}${Math.abs(t.vor).toFixed(2)}`, hideTeam: true, footer, headshots });
+    return await renderKeeperCards({ team, vor: t.vor, picks, footer, headshots });
   } catch (err) {
     console.error("Draft keepers graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

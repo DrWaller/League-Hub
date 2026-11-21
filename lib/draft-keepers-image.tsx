@@ -1,4 +1,7 @@
 import { frame } from "./portrait-graphics";
+import { PlayerAvatar } from "./og-avatar";
+import { headshotUrl } from "./headshots";
+import type { AssessedPick } from "./draft-assessment";
 import { TIER_STYLE, TIERS, type Tier } from "./tier-style";
 
 // Portrait (1080 x 1350) graphic ranking every team's keepers: rank, team, tier chips and the combined season VOR of
@@ -50,6 +53,61 @@ export async function renderKeeperRanking(opts: { teams: KeeperTeam[]; footer?: 
             );
           })}
         </div>
+      </div>
+    ),
+  });
+}
+
+// ---------------------------------------------------------------- per-team keeper cards (same look as the site)
+const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
+
+// One team's keepers as white cards with tier-coloured Season / VOR / Tier tiles, like the Keepers tab on the site.
+export async function renderKeeperCards(opts: { team: string; vor: number; picks: AssessedPick[]; footer?: string; headshots?: Set<number> }) {
+  const headshots = opts.headshots ?? new Set<number>();
+  const n = Math.max(1, opts.picks.length);
+  const gap = 16;
+  const cardH = Math.min(290, Math.floor((1350 - 192 - 64 - 40 - (n - 1) * gap) / n));
+  const tileH = Math.round(cardH * 0.4);
+  const avatar = Math.round(cardH * 0.3);
+  return frame({
+    title: opts.team,
+    subtitle: `Keepers · keeper VOR ${signed(opts.vor)}`,
+    footer: opts.footer,
+    compactHeader: false,
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column", gap }}>
+        {opts.picks.map((p) => {
+          const t = p.tier;
+          const st = t ? TIER_STYLE[t] : { bg: "#EEF2F6", fg: "#5B6672" };
+          const fg = t === "Superstar" ? "#FFFFFF" : st.fg;
+          const g = p.perTeamGame != null;
+          const tile = (label: string, value: string, sub: string, key: string) => (
+            <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, flexBasis: 0, height: tileH, borderRadius: 16, background: st.bg, color: fg, textShadow: t === "Superstar" ? "0 2px 3px rgba(60,40,0,0.35)" : "none" }}>
+              <div style={{ display: "flex", fontSize: Math.round(tileH * 0.2), lineHeight: 1.1 }}>{label}</div>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: Math.round(tileH * 0.42), lineHeight: 1.1 }}>{value}</div>
+              <div style={{ display: "flex", fontSize: Math.round(tileH * 0.18), lineHeight: 1.1, minHeight: Math.round(tileH * 0.2) }}>{sub}</div>
+            </div>
+          );
+          return (
+            <div key={p.overall} style={{ display: "flex", background: "#FFFFFF", border: "3px solid #D5DEE8", borderRadius: 22, overflow: "hidden", height: cardH, flexShrink: 0 }}>
+              <div style={{ display: "flex", width: 14, background: st.bg }} />
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: Math.round(cardH * 0.06), flexGrow: 1, padding: `0 ${Math.round(cardH * 0.09)}px` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                  <PlayerAvatar name={p.name} src={p.playerId != null ? headshotUrl(p.playerId) : ""} hasHeadshot={p.playerId != null && headshots.has(p.playerId)} size={avatar} fontFamily={display} fontSize={Math.round(avatar * 0.36)} border="4px solid #D9A441" />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div style={{ display: "flex", fontSize: Math.round(cardH * 0.16), fontWeight: 700, color: "#0C2740", lineHeight: 1.05, whiteSpace: "nowrap" }}>{p.name}</div>
+                    <div style={{ display: "flex", fontSize: Math.round(cardH * 0.1), color: "#5B6672", lineHeight: 1.1 }}>{[p.nhl, p.position].filter(Boolean).join(" · ")}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 14 }}>
+                  {tile("Season", f2(g ? p.perTeamGame : p.avg), g ? "per team gm" : p.gp != null ? `${p.gp} gp` : "", "s")}
+                  {tile("VOR", f2(p.vor), "season", "v")}
+                  {tile("Tier", t ?? "Not placed", "", "t")}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     ),
   });
