@@ -37,7 +37,10 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {opts.picks.map((p) => {
-            const s = p.tier ? TIER_STYLE[p.tier] : { bg: "#2B4560", fg: "#C9D6E6" };
+            const gold = p.tier === "Superstar";
+            // Gold rows get solid, deeper navy text at full strength (no fading), so it stays crisp on the gold.
+            const s = gold ? { bg: TIER_STYLE.Superstar.bg, fg: "#07182A" } : p.tier ? TIER_STYLE[p.tier] : { bg: "#2B4560", fg: "#C9D6E6" };
+            const o = (x: number) => (gold ? 1 : x);
             const room = 1024 - 36 - 60 - avatar - W_AVG - W_TOT - W_TIER - GAP * 5;
             const name = p.keeper ? `${p.name} (K)` : p.name;
             const nameSize = fit(room, name.length, 22, 38);
@@ -46,14 +49,14 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
             const avg = p.perTeamGame != null ? p.perTeamGame : p.avg;
             return (
               <div key={p.overall} style={{ display: "flex", alignItems: "center", gap: GAP, height: rowH, flexShrink: 0, padding: "0 18px", borderRadius: 14, background: s.bg, color: s.fg }}>
-                <div style={{ display: "flex", width: 60, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 40, lineHeight: 1, opacity: 0.85 }}>{String(p.overall)}</div>
+                <div style={{ display: "flex", width: 60, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: 40, lineHeight: 1, opacity: o(0.85) }}>{String(p.overall)}</div>
                 <PlayerAvatar name={p.name} src={p.playerId != null ? headshotUrl(p.playerId) : ""} hasHeadshot={p.playerId != null && headshots.has(p.playerId)} size={avatar} fontFamily={display} fontSize={Math.round(avatar * 0.36)} border="3px solid rgba(255,255,255,0.7)" />
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: nameSize, lineHeight: 1.05, whiteSpace: "nowrap" }}>{name}</div>
-                  <div style={{ display: "flex", fontSize: subSize, lineHeight: 1.1, opacity: 0.88, whiteSpace: "nowrap" }}>{subText}</div>
+                  <div style={{ display: "flex", fontSize: subSize, lineHeight: 1.1, opacity: o(0.88), fontWeight: gold ? 600 : 400, whiteSpace: "nowrap" }}>{subText}</div>
                 </div>
                 <div style={{ display: "flex", width: W_AVG, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 44, lineHeight: 1 }}>{f2(avg)}</div>
-                <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end", fontFamily: display, fontWeight: 600, fontSize: 32, lineHeight: 1, opacity: 0.9 }}>{f2(p.total)}</div>
+                <div style={{ display: "flex", width: W_TOT, justifyContent: "flex-end", fontFamily: display, fontWeight: 600, fontSize: 32, lineHeight: 1, opacity: o(0.9) }}>{f2(p.total)}</div>
                 <div style={{ display: "flex", width: W_TIER, justifyContent: "flex-end", fontFamily: display, fontWeight: 700, fontSize: 24, letterSpacing: 2, textTransform: "uppercase" }}>{p.tier ?? "N/A"}</div>
               </div>
             );
