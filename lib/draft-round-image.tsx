@@ -15,7 +15,7 @@ const W_TIER = 170;
 const GAP = 14;
 const fit = (room: number, chars: number, min: number, max: number) => Math.max(min, Math.min(max, Math.floor(room / (Math.max(1, chars) * 0.5))));
 
-export async function renderDraftRound(opts: { round: number; picks: AssessedPick[]; footer?: string; headshots?: Set<number>; keepers?: boolean }) {
+export async function renderDraftRound(opts: { round: number; picks: AssessedPick[]; footer?: string; headshots?: Set<number>; keepers?: boolean; title?: string; subtitle?: string; labels?: Map<number, string>; hideTeam?: boolean }) {
   const headshots = opts.headshots ?? new Set<number>();
   const n = Math.max(1, opts.picks.length);
   const rowH = Math.min(104, Math.floor((1094 - 24 - 40 - (n - 1) * 8) / n));
@@ -24,8 +24,8 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
     dark: true,
     flush: true,
     footer: opts.footer,
-    title: opts.keepers ? "Draft Keepers" : `Draft Round ${opts.round}`,
-    subtitle: "",
+    title: opts.title ?? (opts.keepers ? "Draft Keepers" : `Draft Round ${opts.round}`),
+    subtitle: opts.subtitle ?? "",
     body: ({ display }) => (
       <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, padding: "10px 28px 14px 28px" }}>
         <div style={{ display: "flex", alignItems: "center", height: 40, gap: GAP, padding: "0 18px", fontFamily: display, fontWeight: 600, fontSize: 22, letterSpacing: 3, color: "#9FB3C8" }}>
@@ -44,7 +44,8 @@ export async function renderDraftRound(opts: { round: number; picks: AssessedPic
             const room = 1024 - 36 - 60 - avatar - W_AVG - W_TOT - W_TIER - GAP * 5;
             const name = p.keeper ? `${p.name} (K)` : p.name;
             const nameSize = fit(room, name.length, 22, 38);
-            const subText = `${p.position} · ${p.team}${p.gp != null ? ` · ${p.gp} GP` : ""}`;
+            const tag = opts.labels?.get(p.overall);
+            const subText = [p.position, opts.hideTeam ? null : p.team, p.gp != null ? `${p.gp} GP` : null, tag ?? null].filter(Boolean).join(" · ");
             const subSize = fit(room * 1.6, subText.length, 15, 22);
             const avg = p.perTeamGame != null ? p.perTeamGame : p.avg;
             return (

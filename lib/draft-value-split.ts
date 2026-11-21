@@ -10,27 +10,50 @@ export const VALUE_BLURBS: Record<ValueKind, string> = {
   missed: "Played under half the games so far (injured or out of the lineup) and are behind the VOR of the player currently ranked at their slot.",
 };
 
-export function splitValue(picks: AssessedPick[], top = 10): Record<ValueKind, AssessedPick[]> {
-  const rated = picks.filter((p) => !p.keeper && p.surplus != null);
+// The steal / bust / missed-time predicates, shared by the league lists and the per-team views.
+function makeRules(picks: AssessedPick[]) {
   const maxGp = Math.max(0, ...picks.map((p) => p.gp ?? 0));
   const played = (p: AssessedPick) => (p.gp ?? 0) >= maxGp * 0.5;
+  const roundOf = (p: AssessedPick) => p.round ?? Math.ceil(p.overall / 10);
   // A pick beats his round with a tier above what the round expects: Elite+ in rounds 1-3, Good+ from round 4 on.
   const overdelivered = (p: AssessedPick) => {
     if (p.tier == null) return false;
-    const r = p.round ?? Math.ceil(p.overall / 10);
-    if (r <= 3) return TIERS.indexOf(p.tier) <= TIERS.indexOf("Elite");
-    return TIERS.indexOf(p.tier) <= TIERS.indexOf("Good");
+    return TIERS.indexOf(p.tier) <= (roundOf(p) <= 3 ? TIERS.indexOf("Elite") : TIERS.indexOf("Good"));
   };
   // The worst tier a pick can have for his round without it counting as a miss: Good in round 1, Depth in rounds 2-7 (Good is only the hope in rounds 2-3), anything later.
   const underdelivered = (p: AssessedPick) => {
     if (p.tier == null) return false;
-    const r = p.round ?? Math.ceil(p.overall / 10);
+    const r = roundOf(p);
     const need = r <= 1 ? TIERS.indexOf("Good") : r <= 7 ? TIERS.indexOf("Depth") : TIERS.length;
     return TIERS.indexOf(p.tier) > need;
   };
-  return {
-    steals: rated.filter((p) => overdelivered(p)).sort((a, b) => b.surplus! - a.surplus!).slice(0, top),
-    busts: rated.filter((p) => p.surplus! < 0 && played(p) && underdelivered(p)).sort((a, b) => a.surplus! - b.surplus!).slice(0, top),
-    missed: rated.filter((p) => p.surplus! < 0 && !played(p)).sort((a, b) => a.surplus! - b.surplus!).slice(0, top),
+  const kindOf = (p: AssessedPick): ValueKind | null => {
+    if (p.keeper || p.surplus == null) return null;
+    if (overdelivered(p)) return "steals";
+    if (p.surplus < 0 && played(p) && underdelivered(p)) return "busts";
+    if (p.surplus < 0 && !played(p)) return "missed";
+    return null;
   };
+  return { kindOf };
+}
+
+// Every pick's label (steal, bust or missed time), with no top-10 cut: used for the team views.
+export function valueKinds(picks: AssessedPick[]): Map<number, ValueKind> {
+  const { kindOf } = makeRules(picks);
+  const out = new Map<number, ValueKind>();
+  for (const p of picks) {
+    const k = kindOf(p);
+    if (k) out.set(p.overall, k);
+  }
+  return out;
+}
+
+export function splitValue(picks: AssessedPick[], top = 10): Record<ValueKind, AssessedPick[]> {
+  const kinds = valueKinds(picks);
+  const pick = (k: ValueKind, dir: 1 | -1) =>
+    picks
+      .filter((p) => kinds.get(p.overall) === k)
+      .sort((a, b) => dir * (b.surplus! - a.surplus!))
+      .slice(0, top);
+  return { steals: pick("steals", 1), busts: pick("busts", -1), missed: pick("missed", -1) };
 }

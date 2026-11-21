@@ -4,7 +4,8 @@ import { useState } from "react";
 import PlayerPhoto from "@/components/PlayerPhoto";
 import { TIERS, TIER_STYLE, type Tier } from "@/lib/tier-style";
 import type { AssessedPick } from "@/lib/draft-assessment";
-import { splitValue, VALUE_BLURBS, VALUE_TITLES, type ValueKind } from "@/lib/draft-value-split";
+import { splitValue, valueKinds, VALUE_BLURBS, VALUE_TITLES, type ValueKind } from "@/lib/draft-value-split";
+import { teamNames } from "@/lib/draft-teams";
 
 const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
 
@@ -137,6 +138,11 @@ function KeepersView({ picks }: { picks: AssessedPick[] }) {
       <p className="text-xs text-muted mb-3 max-w-prose">
         Teams are ranked by the combined season VOR of their keepers (value over the last league starter at each position, so goalies and skaters share one scale). Tiers are the same Season tiers as everywhere else.
       </p>
+      <div className="mb-3">
+        <a href="/api/cards/draft-keepers" download="draft-keeper-rankings.png" className="inline-block text-xs uppercase tracking-widest border border-ice-line px-3 py-1.5 text-rink hover:bg-ice-panel">
+          Download keeper rankings
+        </a>
+      </div>
       <div className="flex flex-col gap-4">
         {teams.map((t, i) => (
           <section key={t.team}>
@@ -151,12 +157,17 @@ function KeepersView({ picks }: { picks: AssessedPick[] }) {
                   <div className="text-[10px] uppercase tracking-widest opacity-80">keeper VOR</div>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {TIERS.filter((x) => t.counts[x] > 0).map((x) => (
-                  <span key={x} className="text-[11px] font-semibold px-1.5 rounded" style={{ background: SOFT[x].bg, color: SOFT[x].fg, textShadow: shadow(x) }}>
-                    {t.counts[x]} {x}
-                  </span>
-                ))}
+              <div className="flex items-center justify-between gap-2 mt-1.5">
+                <div className="flex flex-wrap gap-1">
+                  {TIERS.filter((x) => t.counts[x] > 0).map((x) => (
+                    <span key={x} className="text-[11px] font-semibold px-1.5 rounded" style={{ background: SOFT[x].bg, color: SOFT[x].fg, textShadow: shadow(x) }}>
+                      {t.counts[x]} {x}
+                    </span>
+                  ))}
+                </div>
+                <a href={`/api/cards/draft-keepers?team=${encodeURIComponent(t.team)}`} download={`keepers-${t.team.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-gold/70 px-3 py-1.5 text-gold hover:bg-white/10">
+                  Download
+                </a>
               </div>
             </div>
             <div className="flex flex-col gap-2">
@@ -200,9 +211,73 @@ function KeepersView({ picks }: { picks: AssessedPick[] }) {
   );
 }
 
+// One team's draft: every drafted pick in order, then its steals and busts, with a download of the picks graphic.
+function TeamsView({ picks }: { picks: AssessedPick[] }) {
+  const names = teamNames(picks);
+  const [team, setTeam] = useState(names[0] ?? "");
+  const mine = picks.filter((p) => p.team === team && !p.keeper).sort((a, b) => a.overall - b.overall);
+  const kinds = valueKinds(picks);
+  const listOf = (k: ValueKind) => mine.filter((p) => kinds.get(p.overall) === k).sort((a, b) => (k === "steals" ? b.surplus! - a.surplus! : a.surplus! - b.surplus!));
+  const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
+  for (const p of mine) if (p.tier) counts[p.tier]++;
+  if (names.length === 0) return <p className="text-muted">No picks found.</p>;
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <select value={team} onChange={(e) => setTeam(e.target.value)} className="flex-1 min-w-0 border border-ice-line rounded px-2 py-2 bg-white text-sm font-semibold">
+          {names.map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+        <a href={`/api/cards/draft-team?team=${encodeURIComponent(team)}`} download={`draft-${team.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-ice-line px-3 py-2.5 text-rink hover:bg-ice-panel">
+          Download
+        </a>
+      </div>
+      <div className="flex flex-wrap gap-1 mb-3">
+        {TIERS.filter((x) => counts[x] > 0).map((x) => (
+          <span key={x} className="text-[11px] font-semibold px-1.5 rounded" style={{ background: SOFT[x].bg, color: SOFT[x].fg, textShadow: shadow(x) }}>
+            {counts[x]} {x}
+          </span>
+        ))}
+      </div>
+      <section className="mb-4">
+        <div className="bg-rink text-ice px-3 py-2 rounded-lg mb-2 border-l-4 border-gold">
+          <h2 className="font-display text-xl uppercase tracking-wide">Picks in order</h2>
+        </div>
+        <div className="flex flex-col gap-2">
+          {mine.map((p) => (
+            <Card key={p.overall} p={p} />
+          ))}
+        </div>
+      </section>
+      {(["steals", "busts", "missed"] as ValueKind[]).map((kind) => {
+        const list = listOf(kind);
+        return (
+          <section key={kind} className="mb-4">
+            <div className="bg-rink text-ice px-3 py-2 rounded-lg mb-1 border-l-4 border-gold">
+              <h2 className="font-display text-xl uppercase tracking-wide">{VALUE_TITLES[kind]}</h2>
+            </div>
+            {list.length === 0 ? (
+              <p className="text-xs text-muted mb-2">None for this team.</p>
+            ) : (
+              <div className="flex flex-col gap-2 mt-2">
+                {list.map((p) => (
+                  <ValueCard key={p.overall} p={p} kind={kind === "steals" ? "steal" : "bust"} />
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }) {
   const [tier, setTier] = useState<Tier | "ALL" | "NONE">("ALL");
-  const [view, setView] = useState<"picks" | "value" | "keepers">("picks");
+  const [view, setView] = useState<"picks" | "value" | "keepers" | "teams">("picks");
   const drafted = picks.filter((p) => !p.keeper);
   const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
   let unplaced = 0;
@@ -237,6 +312,13 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
         <button type="button" onClick={() => setView("keepers")} className={seg(view === "keepers")}>
           Keepers
         </button>
+        <button type="button" onClick={() => setView("teams")} className={seg(view === "teams")}>
+          Teams
+        </button>
+      </div>
+
+      <div className={view === "teams" ? "" : "hidden"}>
+        <TeamsView picks={picks} />
       </div>
 
       <div className={view === "keepers" ? "" : "hidden"}>
