@@ -1,4 +1,4 @@
-// Server-side only. The league's player tiers: Replacement, Depth, Good, Elite and Superstar, by average
+// Server-side only. The league's player tiers: Replacement, Bench, Depth, Good, Elite and Superstar, by average
 // fantasy points per game, with separate cutoffs for forwards, defence and goalies.
 //
 // The cutoffs come from the league's own starter line, so they follow the scoring. Each tier is a share of the
@@ -20,7 +20,8 @@ import { getGoalieUsage } from "@/lib/goalie-starts";
 import { TIERS, type Tier } from "@/lib/tier-style";
 export { TIERS, TIER_STYLE } from "@/lib/tier-style";
 export type { Tier };
-export type Cutoffs = { depth: number; elite: number; superstar: number; franchise: number };
+// bench = the line for Bench (rostered-level, below the starter line). Optional: cutoffs frozen before Bench existed get it filled in once.
+export type Cutoffs = { depth: number; elite: number; superstar: number; franchise: number; bench?: number };
 
 export interface LeagueTiers {
   v?: number; // cutoff version: 2 = goalies on points per team game
@@ -33,7 +34,8 @@ export interface LeagueTiers {
 }
 
 // Share of the league's starters each tier covers (cumulative: Good includes Elite and Superstar). Cutoff keys keep their old names: franchise = Superstar, superstar = Elite, elite = Good.
-const SHARE = { franchise: 0.05, superstar: 0.12, elite: 0.45, depth: 1 };
+// Bench reaches down to 1.5x the starters, about where managers stop rostering a player.
+const SHARE = { franchise: 0.05, superstar: 0.12, elite: 0.45, depth: 1, bench: 1.5 };
 const floor05 = (n: number) => Math.floor(n / 0.05 + 1e-9) * 0.05;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const GROUPS: Group[] = ["F", "D", "G"];
@@ -41,9 +43,9 @@ const CUTOFF_VERSION = 2;
 
 export function tierOf(avg: number | null, c: Cutoffs): Tier | null {
   if (avg === null || !Number.isFinite(avg)) return null;
-  return avg >= c.franchise ? "Superstar" : avg >= c.superstar ? "Elite" : avg >= c.elite ? "Good" : avg >= c.depth ? "Depth" : "Replacement";
+  return avg >= c.franchise ? "Superstar" : avg >= c.superstar ? "Elite" : avg >= c.elite ? "Good" : avg >= c.depth ? "Depth" : c.bench != null && avg >= c.bench ? "Bench" : "Replacement";
 }
-export const tierRank = (t: Tier | null) => (t === null ? -1 : TIERS.length - 1 - TIERS.indexOf(t)); // Replacement 0 ... Superstar 4
+export const tierRank = (t: Tier | null) => (t === null ? -1 : TIERS.length - 1 - TIERS.indexOf(t)); // Replacement 0, Bench 1 ... Superstar 5
 
 export async function loadPools(season: number, current: boolean): Promise<Record<Group, PoolPlayer[]>> {
   const [F, D, G] = await Promise.all(GROUPS.map((g) => getPlayerPool(g, current ? undefined : season)));
@@ -68,7 +70,9 @@ function cutoffsFrom(pools: Record<Group, PoolPlayer[]>, starters: Record<Group,
     if (elite <= depth) elite = depth + 0.05;
     if (superstar <= elite) superstar = elite + 0.05;
     if (franchise <= superstar) franchise = superstar + 0.05;
-    out[g] = { depth: round2(depth), elite: round2(elite), superstar: round2(superstar), franchise: round2(franchise) };
+    let bench = floor05(at(Math.round(n * SHARE.bench)));
+    if (bench >= depth) bench = Math.max(0, depth - 0.05);
+    out[g] = { depth: round2(depth), elite: round2(elite), superstar: round2(superstar), franchise: round2(franchise), bench: round2(bench) };
   }
   return out;
 }
@@ -108,7 +112,22 @@ export async function getLeagueTiers(): Promise<LeagueTiers | null> {
     const r = await sql`SELECT payload FROM tier_cutoffs WHERE season = ${season} AND checkpoint = ${checkpoint};`;
     if (r.rows.length) {
       const saved = JSON.parse(r.rows[0].payload as string) as LeagueTiers;
-      if (saved.v === CUTOFF_VERSION) return { ...saved, gamesPlayed };
+      if (saved.v === CUTOFF_VERSION) {
+        // Saved before Bench existed: keep every frozen cutoff as it is and add only the Bench line, then save it.
+        if (GROUPS.some((g) => saved.cutoffs[g]?.bench == null)) {
+          const usage = await getGoalieUsage(saved.basis === "last season" ? season - 1 : season).catch(() => null);
+          const pools = saved.basis === "last season" ? await loadPools(season - 1, false) : cur;
+          const minGp = saved.basis === "last season" ? 20 : Math.min(20, Math.max(5, Math.floor(gamesPlayed * 0.5)));
+          const fresh = cutoffsFrom(pools, saved.starters ?? starters, minGp, (n) => usage?.teamGames(n) ?? null);
+          for (const g of GROUPS) saved.cutoffs[g] = { ...saved.cutoffs[g], bench: Math.min(fresh[g].bench ?? 0, round2(Math.max(0, saved.cutoffs[g].depth - 0.05))) };
+          try {
+            await sql`UPDATE tier_cutoffs SET payload = ${JSON.stringify(saved)} WHERE season = ${season} AND checkpoint = ${checkpoint};`;
+          } catch (err) {
+            console.error("tier_cutoffs bench save failed", err);
+          }
+        }
+        return { ...saved, gamesPlayed };
+      }
     }
   } catch (err) {
     console.error("tier_cutoffs read failed (is Postgres connected?)", err);

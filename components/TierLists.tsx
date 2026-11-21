@@ -22,11 +22,11 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "ly", label: "Last yr" },
 ];
 const MIN_GP = 5; // same minimum games the hub already uses for a player's L30 tier
-type Cut = { franchise: number; superstar: number; elite: number; depth: number };
+type Cut = { franchise: number; superstar: number; elite: number; depth: number; bench?: number };
 type Cuts = Record<"F" | "D" | "G", Cut>;
 const tierByCut = (v: number | null, c: Cut): Tier | null => {
   if (v === null || !Number.isFinite(v)) return null;
-  return v >= c.franchise ? "Superstar" : v >= c.superstar ? "Elite" : v >= c.elite ? "Good" : v >= c.depth ? "Depth" : "Replacement";
+  return v >= c.franchise ? "Superstar" : v >= c.superstar ? "Elite" : v >= c.elite ? "Good" : v >= c.depth ? "Depth" : c.bench != null && v >= c.bench ? "Bench" : "Replacement";
 };
 // Tier of a player for the chosen timeframe. Goalies are measured per team game (volume counts) and have no L30
 // tier, so they stay on their rating tier for L30. Skaters need a few games in the window to get a tier.
@@ -216,7 +216,7 @@ export default function TierLists({ data }: { data: TierDirectory }) {
     [base, view, c]
   );
   const counts = useMemo(() => {
-    const out: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
+    const out: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Bench: 0, Replacement: 0 };
     for (const x of placed) out[x.t]++;
     return out;
   }, [placed]);
@@ -235,8 +235,8 @@ export default function TierLists({ data }: { data: TierDirectory }) {
   const range = (g: "F" | "D" | "G") => {
     if (tier === "ALL") return "";
     const x = c[g];
-    const lo = tier === "Superstar" ? x.franchise : tier === "Elite" ? x.superstar : tier === "Good" ? x.elite : tier === "Depth" ? x.depth : null;
-    const hi = tier === "Superstar" ? null : tier === "Elite" ? x.franchise : tier === "Good" ? x.superstar : tier === "Depth" ? x.elite : x.depth;
+    const lo = tier === "Superstar" ? x.franchise : tier === "Elite" ? x.superstar : tier === "Good" ? x.elite : tier === "Depth" ? x.depth : tier === "Bench" ? x.bench ?? null : null;
+    const hi = tier === "Superstar" ? null : tier === "Elite" ? x.franchise : tier === "Good" ? x.superstar : tier === "Depth" ? x.elite : tier === "Bench" ? x.depth : x.bench ?? x.depth;
     return lo === null ? `under ${f2(hi!)}` : hi === null ? `${f2(lo)}+` : `${f2(lo)} to ${f2(hi - 0.01)}`;
   };
   const unrated = base.length - placed.length;

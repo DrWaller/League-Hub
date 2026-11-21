@@ -270,7 +270,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
       } else if (!tier) {
         signal = "Unrated";
         why = "No games yet this season or last";
-      } else if (tierRank(tier) >= 2) {
+      } else if (tierRank(tier) >= 3) {
         signal = "Core";
         why = `${tier}: a player you build around${goalie ? ` (≈ ${goalie.pace} pts projected)` : ""}`;
       } else if (tier === "Depth") {
@@ -281,9 +281,12 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
           signal = "Keep";
           why = goalie ? `Depth: starter level (≈ ${goalie.pace} pts projected)` : "Depth: starter level for this league";
         }
-      } else if (form && tierRank(form) >= 1) {
+      } else if (tier === "Bench" && !(form && tierRank(form) >= 2)) {
+        signal = "Keep";
+        why = `Bench: just below the starter line (${cut.depth.toFixed(2)}${group === "G" ? " per team game" : ""}), still rosterable`;
+      } else if (form && tierRank(form) >= 2) {
         signal = "Watch";
-        why = `Rated Replacement, but his last ${l30!.gp} games are ${form} level (${r2(l30!.avg)})`;
+        why = `Rated ${tier}, but his last ${l30!.gp} games are ${form} level (${r2(l30!.avg)})`;
       } else {
         signal = "Drop candidate";
         why = `Replacement: below the starter line (${cut.depth.toFixed(2)}${group === "G" ? " per team game" : ""})`;
@@ -291,7 +294,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
 
       let better: MakeupPlayer["better"] = null;
       if ((signal === "Drop candidate" || signal === "Watch") && est !== null) {
-        const f = faRated[group].find((x) => x.est > est! + 0.05 && tierRank(x.tier) >= 1);
+        const f = faRated[group].find((x) => x.est > est! + 0.05 && tierRank(x.tier) >= 2);
         if (f) better = f;
       }
 
@@ -321,7 +324,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
     }
     for (const p of players) addRating(p.pos, p.est);
     players.sort((a, b) => (a.group === b.group ? (b.est ?? -1) - (a.est ?? -1) : ["F", "D", "G"].indexOf(a.group) - ["F", "D", "G"].indexOf(b.group)));
-    const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Replacement: 0 };
+    const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Bench: 0, Replacement: 0 };
     for (const p of players) if (p.slot !== "IR" && p.tier) counts[p.tier]++;
     teams.push({ id: t.id, name: names.get(t.id) ?? `Team ${t.id}`, players, counts });
   }

@@ -7,7 +7,7 @@ export type ValueKind = "steals" | "busts" | "missed";
 export const VALUE_TITLES: Record<ValueKind, string> = { steals: "Steals", busts: "Busts", missed: "Missed Time" };
 export const VALUE_BLURBS: Record<ValueKind, string> = {
   steals: "Beat what his round expects: Elite or better in rounds 1 to 3 (Good is the standard in round 1 and the hope in rounds 2 and 3), or Good or better from round 4 on (Depth is already a win there). Ranked by season VOR above the player currently at his slot.",
-  busts: "Played at least half the games (goalies who sit count too) and didn't live up to the slot: round 1 and not Good, or rounds 2 to 7 and Replacement. Depth is a fine result after round 1, and Good or better is never a bust.",
+  busts: "Played at least half the games (goalies who sit count too) and didn't live up to the slot: round 1 and not Good, rounds 2 to 4 and Bench or worse, or rounds 5 to 7 and Replacement. Depth is a fine result after round 1, and Good or better is never a bust.",
   missed: "Skaters who played under half the games so far (injured or out of the lineup) and are behind the VOR of the player currently ranked at their slot. Goalies who sit are judged as busts instead.",
 };
 
@@ -21,11 +21,11 @@ function makeRules(picks: AssessedPick[]) {
     if (p.tier == null) return false;
     return TIERS.indexOf(p.tier) <= (roundOf(p) <= 3 ? TIERS.indexOf("Elite") : TIERS.indexOf("Good"));
   };
-  // The worst tier a pick can have for his round without it counting as a miss: Good in round 1, Depth in rounds 2-7 (Good is only the hope in rounds 2-3), anything later.
+  // The worst tier a pick can have for his round without it counting as a miss: Good in round 1, Depth in rounds 2-4 (Good is only the hope in rounds 2-3), Bench in rounds 5-7, anything later.
   const underdelivered = (p: AssessedPick) => {
     if (p.tier == null) return false;
     const r = roundOf(p);
-    const need = r <= 1 ? TIERS.indexOf("Good") : r <= 7 ? TIERS.indexOf("Depth") : TIERS.length;
+    const need = r <= 1 ? TIERS.indexOf("Good") : r <= 4 ? TIERS.indexOf("Depth") : r <= 7 ? TIERS.indexOf("Bench") : TIERS.length;
     return TIERS.indexOf(p.tier) > need;
   };
   const kindOf = (p: AssessedPick): ValueKind | null => {

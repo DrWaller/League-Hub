@@ -143,7 +143,7 @@ export async function renderScorecard(opts: CardOpts) {
           {[...TIER_ORDER].map((n) => (
             <div key={n} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ display: "flex", width: 22, height: 22, borderRadius: 6, backgroundImage: TIERS[n].bg }} />
-              <div style={{ display: "flex", fontSize: 19, fontWeight: 600, color: MUTED }}>{`${n} · ${n === "Replacement" ? "<50" : TIERS[n].min + "+"}`}</div>
+              <div style={{ display: "flex", fontSize: 17, fontWeight: 600, color: MUTED }}>{`${n} · ${n === "Replacement" ? "<35" : TIERS[n].min + "+"}`}</div>
             </div>
           ))}
         </div>
