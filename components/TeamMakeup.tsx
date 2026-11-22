@@ -209,7 +209,7 @@ export default function TeamMakeup({ data, selected, logos }: { data: Data; sele
         <h2 className="font-display text-xl mb-1">Team ratings</h2>
         <p className="text-xs text-muted mb-2">
           Each roster graded against the other teams (50 = league average). A team&apos;s starters are its best players at each position for the league&apos;s lineup slots, whatever ESPN shows in the lineup today;
-          injured reserve doesn&apos;t count. Each starter is worth his rating minus the starter line for his position, so a star counts for the points he scores and a starter below the line counts against the team. Position
+          injured reserve doesn&apos;t count. Each starter is worth his rating minus the starter line for his position, so a star counts for the points he scores and a starter below the line counts against the team. Bench depth adds a little: each good bench player (Bench tier or better, up to the league's bench spots) counts for 30% of his points over the Bench line. Position
           columns use the same scale, so you can see where a team is strong and where it&apos;s thin.
         </p>
         <ol className="border border-ice-line bg-white divide-y divide-ice-line">

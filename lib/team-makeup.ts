@@ -352,15 +352,18 @@ function valueOver(p: MakeupPlayer, line: number): number | null {
   return v - line;
 }
 
+// Bench depth counts for a little: each of a team's best non-starters above the Bench line adds this share of his points per game over that line.
+const BENCH_WEIGHT = 0.3;
+
 // How many starters per group the league's lineup has (ESPN slot ids: 0 C, 1 LW, 2 RW, 3 F, 4 D, 5 G, 6 Util).
 // If the settings can't be read, the most players any team has in a non-bench slot stands in.
-async function startingSlots(teams: MakeupTeam[], season: number): Promise<{ F: number; D: number; G: number; util: number }> {
+async function startingSlots(teams: MakeupTeam[], season: number): Promise<{ F: number; D: number; G: number; util: number; bench: number }> {
   const c = await fetchLineupSlots(season).catch(() => null);
   if (c && (c[4] ?? 0) + (c[5] ?? 0) + (c[0] ?? 0) + (c[1] ?? 0) + (c[2] ?? 0) + (c[3] ?? 0) > 0) {
-    return { F: (c[0] ?? 0) + (c[1] ?? 0) + (c[2] ?? 0) + (c[3] ?? 0), D: c[4] ?? 0, G: c[5] ?? 0, util: c[6] ?? 0 };
+    return { F: (c[0] ?? 0) + (c[1] ?? 0) + (c[2] ?? 0) + (c[3] ?? 0), D: c[4] ?? 0, G: c[5] ?? 0, util: c[6] ?? 0, bench: c[7] ?? 4 };
   }
   const most = (g: Group) => Math.max(0, ...teams.map((t) => t.players.filter((p) => p.group === g && p.slot === "Lineup").length));
-  return { F: most("F"), D: most("D"), G: most("G"), util: 0 };
+  return { F: most("F"), D: most("D"), G: most("G"), util: 0, bench: 4 };
 }
 
 function gradeOf(z: number): string {
@@ -401,6 +404,16 @@ async function rateTeams(teams: MakeupTeam[], tiers: LeagueTiers, season: number
     // Util takes the best skater left over, forward or defence.
     take([...ranked("F"), ...ranked("D")].filter((x) => !chosen.has(x.p.id)).sort((a, b) => b.v - a.v), slots.util);
     starterIds.set(t.id, chosen);
+    // Bench depth: the best remaining players (up to the league's bench slots) who are above the Bench line, a small bonus in their own position group.
+    t.players
+      .filter((p) => !chosen.has(p.id))
+      .map((p) => ({ p, v: valueOver(p, tiers.cutoffs[p.group].bench ?? tiers.cutoffs[p.group].depth) }))
+      .filter((x): x is { p: MakeupPlayer; v: number } => x.v !== null && x.v > 0)
+      .sort((a, b) => b.v - a.v)
+      .slice(0, Math.max(0, slots.bench))
+      .forEach((x) => {
+        g[x.p.group] += BENCH_WEIGHT * x.v;
+      });
     return { g, total: g.F + g.D + g.G };
   });
   const all = spread(raw.map((r) => r.total));
