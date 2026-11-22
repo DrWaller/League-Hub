@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getDraftAssessment } from "@/lib/draft-assessment";
 import { getLeagueMeta } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
-import { renderDraftRound } from "@/lib/draft-round-image";
+import { renderPickCards } from "@/lib/draft-card-image";
 import { valueKinds } from "@/lib/draft-value-split";
 import { seasonFooter } from "@/lib/portrait-graphics";
 
@@ -25,9 +25,14 @@ export async function GET(req: NextRequest) {
       const k = kinds.get(p.overall);
       if (k) labels.set(p.overall, k === "steals" ? "STEAL" : k === "busts" ? "BUST" : "MISSED TIME");
     }
-    const ids = picks.flatMap((p) => (p.playerId != null && p.playerId > 0 ? [p.playerId] : []));
+    // Up to 8 picks fit one image; a longer draft (14 picks) is split into equal parts: ?part=1 or ?part=2.
+    const parts = picks.length > 8 ? 2 : 1;
+    const part = Math.min(parts, Math.max(1, Number(req.nextUrl.searchParams.get("part")) || 1));
+    const per = Math.ceil(picks.length / parts);
+    const shown = picks.slice((part - 1) * per, part * per);
+    const ids = shown.flatMap((p) => (p.playerId != null && p.playerId > 0 ? [p.playerId] : []));
     const headshots = ids.length ? await checkHeadshots(ids) : new Set<number>();
-    return await renderDraftRound({ round: 0, picks, title: `${team} Draft`, hideTeam: true, labels, footer: seasonFooter(meta.name, meta.season), headshots });
+    return await renderPickCards({ title: team, subtitle: parts > 1 ? `Draft · picks ${shown[0].overall}–${shown[shown.length - 1].overall} (part ${part} of ${parts})` : "Draft", picks: shown, hideTeam: true, labels, footer: seasonFooter(meta.name, meta.season), headshots });
   } catch (err) {
     console.error("Draft team graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

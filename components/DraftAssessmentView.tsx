@@ -231,9 +231,16 @@ function TeamsView({ picks }: { picks: AssessedPick[] }) {
             </option>
           ))}
         </select>
-        <a href={`/api/cards/draft-team?team=${encodeURIComponent(team)}`} download={`draft-${team.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`} className="shrink-0 text-xs uppercase tracking-widest border border-ice-line px-3 py-2.5 text-rink hover:bg-ice-panel">
-          Download
-        </a>
+        {(mine.length > 8 ? [1, 2] : [0]).map((part) => (
+          <a
+            key={part}
+            href={`/api/cards/draft-team?team=${encodeURIComponent(team)}${part ? `&part=${part}` : ""}`}
+            download={`draft-${team.toLowerCase().replace(/[^a-z0-9]+/g, "-")}${part ? `-part-${part}` : ""}.png`}
+            className="shrink-0 text-xs uppercase tracking-widest border border-ice-line px-3 py-2.5 text-rink hover:bg-ice-panel"
+          >
+            {part ? `Download ${part}/2` : "Download"}
+          </a>
+        ))}
       </div>
       <div className="flex flex-wrap gap-1 mb-3">
         {TIERS.filter((x) => counts[x] > 0).map((x) => (

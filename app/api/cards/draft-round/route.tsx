@@ -3,6 +3,7 @@ import { getDraftAssessment } from "@/lib/draft-assessment";
 import { getLeagueMeta } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
 import { renderDraftRound } from "@/lib/draft-round-image";
+import { renderPickCards } from "@/lib/draft-card-image";
 import { seasonFooter } from "@/lib/portrait-graphics";
 
 export const runtime = "nodejs";
@@ -21,7 +22,9 @@ export async function GET(req: NextRequest) {
     if (picks.length === 0) return new Response(`No picks found for round ${round}.`, { status: 404 });
     const ids = picks.flatMap((p) => (p.playerId != null && p.playerId > 0 ? [p.playerId] : []));
     const headshots = ids.length ? await checkHeadshots(ids) : new Set<number>();
-    return await renderDraftRound({ round, picks, keepers, footer: seasonFooter(meta.name, meta.season), headshots });
+    const footer = seasonFooter(meta.name, meta.season);
+    if (keepers) return await renderDraftRound({ round, picks, keepers, footer, headshots });
+    return await renderPickCards({ title: `Draft Round ${round}`, picks, footer, headshots });
   } catch (err) {
     console.error("Draft round graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

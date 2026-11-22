@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { getDraftAssessment } from "@/lib/draft-assessment";
 import { getLeagueMeta } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
-import { renderKeeperRanking, renderKeeperCards } from "@/lib/draft-keepers-image";
+import { renderKeeperCards } from "@/lib/draft-keepers-image";
+import { renderKeeperRankingCards } from "@/lib/draft-card-image";
 import { keeperTeams } from "@/lib/draft-teams";
 import { seasonFooter } from "@/lib/portrait-graphics";
 
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const teams = keeperTeams(data.picks);
     if (!team) {
       if (teams.length === 0) return new Response("No keepers found.", { status: 404 });
-      return await renderKeeperRanking({ teams, footer });
+      return await renderKeeperRankingCards({ teams, footer });
     }
     const t = teams.find((x) => x.team === team);
     if (!t) return new Response(`No keepers found for ${team}.`, { status: 404 });

@@ -82,10 +82,10 @@ export async function renderKeeperCards(opts: { team: string; vor: number; picks
           const fg = t === "Superstar" ? "#FFFFFF" : st.fg;
           const g = p.perTeamGame != null;
           const tile = (label: string, value: string, sub: string, key: string) => (
-            <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, flexBasis: 0, height: tileH, borderRadius: 16, background: st.bg, color: fg, textShadow: t === "Superstar" ? "0 2px 3px rgba(60,40,0,0.35)" : "none" }}>
-              <div style={{ display: "flex", fontSize: Math.round(tileH * 0.2), lineHeight: 1.1 }}>{label}</div>
-              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: Math.round(tileH * 0.42), lineHeight: 1.1 }}>{value}</div>
-              <div style={{ display: "flex", fontSize: Math.round(tileH * 0.18), lineHeight: 1.1, minHeight: Math.round(tileH * 0.2) }}>{sub}</div>
+            <div key={key} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexGrow: 1, flexBasis: 0, height: tileH, paddingBottom: 6, borderRadius: 16, background: st.bg, color: fg, textShadow: t === "Superstar" ? "0 2px 3px rgba(60,40,0,0.35)" : "none" }}>
+              <div style={{ display: "flex", fontSize: Math.round(tileH * 0.17), lineHeight: 1.1 }}>{label}</div>
+              <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: Math.round(tileH * 0.38), lineHeight: 1.1 }}>{value}</div>
+              <div style={{ display: "flex", fontSize: Math.round(tileH * 0.15), lineHeight: 1.1, minHeight: Math.round(tileH * 0.17) }}>{sub}</div>
             </div>
           );
           return (
