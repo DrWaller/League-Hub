@@ -10,7 +10,7 @@ export const TIERS: Record<TierName, { min: number; bg: string; fg: string; star
   Elite: { min: 95, bg: "linear-gradient(135deg, #1B6FB5 0%, #1B6FB5 100%)", fg: "#FFFFFF", star: false, band: "95th to 98th" },
   Good: { min: 75, bg: "linear-gradient(135deg, #4F7FA8 0%, #4F7FA8 100%)", fg: "#FFFFFF", star: false, band: "75th to 94th" },
   Depth: { min: 50, bg: "linear-gradient(135deg, #7C8794 0%, #7C8794 100%)", fg: "#FFFFFF", star: false, band: "50th to 74th" },
-  Bench: { min: 35, bg: "linear-gradient(135deg, #C28A2C 0%, #C28A2C 100%)", fg: "#FFFFFF", star: false, band: "35th to 49th" },
+  Bench: { min: 35, bg: "linear-gradient(135deg, #8A5FB8 0%, #8A5FB8 100%)", fg: "#FFFFFF", star: false, band: "35th to 49th" },
   Replacement: { min: 0, bg: "linear-gradient(135deg, #B8574A 0%, #B8574A 100%)", fg: "#FFFFFF", star: false, band: "below 35th" },
 };
 

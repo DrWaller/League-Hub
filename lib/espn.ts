@@ -692,7 +692,7 @@ async function fetchPool(filter: object, season?: number) {
   try {
     const res = await fetch(`${buildBase(season)}?view=kona_player_info`, {
       headers: { Cookie: `espn_s2=${ESPN_S2}; SWID=${ESPN_SWID}`, "x-fantasy-filter": JSON.stringify(filter) },
-      next: { revalidate: season ? 86400 : 1800 },
+      next: { revalidate: season ? 86400 : 300 }, // current season: 5 minutes, so tiers follow last night's games closely
     });
     if (!res.ok) {
       console.error("ESPN player pool fetch failed", res.status, (await res.text()).slice(0, 300));

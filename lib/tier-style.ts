@@ -10,7 +10,7 @@ export const TIER_STYLE: Record<Tier, { bg: string; fg: string }> = {
   Elite: { bg: "#1B6FB5", fg: "#FFFFFF" }, // blue
   Good: { bg: "#26864A", fg: "#FFFFFF" }, // green
   Depth: { bg: "#7C8794", fg: "#FFFFFF" },
-  Bench: { bg: "#C28A2C", fg: "#FFFFFF" }, // amber: rostered-level, below the starter line
+  Bench: { bg: "#8A5FB8", fg: "#FFFFFF" }, // purple: rostered-level, below the starter line
   Replacement: { bg: "#B8574A", fg: "#FFFFFF" },
 };
 
