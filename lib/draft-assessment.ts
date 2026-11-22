@@ -3,7 +3,7 @@
 // the saved history); stats come from the live player pool; tiers use the same frozen cutoffs as the Tier Lists page.
 
 import { sql } from "@/lib/db";
-import { getLeagueMeta } from "@/lib/espn";
+import { getLeagueMeta, getStandings } from "@/lib/espn";
 import { ensureDraftSchema } from "@/lib/draft";
 import { getAllStored } from "@/lib/vor-store";
 import { getLeagueTiers, loadPools, tierOf, type Tier } from "@/lib/league-tiers";
@@ -50,8 +50,10 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
   const meta = await getLeagueMeta();
   const season = meta.season;
   await ensureDraftSchema();
-  const rows = (await sql`SELECT source, overall_pick, round, team_name, manager, player_id, player_name, position, is_keeper FROM draft_picks WHERE season = ${season} ORDER BY overall_pick;`).rows;
+  const rows = (await sql`SELECT source, overall_pick, round, team_id, team_name, manager, player_id, player_name, position, is_keeper FROM draft_picks WHERE season = ${season} ORDER BY overall_pick;`).rows;
   if (rows.length === 0) return null;
+  // Teams get renamed after the draft: show each team under its current name (matched by team id), not the name saved at draft time.
+  const liveNames = new Map<number, string>((await getStandings().catch(() => null))?.teams.map((t) => [t.id, t.name] as [number, string]) ?? []);
   const rank: Record<string, number> = { espn: 0, history: 1, fantrax: 2 };
   const source = rows.map((r) => String(r.source)).sort((a, b) => (rank[a] ?? 9) - (rank[b] ?? 9))[0];
   const list = rows.filter((r) => String(r.source) === source);
@@ -106,7 +108,7 @@ export async function getDraftAssessment(): Promise<DraftAssessment | null> {
       overall: Number(r.overall_pick),
       round: r.round == null ? null : Number(r.round),
       keeper: Boolean(r.is_keeper),
-      team: String(r.team_name ?? ""),
+      team: (r.team_id != null ? liveNames.get(Number(r.team_id)) : undefined) ?? String(r.team_name ?? ""),
       manager: r.manager ? String(r.manager) : null,
       name,
       position,
