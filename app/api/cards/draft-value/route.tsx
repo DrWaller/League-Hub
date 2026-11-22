@@ -3,7 +3,7 @@ import { getDraftAssessment } from "@/lib/draft-assessment";
 import { splitValue, type ValueKind } from "@/lib/draft-value-split";
 import { getLeagueMeta } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
-import { renderDraftValue } from "@/lib/draft-value-image";
+import { renderValueCards } from "@/lib/draft-card-image";
 import { seasonFooter } from "@/lib/portrait-graphics";
 
 export const runtime = "nodejs";
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     if (picks.length === 0) return new Response("Nothing to show yet.", { status: 404 });
     const ids = picks.flatMap((p) => (p.playerId != null && p.playerId > 0 ? [p.playerId] : []));
     const headshots = ids.length ? await checkHeadshots(ids) : new Set<number>();
-    return await renderDraftValue({ kind, picks, footer: seasonFooter(meta.name, meta.season), headshots });
+    return await renderValueCards({ kind, picks, footer: seasonFooter(meta.name, meta.season), headshots });
   } catch (err) {
     console.error("Draft value graphic failed", err);
     return new Response("Graphics generation failed: " + (err instanceof Error ? err.message : String(err)), { status: 500 });

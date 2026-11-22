@@ -4,6 +4,7 @@ import { headshotUrl } from "./headshots";
 import { TIER_STYLE, TIERS } from "./tier-style";
 import type { AssessedPick } from "./draft-assessment";
 import type { KeeperTeam } from "./draft-keepers-image";
+import { VALUE_TITLES, type ValueKind } from "./draft-value-split";
 
 // Light "card" versions of the draft graphics, matching the keeper cards and the site: white cards with a tier-coloured
 // stripe, a headshot, and tier-tinted tiles. Portrait 1080 x 1350. Satori: every element with more than one child needs
@@ -27,7 +28,10 @@ const TAG_BG: Record<string, string> = { STEAL: "#26864A", BUST: "#B8574A", "MIS
 
 // Every pick of a draft round (10) or half of a team's draft (7) as one row card: pick number, headshot, name, and
 // Season / Total / Tier tiles tinted in the pick's tier colour.
-export async function renderPickCards(opts: { title: string; subtitle?: string; picks: AssessedPick[]; footer?: string; headshots?: Set<number>; labels?: Map<number, string>; hideTeam?: boolean }) {
+// variant "keeper": no pick number (keepers aren't draft picks) and a VOR tile in place of Total. variant "value": the
+// steals / busts / missed-time lists, with Current finish, VOR and a navy "vs slot" tile.
+export async function renderPickCards(opts: { title: string; subtitle?: string; picks: AssessedPick[]; footer?: string; headshots?: Set<number>; labels?: Map<number, string>; hideTeam?: boolean; variant?: "pick" | "keeper" | "value"; valueUp?: boolean }) {
+  const variant = opts.variant ?? "pick";
   const headshots = opts.headshots ?? new Set<number>();
   const n = Math.max(1, opts.picks.length);
   const gap = n > 8 ? 12 : 14;
@@ -38,7 +42,7 @@ export async function renderPickCards(opts: { title: string; subtitle?: string; 
   const W_S = 122;
   const W_T = 122;
   const W_TIER = 172;
-  const pkW = 58;
+  const pkW = variant === "keeper" ? 0 : 58;
   return frame({
     title: opts.title,
     subtitle: opts.subtitle ?? "",
@@ -48,7 +52,7 @@ export async function renderPickCards(opts: { title: string; subtitle?: string; 
         {opts.picks.map((p) => {
           const c = tierColors(p.tier);
           const tag = opts.labels?.get(p.overall);
-          const room = 984 - 12 - 14 - pkW - avatar - W_S - W_T - W_TIER - 12 * 4 - 14 - 6;
+          const room = 984 - 12 - 14 - pkW - avatar - W_S - W_T - W_TIER - 12 * (variant === "keeper" ? 3 : 4) - 14 - 6;
           const tagW = tag ? Math.round(tag.length * 11 * s + 26) : 0;
           const nameSize = fit(room - tagW, p.name.length, Math.round(22 * s), Math.round(34 * s));
           const sub = [p.position, opts.hideTeam ? null : p.team, p.gp != null ? `${p.gp} GP` : null].filter(Boolean).join(" · ");
@@ -64,7 +68,7 @@ export async function renderPickCards(opts: { title: string; subtitle?: string; 
             <div key={p.overall} style={{ display: "flex", alignItems: "center", background: "#FFFFFF", border: "3px solid #D5DEE8", borderRadius: 20, overflow: "hidden", height: rowH, flexShrink: 0 }}>
               <div style={{ display: "flex", width: 12, alignSelf: "stretch", background: c.bg }} />
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexGrow: 1, padding: "0 14px" }}>
-                <div style={{ display: "flex", width: pkW, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: Math.round(34 * s), lineHeight: 1, color: NAVY }}>{String(p.overall)}</div>
+                {variant === "keeper" ? null : <div style={{ display: "flex", width: pkW, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: Math.round(34 * s), lineHeight: 1, color: NAVY }}>{String(p.overall)}</div>}
                 <PlayerAvatar name={p.name} src={p.playerId != null ? headshotUrl(p.playerId) : ""} hasHeadshot={p.playerId != null && headshots.has(p.playerId)} size={avatar} fontFamily={display} fontSize={Math.round(avatar * 0.36)} border="3px solid #D9A441" />
                 <div style={{ display: "flex", flexDirection: "column", gap: 3, flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -74,9 +78,16 @@ export async function renderPickCards(opts: { title: string; subtitle?: string; 
                   <div style={{ display: "flex", fontSize: subSize, color: MUTED, lineHeight: 1.1, whiteSpace: "nowrap" }}>{sub}</div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  {tile(p.perTeamGame != null ? "Per tm gm" : "Season", f2(avg), W_S, Math.round(32 * s), "s")}
-                  {tile("Total", f2(p.total), W_T, Math.round(30 * s), "t")}
-                  {tile("Tier", p.tier ?? "N/A", W_TIER, fit(W_TIER - 16, (p.tier ?? "N/A").length, 16, Math.round(26 * s)), "r")}
+                  {variant === "value" ? tile("Current", p.finish != null ? `#${p.finish}` : "–", W_S, Math.round(32 * s), "c") : tile(p.perTeamGame != null ? "Per tm gm" : "Season", f2(avg), W_S, Math.round(32 * s), "s")}
+                  {variant === "pick" ? tile("Total", f2(p.total), W_T, Math.round(30 * s), "t") : tile("VOR", f2(p.vor), W_T, Math.round(30 * s), "v")}
+                  {variant === "value" ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: W_TIER, height: tileH, borderRadius: 14, background: NAVY }}>
+                      <div style={{ display: "flex", fontSize: Math.round(15 * s), lineHeight: 1.1, color: "#C9D6E6" }}>vs slot</div>
+                      <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: Math.round(32 * s), lineHeight: 1.1, color: opts.valueUp ? "#7BE0A0" : "#FF8FA0" }}>{p.surplus != null ? signed(p.surplus) : "–"}</div>
+                    </div>
+                  ) : (
+                    tile("Tier", p.tier ?? "N/A", W_TIER, fit(W_TIER - 16, (p.tier ?? "N/A").length, 16, Math.round(26 * s)), "r")
+                  )}
                 </div>
               </div>
             </div>
@@ -129,4 +140,9 @@ export async function renderKeeperRankingCards(opts: { teams: KeeperTeam[]; foot
       </div>
     ),
   });
+}
+
+// Draft steals / busts / missed time as the same light cards.
+export async function renderValueCards(opts: { kind: ValueKind; picks: AssessedPick[]; footer?: string; headshots?: Set<number> }) {
+  return renderPickCards({ title: `Draft ${VALUE_TITLES[opts.kind]}`, subtitle: "Season VOR vs the player currently ranked at the pick's slot", picks: opts.picks, footer: opts.footer, headshots: opts.headshots, variant: "value", valueUp: opts.kind === "steals" });
 }

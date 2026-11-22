@@ -2,7 +2,6 @@ import { NextRequest } from "next/server";
 import { getDraftAssessment } from "@/lib/draft-assessment";
 import { getLeagueMeta } from "@/lib/espn";
 import { checkHeadshots } from "@/lib/headshots";
-import { renderDraftRound } from "@/lib/draft-round-image";
 import { renderPickCards } from "@/lib/draft-card-image";
 import { seasonFooter } from "@/lib/portrait-graphics";
 
@@ -23,7 +22,7 @@ export async function GET(req: NextRequest) {
     const ids = picks.flatMap((p) => (p.playerId != null && p.playerId > 0 ? [p.playerId] : []));
     const headshots = ids.length ? await checkHeadshots(ids) : new Set<number>();
     const footer = seasonFooter(meta.name, meta.season);
-    if (keepers) return await renderDraftRound({ round, picks, keepers, footer, headshots });
+    if (keepers) return await renderPickCards({ title: "Draft Keepers", picks, footer, headshots, variant: "keeper" });
     return await renderPickCards({ title: `Draft Round ${round}`, picks, footer, headshots });
   } catch (err) {
     console.error("Draft round graphic failed", err);
