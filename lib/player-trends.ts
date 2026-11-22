@@ -334,7 +334,7 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
       if (groupOf(l.position) === "G") parts.push("a goalie, so not eligible");
       else if (curTiers) {
         const c = curTiers[fd(l.position)];
-        parts.push(`${tierNameOf(l.ppg, c)} tier (${fd(l.position) === "D" ? "defence" : "forwards"}: Depth ${f2(c.depth)}, Good ${f2(c.elite)}, Elite ${f2(c.superstar)}, Superstar ${f2(c.franchise)})`);
+        parts.push(`${tierNameOf(l.ppg, c)} tier (${fd(l.position) === "D" ? "defence" : "forwards"}: Depth ${f2(c.depth)}, Core ${f2(c.elite)}, Elite ${f2(c.superstar)}, Superstar ${f2(c.franchise)})`);
       } else {
         const r = rankOf(cur, l.id, true);
         parts.push(r ? `#${r} among skaters (needs top ${BREAKOUT_ENTRY})` : "not enough games to rank");
@@ -349,15 +349,15 @@ export function buildTrendAwards(rows: PoolRow[], currentSeason: number, top = 5
       if (hit) parts.push(`ranks #${[...breakout].sort((a, b) => b.score - a.score).findIndex((x) => x.l.id === l.id) + 1} of ${breakout.length}`);
       else if (groupOf(l.position) === "G") parts.push("left out: goalies are not in the Breakout");
       else if (!rosterable(l)) parts.push("left out: below the rosterable bar (Depth tier)");
-      else if (!isEliteNow(l)) parts.push("left out: not within 0.05 of the Good cutoff this season");
-      else if (wasElite(l)) parts.push("left out: already Good in an earlier season");
+      else if (!isEliteNow(l)) parts.push("left out: not within 0.05 of the Core cutoff this season");
+      else if (wasElite(l)) parts.push("left out: already Core in an earlier season");
       else if (!prev.some((m) => qualifies(m.get(l.id), false))) parts.push("left out: no earlier qualifying season");
       why = parts.join(" · ");
     }
   }
 
   return [
-    { key: "breakout", title: "Breakout Player", blurb: `Finalists for the biggest jump into the Good tier or better (by points per game, with separate forward and defence cutoffs; coming within 0.05 of Good counts) for the first time: not Good in any of the last three seasons. A breakout should be a player who stays elite, so age and the earlier seasons are shown. Skaters only: goalies are recognised by the Vezina and Jennings. Players with no earlier season are left to the Calder. Rosterable players only (Depth tier or better).`, entries: entries(breakout), why },
+    { key: "breakout", title: "Breakout Player", blurb: `Finalists for the biggest jump into the Core tier or better (by points per game, with separate forward and defence cutoffs; coming within 0.05 of Core counts) for the first time: not Core in any of the last three seasons. A breakout should be a player who stays elite, so age and the earlier seasons are shown. Skaters only: goalies are recognised by the Vezina and Jennings. Players with no earlier season are left to the Calder. Rosterable players only (Depth tier or better).`, entries: entries(breakout), why },
     { key: "bounce", title: "Bounce Back Player", blurb: `Last year's points per game fell ${DOWN_SEASON_DROP * 100}% or more, and he is back to ${BOUNCE_RECOVERY * 100}% of the earlier level. Ranked by the rebound. Rosterable players only.`, entries: entries(bounce) },
     { key: "improved", title: "Most Improved Player", blurb: "Biggest gain on last season, combining the change in points per game and the change in total points. Rosterable players only (Depth tier or better).", entries: entries(improved) },
     { key: "calder", title: "Calder Trophy", blurb: "Best rookie by total fantasy points, owned or not. Who counts as a rookie comes from the NHL's own rookie list (under 26, and little NHL time before). Goalies and skaters compete together; total points count volume, so a goalie with only a few starts can't win.", entries: entries(calder) },

@@ -218,7 +218,7 @@ function TeamsView({ picks }: { picks: AssessedPick[] }) {
   const mine = picks.filter((p) => p.team === team && !p.keeper).sort((a, b) => a.overall - b.overall);
   const kinds = valueKinds(picks);
   const listOf = (k: ValueKind) => mine.filter((p) => kinds.get(p.overall) === k).sort((a, b) => (k === "steals" ? b.surplus! - a.surplus! : a.surplus! - b.surplus!));
-  const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Bench: 0, Replacement: 0 };
+  const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Core: 0, Depth: 0, Bench: 0, Replacement: 0 };
   for (const p of mine) if (p.tier) counts[p.tier]++;
   if (names.length === 0) return <p className="text-muted">No picks found.</p>;
   return (
@@ -279,7 +279,7 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
   const [tier, setTier] = useState<Tier | "ALL" | "NONE">("ALL");
   const [view, setView] = useState<"picks" | "value" | "keepers" | "teams">("picks");
   const drafted = picks.filter((p) => !p.keeper);
-  const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Bench: 0, Replacement: 0 };
+  const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Core: 0, Depth: 0, Bench: 0, Replacement: 0 };
   let unplaced = 0;
   for (const p of drafted) {
     if (p.tier) counts[p.tier]++;

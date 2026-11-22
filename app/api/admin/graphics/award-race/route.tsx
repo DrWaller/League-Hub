@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
       const award = buildTrendAwards(poolRows, meta.season, 5, { counts: slots, teamCount: teams.length }, undefined, rookies).find((a) => a.key === race);
       const ageOf = await loadAgeLookup(meta.season);
       title = award?.title ?? race;
-      tagline = { breakout: "Biggest jump into the Good tier or better", bounce: "Biggest rebound after a down year", improved: "Biggest gain on last season", calder: "Best rookie" }[race] ?? "";
+      tagline = { breakout: "Biggest jump into the Core tier or better", bounce: "Biggest rebound after a down year", improved: "Biggest gain on last season", calder: "Best rookie" }[race] ?? "";
       rows = (award?.entries ?? []).map((e) => {
         const age = ageOf(e.name, e.position, meta.season);
         return { rank: e.rank, name: e.name, playerId: e.id, sub: `${e.position}${age ? ` - age ~${age}` : ""} - ${e.detail}`, value: e.value, gap: "" };

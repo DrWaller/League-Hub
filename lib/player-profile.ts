@@ -60,7 +60,7 @@ export interface Profile {
   imported?: { fid: string; nhlId: number | null; team: string; owner: string };
 }
 
-// Superstar / Elite / Good / Depth / Replacement from per-game points vs his position group. A player who has not
+// Superstar / Elite / Core / Depth / Replacement from per-game points vs his position group. A player who has not
 // played the minimum games has no tier yet.
 export function tierFor(p: Profile): TierName | null {
   return p.qualified ? tierOf(p.points.avg.position.pct) : null;

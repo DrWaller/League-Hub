@@ -1,4 +1,4 @@
-// Server-side only. Team makeup: every rostered player rated by tier (Replacement, Depth, Good, Elite,
+// Server-side only. Team makeup: every rostered player rated by tier (Replacement, Depth, Core, Elite,
 // Superstar) with his last-30-day form, and a keep / watch / drop signal. Built for deciding who on a roster
 // is worth keeping and who can go.
 //
@@ -37,7 +37,7 @@ export interface GoalieRating {
   gamesLeft: number; // his team's games left in the fantasy regular season
 }
 
-export type Signal = "Core" | "Keep" | "Watch" | "Drop candidate" | "IR" | "Unrated";
+export type Signal = "Build around" | "Keep" | "Watch" | "Drop candidate" | "IR" | "Unrated";
 
 export interface MakeupPlayer {
   id: number;
@@ -271,7 +271,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
         signal = "Unrated";
         why = "No games yet this season or last";
       } else if (tierRank(tier) >= 3) {
-        signal = "Core";
+        signal = "Build around";
         why = `${tier}: a player you build around${goalie ? ` (≈ ${goalie.pace} pts projected)` : ""}`;
       } else if (tier === "Depth") {
         if (form === "Replacement" && l30 && l30.avg < cut.depth - 0.3) {
@@ -324,7 +324,7 @@ export async function getTeamMakeup(): Promise<TeamMakeup | null> {
     }
     for (const p of players) addRating(p.pos, p.est);
     players.sort((a, b) => (a.group === b.group ? (b.est ?? -1) - (a.est ?? -1) : ["F", "D", "G"].indexOf(a.group) - ["F", "D", "G"].indexOf(b.group)));
-    const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Good: 0, Depth: 0, Bench: 0, Replacement: 0 };
+    const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Core: 0, Depth: 0, Bench: 0, Replacement: 0 };
     for (const p of players) if (p.slot !== "IR" && p.tier) counts[p.tier]++;
     teams.push({ id: t.id, name: names.get(t.id) ?? `Team ${t.id}`, players, counts });
   }

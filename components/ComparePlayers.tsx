@@ -39,7 +39,7 @@ const TONE_CLASS: Record<Tone, string> = {
   small: "bg-gray-100 text-gray-500",
 };
 
-const TIER_RANK: Record<Tier, number> = { Replacement: 0, Bench: 1, Depth: 2, Good: 3, Elite: 4, Superstar: 5 };
+const TIER_RANK: Record<Tier, number> = { Replacement: 0, Bench: 1, Depth: 2, Core: 3, Elite: 4, Superstar: 5 };
 const f2 = (n: number) => n.toFixed(2);
 const signed = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
 const mmss = (sec: number) => {

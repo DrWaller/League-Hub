@@ -1,8 +1,8 @@
-// Server-side only. The league's player tiers: Replacement, Bench, Depth, Good, Elite and Superstar, by average
+// Server-side only. The league's player tiers: Replacement, Bench, Depth, Core, Elite and Superstar, by average
 // fantasy points per game, with separate cutoffs for forwards, defence and goalies.
 //
 // The cutoffs come from the league's own starter line, so they follow the scoring. Each tier is a share of the
-// league's starters at that position (teams x starting slots): Depth = the last starter, Good = the top 45% of
+// league's starters at that position (teams x starting slots): Depth = the last starter, Core = the top 45% of
 // starters, Superstar = the top 12%, Franchise = the top 5%. (Checked against 2024 and 2026 in this league: it
 // lands within a few hundredths of the hand-made cutoffs for forwards and defence, and fixes the goalie ones.)
 //
@@ -34,7 +34,7 @@ export interface LeagueTiers {
   starters: Record<Group, number>; // starters in the league at each position group
 }
 
-// Share of the league's starters each tier covers (cumulative: Good includes Elite and Superstar). Cutoff keys keep their old names: franchise = Superstar, superstar = Elite, elite = Good.
+// Share of the league's starters each tier covers (cumulative: Core includes Elite and Superstar). Cutoff keys keep their old names: franchise = Superstar, superstar = Elite, elite = Core.
 // Bench reaches down to 1.5x the starters, about where managers stop rostering a player.
 const SHARE = { franchise: 0.05, superstar: 0.12, elite: 0.45, depth: 1, bench: 1.5 };
 const floor05 = (n: number) => Math.floor(n / 0.05 + 1e-9) * 0.05;
@@ -44,7 +44,7 @@ const CUTOFF_VERSION = 2;
 
 export function tierOf(avg: number | null, c: Cutoffs): Tier | null {
   if (avg === null || !Number.isFinite(avg)) return null;
-  return avg >= c.franchise ? "Superstar" : avg >= c.superstar ? "Elite" : avg >= c.elite ? "Good" : avg >= c.depth ? "Depth" : c.bench != null && avg >= c.bench ? "Bench" : "Replacement";
+  return avg >= c.franchise ? "Superstar" : avg >= c.superstar ? "Elite" : avg >= c.elite ? "Core" : avg >= c.depth ? "Depth" : c.bench != null && avg >= c.bench ? "Bench" : "Replacement";
 }
 export const tierRank = (t: Tier | null) => (t === null ? -1 : TIERS.length - 1 - TIERS.indexOf(t)); // Replacement 0, Bench 1 ... Superstar 5
 

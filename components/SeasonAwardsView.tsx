@@ -69,7 +69,7 @@ const TAGLINES: Record<string, string> = {
   "Manager's Biggest Night": "Most points by a team in one night",
   "Manager's Biggest Week": "Highest single-week team score",
   "Manager's Biggest Month": "Most points by a team in a month",
-  "Breakout Player": "Biggest first-time jump into the Good tier or better",
+  "Breakout Player": "Biggest first-time jump into the Core tier or better",
   "Bounce Back Player": "Biggest rebound after a down year",
   "Most Improved Player": "Biggest gain on last season",
   "Calder Trophy": "Best rookie",
@@ -78,8 +78,8 @@ const TAGLINES: Record<string, string> = {
 // Rules as short bullets. Most come from splitting the existing definition into sentences; Breakout's is long enough to be written out.
 const RULE_OVERRIDES: Record<string, { lead: string; text: string }[]> = {
   "Breakout Player": [
-    { lead: "The jump.", text: "Reaches the Good tier or better (by points per game) for the first time. Within 0.05 of Good counts." },
-    { lead: "First time.", text: "Not Good in any of the last three seasons. Forwards and defence have separate cutoffs." },
+    { lead: "The jump.", text: "Reaches the Core tier or better (by points per game) for the first time. Within 0.05 of Core counts." },
+    { lead: "First time.", text: "Not Core in any of the last three seasons. Forwards and defence have separate cutoffs." },
     { lead: "Who's eligible.", text: "Skaters in the Depth tier or better. No earlier season means Calder. Goalies go to the Vezina and Jennings." },
     { lead: "Built to last.", text: "A breakout should stay elite, so age and earlier seasons are shown on each row." },
   ],
