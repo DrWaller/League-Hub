@@ -15,6 +15,7 @@ const RACES: { key: string; title: string; url: string }[] = [
   { key: "hardluck", title: "Hard Luck Manager", url: "/api/admin/graphics/award-race?race=hardluck" },
   { key: "jennings", title: "William M. Jennings", url: "/api/admin/graphics/award-race?race=jennings" },
   { key: "sleeping", title: "Sleeping Beauty", url: "/api/admin/graphics/award-race?race=sleeping" },
+  { key: "bestpick", title: "Best Draft Pick", url: "/api/admin/graphics/award-race?race=bestpick" },
   { key: "monster", title: "Fantasy Monster", url: "/api/admin/graphics/award-race?race=monster" },
   { key: "night", title: "Biggest Night", url: "/api/admin/graphics/award-race?race=night" },
   { key: "week", title: "Biggest Week", url: "/api/admin/graphics/award-race?race=week" },

@@ -4,7 +4,7 @@ import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { syncSeasonVor } from "@/lib/vor-store";
 import { syncLiveVor } from "@/lib/vor-live";
 import { syncSeasonLineups, getStoredLineups, summarizeSeason } from "@/lib/lineup-store";
-import { getPlayerRaces, buildTandems, getSleepingBeauty, PAST_WINNERS as RECORDED_WINNERS } from "@/lib/season-awards";
+import { getPlayerRaces, buildTandems, getSleepingBeauty, getBestDraftPick, PAST_WINNERS as RECORDED_WINNERS } from "@/lib/season-awards";
 import { loadHallOfFame, winnersByAward } from "@/lib/hall-of-fame";
 import { getAllStored } from "@/lib/vor-store";
 import { syncPoolStats, loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
@@ -61,6 +61,7 @@ const TAGLINES: Record<string, string> = {
   "Hard Luck Manager": "Biggest gap between actual and expected wins",
   "William M. Jennings": "Best goaltending tandem",
   "Sleeping Beauty": "Out-produced his draft slot the most",
+  "Best Draft Pick": "Beat his draft slot by the most, any round",
   "Best Pickup": "Best free-agent or waiver add",
   "Fantasy Monster": "Most Monster Nights",
   "Biggest Night": "Biggest single-night score",
@@ -265,6 +266,12 @@ export default async function SeasonAwardsView() {
   } catch {
     /* empty: the draft may not be stored yet */
   }
+  let bestPicks: Awaited<ReturnType<typeof getBestDraftPick>> = [];
+  try {
+    bestPicks = await getBestDraftPick(meta.season);
+  } catch {
+    /* empty */
+  }
   let pickups: PickupLogEntry[] = [];
   try {
     const log = await getPickupLog(meta.season);
@@ -407,6 +414,16 @@ export default async function SeasonAwardsView() {
           dl="/api/cards/award-race?race=sleeping"
           blurb="The drafted player who beat his draft slot by the most: his season VOR minus the VOR of the player ranked at his pick's slot, the same measure as the draft page's Steals. Picks from round 4 on only (rounds 1-3 are expected to be stars); keepers excluded." winners={PAST_WINNERS.sleeping}
           rows={sleepers.map((p) => ({
+            key: String(p.id), name: p.name, sub: `${p.position} · ${name(p.teamId)} · drafted #${p.pick}, now #${p.finish}`, value: `+${pts(p.margin)} VOR`,
+            gap: `over slot · ${pts(p.vor)} season`, rank: p.rank, playerId: p.id,
+          }))}
+          note="Needs the draft saved and at least one finished week."
+        />
+        <Card
+          title="Best Draft Pick"
+          dl="/api/cards/award-race?race=bestpick"
+          blurb="The best pick of the draft: the player who beat his draft slot by the most, from any round (his season VOR minus the VOR of the player ranked at his pick's slot, the same measure as the draft page's Steals). Keepers excluded."
+          rows={bestPicks.map((p) => ({
             key: String(p.id), name: p.name, sub: `${p.position} · ${name(p.teamId)} · drafted #${p.pick}, now #${p.finish}`, value: `+${pts(p.margin)} VOR`,
             gap: `over slot · ${pts(p.vor)} season`, rank: p.rank, playerId: p.id,
           }))}

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getStandings, getMatchups, getLeagueMeta } from "@/lib/espn";
 import { regularSeasonFinals, computeLuck } from "@/lib/luck";
 import { getAllStored } from "@/lib/vor-store";
-import { buildTandems, getSleepingBeauty } from "@/lib/season-awards";
+import { buildTandems, getSleepingBeauty, getBestDraftPick } from "@/lib/season-awards";
 import { loadPoolStats, buildTrendAwards } from "@/lib/player-trends";
 import { loadNhlRookies } from "@/lib/nhl-rookies";
 import { fetchLineupSlots } from "@/lib/vor";
@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
 
 const pts = (n: number) => n.toFixed(2);
 
-const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "pickup", "breakout", "bounce", "improved", "calder", "monster", "night", "week", "month", "mgrnight", "mgrweek", "mgrmonth"] as const;
+const RACES = ["presidents", "points", "hardluck", "jennings", "sleeping", "bestpick", "pickup", "breakout", "bounce", "improved", "calder", "monster", "night", "week", "month", "mgrnight", "mgrweek", "mgrmonth"] as const;
 
 // One graphic per remaining season-long race (the player races use award-watch, lineup efficiency uses
 // lineup-season). Reads only what is already saved (no ESPN syncing), so making a graphic costs one render:
@@ -93,6 +93,12 @@ export async function GET(req: NextRequest) {
       tagline = "Most VOR over his draft slot (round 4+)";
       empty = "Needs the draft saved and at least one finished week.";
       const sleepers = await getSleepingBeauty(meta.season);
+      rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin.toFixed(2)}`, gap: "" }));
+    } else if (race === "bestpick") {
+      title = "Best Draft Pick";
+      tagline = "Most VOR over his draft slot, any round";
+      empty = "Needs the draft saved and at least one finished week.";
+      const sleepers = await getBestDraftPick(meta.season);
       rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin.toFixed(2)}`, gap: "" }));
     } else if (race === "monster") {
       title = "Fantasy Monster";

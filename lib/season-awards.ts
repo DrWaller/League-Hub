@@ -151,12 +151,21 @@ export interface SleeperEntry {
 // his season VOR minus the VOR of the player currently ranked at his pick's slot. Round 1-3 picks are expected to be
 // stars, so only picks from round 4 on can be a sleeper. Keepers are not draft picks and are left out.
 export async function getSleepingBeauty(season: number, top = 5): Promise<SleeperEntry[]> {
+  return draftOverSlot(season, top, 4);
+}
+
+// Best Draft Pick: the same measure, from any round, so a first-round star counts too (the sleeper award skips rounds 1-3).
+export async function getBestDraftPick(season: number, top = 5): Promise<SleeperEntry[]> {
+  return draftOverSlot(season, top, 1);
+}
+
+async function draftOverSlot(season: number, top: number, fromRound: number): Promise<SleeperEntry[]> {
   const data = await getDraftAssessment();
   if (!data) return [];
   const teamIds = new Map<number, number>();
   for (const r of (await sql`SELECT overall_pick, team_id FROM draft_picks WHERE season = ${season} AND source = 'espn';`).rows) teamIds.set(Number(r.overall_pick), Number(r.team_id));
   return data.picks
-    .filter((p) => !p.keeper && p.playerId != null && p.surplus != null && p.surplus > 0 && (p.round ?? Math.ceil(p.overall / 10)) >= 4)
+    .filter((p) => !p.keeper && p.playerId != null && p.surplus != null && p.surplus > 0 && (p.round ?? Math.ceil(p.overall / 10)) >= fromRound)
     .sort((a, b) => (b.surplus ?? 0) - (a.surplus ?? 0) || (b.vor ?? 0) - (a.vor ?? 0))
     .slice(0, top)
     .map((p, i) => ({ id: p.playerId as number, name: p.name, position: p.position, teamId: teamIds.get(p.overall) ?? 0, pick: p.overall, finish: p.finish ?? 0, margin: Math.round((p.surplus ?? 0) * 100) / 100, vor: p.vor ?? 0, rank: i + 1 }));
