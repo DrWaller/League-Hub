@@ -90,10 +90,10 @@ export async function GET(req: NextRequest) {
       rows = tandems.map((t) => teamRow(t.teamId, t.rank, { sub: t.goalies.map((g) => `${g.name} ${pts(g.points)}`).join(" / "), value: pts(t.points), gap: t.rank === 1 ? "leader" : `-${pts(tandems[0].points - t.points)}` }));
     } else if (race === "sleeping") {
       title = "Sleeping Beauty";
-      tagline = "Biggest draft-pick out-performer";
+      tagline = "Most VOR over his draft slot (round 4+)";
       empty = "Needs the draft saved and at least one finished week.";
       const sleepers = await getSleepingBeauty(meta.season);
-      rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin}`, gap: "" }));
+      rows = sleepers.map((p) => ({ rank: p.rank, name: p.name, playerId: p.id, sub: `${p.position} - ${name(p.teamId)} - drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin.toFixed(2)}`, gap: "" }));
     } else if (race === "monster") {
       title = "Fantasy Monster";
       tagline = "Most Monster Nights this season";

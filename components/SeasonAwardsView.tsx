@@ -405,10 +405,10 @@ export default async function SeasonAwardsView() {
         <Card
           title="Sleeping Beauty"
           dl="/api/cards/award-race?race=sleeping"
-          blurb="The drafted player who out-produced his draft slot by the most (draft pick minus his finish by VOR among everyone drafted; keepers excluded)." winners={PAST_WINNERS.sleeping}
+          blurb="The drafted player who beat his draft slot by the most: his season VOR minus the VOR of the player ranked at his pick's slot, the same measure as the draft page's Steals. Picks from round 4 on only (rounds 1-3 are expected to be stars); keepers excluded." winners={PAST_WINNERS.sleeping}
           rows={sleepers.map((p) => ({
-            key: String(p.id), name: p.name, sub: `${p.position} · ${name(p.teamId)} · drafted #${p.pick}, now #${p.finish}`, value: `+${p.margin} spots`,
-            gap: `${p.vor >= 0 ? "+" : ""}${pts(p.vor)} VOR`, rank: p.rank, playerId: p.id,
+            key: String(p.id), name: p.name, sub: `${p.position} · ${name(p.teamId)} · drafted #${p.pick}, now #${p.finish}`, value: `+${pts(p.margin)} VOR`,
+            gap: `over slot · ${pts(p.vor)} season`, rank: p.rank, playerId: p.id,
           }))}
           note="Needs the draft saved and at least one finished week."
         />

@@ -4,6 +4,7 @@
 
 import { getAllStored, type StoredVor } from "./vor-store";
 import { sql } from "./db";
+import { getDraftAssessment } from "./draft-assessment";
 import { loadLiveVor } from "./vor-live";
 
 export interface PlayerAward {
@@ -140,32 +141,23 @@ export interface SleeperEntry {
   position: string;
   teamId: number;
   pick: number; // where he was drafted
-  finish: number; // where he ranks by VOR among everyone drafted
-  margin: number; // pick minus finish: bigger = more of a steal
+  finish: number; // where he ranks by season VOR among everyone drafted (same as the draft page)
+  margin: number; // season VOR above the player ranked at his draft slot: bigger = more of a steal
   vor: number;
   rank: number;
 }
 
-// Sleeping Beauty: the drafted player who out-produced his draft slot by the most. His finish is his rank by
-// season VOR among every drafted player (VOR so goalies and skaters sit on one scale); keeper picks are not real
-// draft slots, so they are only used as comparisons.
+// Sleeping Beauty: the drafted player who beat his draft slot by the most, on the same measure as the draft page's Steals:
+// his season VOR minus the VOR of the player currently ranked at his pick's slot. Round 1-3 picks are expected to be
+// stars, so only picks from round 4 on can be a sleeper. Keepers are not draft picks and are left out.
 export async function getSleepingBeauty(season: number, top = 5): Promise<SleeperEntry[]> {
-  const picks = await sql`
-    SELECT overall_pick, player_id, player_name, position, team_id, is_keeper FROM draft_picks WHERE season = ${season} AND source = 'espn';
-  `;
-  if (picks.rows.length === 0) return [];
-  const vorBy = new Map<number, number>();
-  for (const r of await getAllStored(season)) vorBy.set(r.playerId, (vorBy.get(r.playerId) ?? 0) + r.vor);
-  const drafted = picks.rows
-    .map((p) => ({ id: Number(p.player_id), name: String(p.player_name), position: String(p.position), teamId: Number(p.team_id), pick: Number(p.overall_pick), keeper: Boolean(p.is_keeper) }))
-    .filter((p) => vorBy.has(p.id));
-  const order = [...drafted].sort((a, b) => (vorBy.get(b.id) ?? 0) - (vorBy.get(a.id) ?? 0));
-  const finish = new Map(order.map((p, i) => [p.id, i + 1]));
-  return drafted
-    .filter((p) => !p.keeper)
-    .map((p) => ({ ...p, finish: finish.get(p.id) ?? 0, margin: p.pick - (finish.get(p.id) ?? 0), vor: vorBy.get(p.id) ?? 0 }))
-    .filter((p) => p.margin > 0)
-    .sort((a, b) => b.margin - a.margin || b.vor - a.vor)
+  const data = await getDraftAssessment();
+  if (!data) return [];
+  const teamIds = new Map<number, number>();
+  for (const r of (await sql`SELECT overall_pick, team_id FROM draft_picks WHERE season = ${season} AND source = 'espn';`).rows) teamIds.set(Number(r.overall_pick), Number(r.team_id));
+  return data.picks
+    .filter((p) => !p.keeper && p.playerId != null && p.surplus != null && p.surplus > 0 && (p.round ?? Math.ceil(p.overall / 10)) >= 4)
+    .sort((a, b) => (b.surplus ?? 0) - (a.surplus ?? 0) || (b.vor ?? 0) - (a.vor ?? 0))
     .slice(0, top)
-    .map((p, i) => ({ id: p.id, name: p.name, position: p.position, teamId: p.teamId, pick: p.pick, finish: p.finish, margin: p.margin, vor: p.vor, rank: i + 1 }));
+    .map((p, i) => ({ id: p.playerId as number, name: p.name, position: p.position, teamId: teamIds.get(p.overall) ?? 0, pick: p.overall, finish: p.finish ?? 0, margin: Math.round((p.surplus ?? 0) * 100) / 100, vor: p.vor ?? 0, rank: i + 1 }));
 }
