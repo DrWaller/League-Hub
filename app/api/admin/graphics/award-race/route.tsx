@@ -193,12 +193,19 @@ export async function GET(req: NextRequest) {
       tagline = { breakout: "Biggest jump into the Core tier or better", bounce: "Biggest rebound after a down year", improved: "Biggest gain on last season", calder: "Best rookie" }[race] ?? "";
       rows = (award?.entries ?? []).map((e) => {
         const age = ageOf(e.name, e.position, meta.season);
+        // Breakout: show "best before", "now" and the jump as their own columns instead of burying it in the detail line.
+        const bb = race === "breakout" ? e.detail.match(/best before:\s*(-?\d+(?:\.\d+)?)/) : null;
+        if (bb) {
+          const now = parseFloat(e.value);
+          const before = parseFloat(bb[1]);
+          return { rank: e.rank, name: e.name, playerId: e.id, sub: `${e.position}${age ? ` - age ~${age}` : ""}`, value: e.value, gap: "", before: before.toFixed(2), jump: `${now - before >= 0 ? "+" : "-"}${Math.abs(now - before).toFixed(2)}` };
+        }
         return { rank: e.rank, name: e.name, playerId: e.id, sub: `${e.position}${age ? ` - age ~${age}` : ""} - ${e.detail}`, value: e.value, gap: "" };
       });
     }
 
     if (req.nextUrl.searchParams.get("caption")) {
-      const lines = rows.map((r) => `${r.rank}) ${r.name} - ${r.value} (${r.sub})`);
+      const lines = rows.map((r) => `${r.rank}) ${r.name} - ${r.value} (${r.sub}${r.before ? `, best before ${r.before}, ${r.jump}` : ""})`);
       return captionResponse([title.toUpperCase(), tagline, "", ...lines, "", "#FantasyHockey"].join("\n"));
     }
     if (rows.length === 0) return new Response(empty || "Nothing to show yet.", { status: 400 });
@@ -211,6 +218,7 @@ export async function GET(req: NextRequest) {
     };
     return await renderPortraitRace({
       valueLabel: VALUE_LABEL[race],
+      nowLabel: "NOW",
       title,
       subtitle: lastWeek > 0 ? `${tagline} - through week ${lastWeek}` : tagline,
       footer: seasonFooter(meta.name, meta.season),
