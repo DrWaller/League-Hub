@@ -5,7 +5,7 @@ import PlayerPhoto from "@/components/PlayerPhoto";
 import { TIERS, TIER_STYLE, type Tier } from "@/lib/tier-style";
 import type { AssessedPick } from "@/lib/draft-assessment";
 import { splitValue, valueKinds, VALUE_BLURBS, VALUE_TITLES, type ValueKind } from "@/lib/draft-value-split";
-import { teamNames } from "@/lib/draft-teams";
+import { teamNames, draftGrades, gradeColor } from "@/lib/draft-teams";
 
 const f2 = (n: number | null) => (n == null ? "–" : n.toFixed(2));
 
@@ -282,9 +282,68 @@ function TeamsView({ picks }: { picks: AssessedPick[] }) {
   );
 }
 
+// Every team's draft graded and ranked: its picks' season VOR above or below the player ranked at each slot, added up and compared with the league.
+function GradesView({ picks }: { picks: AssessedPick[] }) {
+  const grades = draftGrades(picks);
+  if (grades.length === 0) return <p className="text-muted">No draft picks to grade yet.</p>;
+  return (
+    <div>
+      <p className="text-xs text-muted mb-3 max-w-prose">
+        Each team&apos;s draft is the VOR its picks gave above (or below) the player currently ranked at each pick&apos;s slot, the same measure as Steals &amp; Busts, added up. Grades compare teams with each other, so a B is about the league average. Keepers aren&apos;t draft picks and don&apos;t count.
+      </p>
+      <div className="mb-3">
+        <a href="/api/cards/draft-grades" download="draft-grades.png" className="inline-block text-xs uppercase tracking-widest border border-ice-line px-3 py-1.5 text-rink hover:bg-ice-panel">
+          Download draft grades
+        </a>
+      </div>
+      <div className="flex flex-col gap-2">
+        {grades.map((g) => {
+          const c = gradeColor(g.grade);
+          return (
+            <div key={g.team} className="flex bg-white border border-ice-line rounded-lg overflow-hidden">
+              <div className="w-1 shrink-0" style={{ background: c.bg }} />
+              <div className="flex-1 min-w-0 px-3 py-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="font-display text-2xl text-gold w-8 shrink-0 text-center">{g.rank}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold truncate">{g.team}</div>
+                    <div className="text-xs text-muted">
+                      {g.steals} {g.steals === 1 ? "steal" : "steals"} · {g.busts} {g.busts === 1 ? "bust" : "busts"}
+                      {g.missed ? ` · ${g.missed} missed time` : ""}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right leading-tight">
+                    <div className="font-tabular font-semibold">{signed(g.vsAvg)}</div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted">vs avg</div>
+                  </div>
+                  <div className="shrink-0 w-12 py-1.5 rounded-md text-center font-display text-xl" style={{ background: c.bg, color: c.fg }}>
+                    {g.grade}
+                  </div>
+                </div>
+                <div className="mt-1.5 text-xs text-muted grid gap-0.5">
+                  {g.best ? (
+                    <div>
+                      Best pick: <span className="font-semibold text-rink">{g.best.name}</span> (#{g.best.overall}) <span className="text-[#26864A] font-semibold">{signed(g.best.surplus)}</span>
+                    </div>
+                  ) : null}
+                  {g.worst ? (
+                    <div>
+                      Worst pick: <span className="font-semibold text-rink">{g.worst.name}</span> (#{g.worst.overall}) <span className="text-[#B8574A] font-semibold">{signed(g.worst.surplus)}</span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }) {
   const [tier, setTier] = useState<Tier | "ALL" | "NONE">("ALL");
-  const [view, setView] = useState<"picks" | "value" | "keepers" | "teams">("picks");
+  const [view, setView] = useState<"picks" | "value" | "keepers" | "teams" | "grades">("picks");
   const drafted = picks.filter((p) => !p.keeper);
   const counts: Record<Tier, number> = { Superstar: 0, Elite: 0, Core: 0, Depth: 0, Bench: 0, Replacement: 0 };
   let unplaced = 0;
@@ -304,12 +363,12 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
     return m ? `/api/cards/draft-round?round=${m[1]}` : "";
   };
   const value = splitValue(picks);
-  const seg = (on: boolean) => `px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${on ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`;
+  const seg = (on: boolean) => `shrink-0 px-3 py-1.5 text-sm border-r border-ice-line last:border-r-0 ${on ? "bg-rink text-ice" : "bg-white hover:bg-ice-panel"}`;
   const btn = (on: boolean) => `shrink-0 px-3 py-2 text-sm font-semibold border-2 ${on ? "border-rink" : "border-transparent"}`;
 
   return (
     <div>
-      <div className="inline-flex border border-ice-line mb-3">
+      <div className="flex w-full overflow-x-auto border border-ice-line mb-3">
         <button type="button" onClick={() => setView("picks")} className={seg(view === "picks")}>
           Picks
         </button>
@@ -322,6 +381,13 @@ export default function DraftAssessmentView({ picks }: { picks: AssessedPick[] }
         <button type="button" onClick={() => setView("teams")} className={seg(view === "teams")}>
           Teams
         </button>
+        <button type="button" onClick={() => setView("grades")} className={seg(view === "grades")}>
+          Grades
+        </button>
+      </div>
+
+      <div className={view === "grades" ? "" : "hidden"}>
+        <GradesView picks={picks} />
       </div>
 
       <div className={view === "teams" ? "" : "hidden"}>

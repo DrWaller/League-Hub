@@ -4,6 +4,7 @@ import { headshotUrl } from "./headshots";
 import { TIER_STYLE, TIERS } from "./tier-style";
 import type { AssessedPick } from "./draft-assessment";
 import type { KeeperTeam } from "./draft-keepers-image";
+import { gradeColor, type DraftGrade } from "./draft-teams";
 import { VALUE_TITLES, type ValueKind } from "./draft-value-split";
 
 // Light "card" versions of the draft graphics, matching the keeper cards and the site: white cards with a tier-coloured
@@ -145,4 +146,45 @@ export async function renderKeeperRankingCards(opts: { teams: KeeperTeam[]; foot
 // Draft steals / busts / missed time as the same light cards.
 export async function renderValueCards(opts: { kind: ValueKind; picks: AssessedPick[]; footer?: string; headshots?: Set<number> }) {
   return renderPickCards({ title: `Draft ${VALUE_TITLES[opts.kind]}`, subtitle: "Season VOR vs the player currently ranked at the pick's slot", picks: opts.picks, footer: opts.footer, headshots: opts.headshots, variant: "value", valueUp: opts.kind === "steals" });
+}
+
+// Every team's draft ranked and graded, as the same light row cards.
+export async function renderDraftGradeCards(opts: { grades: DraftGrade[]; footer?: string }) {
+  const n = Math.max(1, opts.grades.length);
+  const gap = 12;
+  const rowH = Math.min(120, Math.floor((AVAIL - (n - 1) * gap) / n));
+  const tileH = rowH - 24;
+  const s = Math.min(1.25, rowH / 94);
+  const short = (x: string) => x.split(" ").slice(-1)[0];
+  return frame({
+    title: "Draft Grades",
+    subtitle: "",
+    footer: opts.footer,
+    body: ({ display }) => (
+      <div style={{ display: "flex", flexDirection: "column", gap }}>
+        {opts.grades.map((g) => {
+          const c = gradeColor(g.grade);
+          const room = 984 - 12 - 14 - 60 - 128 - 100 - 12 * 3 - 14 - 6;
+          const line = [g.best ? `Best: ${short(g.best.name)} ${signed(g.best.surplus)}` : "", g.worst ? `Worst: ${short(g.worst.name)} ${signed(g.worst.surplus)}` : ""].filter(Boolean).join("   ·   ");
+          return (
+            <div key={g.team} style={{ display: "flex", alignItems: "center", background: "#FFFFFF", border: "3px solid #D5DEE8", borderRadius: 20, overflow: "hidden", height: rowH, flexShrink: 0 }}>
+              <div style={{ display: "flex", width: 12, alignSelf: "stretch", background: c.bg }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexGrow: 1, padding: "0 14px" }}>
+                <div style={{ display: "flex", width: 60, justifyContent: "center", fontFamily: display, fontWeight: 700, fontSize: Math.round(40 * s), lineHeight: 1, color: g.rank === 1 ? "#D9A441" : NAVY }}>{String(g.rank)}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", fontSize: fit(room, g.team.length, Math.round(22 * s), Math.round(34 * s)), fontWeight: 700, color: NAVY, lineHeight: 1.05, whiteSpace: "nowrap" }}>{g.team}</div>
+                  <div style={{ display: "flex", fontSize: fit(room, line.length, Math.round(14 * s), Math.round(18 * s)), color: MUTED, lineHeight: 1.1, whiteSpace: "nowrap" }}>{line}</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 128, height: tileH, borderRadius: 14, background: NAVY, color: "#FFFFFF" }}>
+                  <div style={{ display: "flex", fontSize: Math.round(14 * s), lineHeight: 1.1, color: "#C9D6E6" }}>vs avg</div>
+                  <div style={{ display: "flex", fontFamily: display, fontWeight: 700, fontSize: Math.round(30 * s), lineHeight: 1.1 }}>{signed(g.vsAvg)}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 100, height: tileH, borderRadius: 14, background: c.bg, color: c.fg, fontFamily: display, fontWeight: 700, fontSize: Math.round(46 * s), lineHeight: 1 }}>{g.grade}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ),
+  });
 }
