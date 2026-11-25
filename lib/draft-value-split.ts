@@ -7,14 +7,15 @@ export type ValueKind = "steals" | "busts" | "missed";
 export const VALUE_TITLES: Record<ValueKind, string> = { steals: "Steals", busts: "Busts", missed: "Missed Time" };
 export const VALUE_BLURBS: Record<ValueKind, string> = {
   steals: "Beat what his round expects: Elite or better in rounds 1 to 3 (Core is the standard in round 1 and the hope in rounds 2 and 3), or Core or better from round 4 on (Depth is already a win there). Ranked by season VOR above the player currently at his slot.",
-  busts: "Played at least half the games (goalies who sit count too) and didn't live up to the slot: round 1 and not Core, rounds 2 to 4 and Bench or worse, or rounds 5 to 7 and Replacement. Depth is a fine result after round 1, and Core or better is never a bust.",
-  missed: "Skaters who played under half the games so far (injured or out of the lineup) and are behind the VOR of the player currently ranked at their slot. Goalies who sit are judged as busts instead.",
+  busts: "Missed no more than about a fifth of the games (goalies who sit count too) and didn't live up to the slot: round 1 and not Core, rounds 2 to 4 and Bench or worse, or rounds 5 to 7 and Replacement. Depth is a fine result after round 1, and Core or better is never a bust.",
+  missed: "Skaters who missed more than about a fifth of the games so far (injured or out of the lineup) and are behind the VOR of the player currently ranked at their slot. Goalies who sit are judged as busts instead.",
 };
 
 // The steal / bust / missed-time predicates, shared by the league lists and the per-team views.
 function makeRules(picks: AssessedPick[]) {
   const maxGp = Math.max(0, ...picks.map((p) => p.gp ?? 0));
-  const played = (p: AssessedPick) => (p.gp ?? 0) >= maxGp * 0.5;
+  // Played "enough" to be judged: missed no more than a fifth of the games (and never fewer than 2 allowed), so a few weeks on IR moves a skater to Missed Time instead of Busts.
+  const played = (p: AssessedPick) => maxGp - (p.gp ?? 0) <= Math.max(2, maxGp * 0.2);
   const roundOf = (p: AssessedPick) => p.round ?? Math.ceil(p.overall / 10);
   // A pick beats his round with a tier above what the round expects: Elite+ in rounds 1-3, Core+ from round 4 on.
   const overdelivered = (p: AssessedPick) => {
